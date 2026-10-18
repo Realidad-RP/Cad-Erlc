@@ -60,6 +60,7 @@ function loadDb() {
 
 function saveDb() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch {}
+  linkPushSoon(); // avisar al bot de Discord (si el enlace está configurado)
 }
 
 function nextId(prefix) { return prefix + '-' + (db.seq++); }
@@ -567,6 +568,8 @@ function wireTabs() {
       document.querySelectorAll('.tab-content').forEach((sec) => {
         sec.classList.toggle('active', sec.id === 'tab-' + btn.dataset.tab);
       });
+      if (btn.dataset.tab === 'audio') populateAudioDevices();
+      else stopMicTest(); // si estabas probando el micrófono, se cierra al salir de la pestaña
     });
   });
 }
@@ -595,6 +598,9 @@ function saveRadioPrefs() {
     dept: $('#radio-dept').value,
     pttKey: $('#ptt-key').value,
     pttMode: $('#ptt-mode').value,
+    volume: parseInt($('#radio-volume').value, 10),
+    micDevice: audioPrefs.micDevice,
+    outputDevice: audioPrefs.outputDevice,
   };
   try { localStorage.setItem(RADIO_PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
@@ -605,8 +611,12 @@ function loadRadioPrefs() {
   if (prefs.server) $('#radio-server').value = prefs.server;
   if (prefs.name) $('#radio-name').value = prefs.name;
   if (prefs.dept) $('#radio-dept').value = prefs.dept;
-  if (prefs.pttKey) $('#ptt-key').value = prefs.pttKey;
-  if (prefs.pttMode) $('#ptt-mode').value = prefs.pttMode;
+  if (prefs.pttKey) { $('#ptt-key').value = prefs.pttKey; $('#audio-ptt-key').value = prefs.pttKey; }
+  if (prefs.pttMode) { $('#ptt-mode').value = prefs.pttMode; $('#audio-ptt-mode').value = prefs.pttMode; }
+  if (typeof prefs.volume === 'number') applyVolume(prefs.volume);
+  audioPrefs.micDevice = prefs.micDevice || '';
+  audioPrefs.outputDevice = prefs.outputDevice || '';
+  Radio.setSettings({ micDeviceId: audioPrefs.micDevice, outputDeviceId: audioPrefs.outputDevice });
 }
 
 function setRadioStatus(conectado, detail) {
@@ -840,6 +850,7 @@ function onRadioEvent(event, payload) {
       renderMembers(membersWithSelf());
       $('#radio-leave').classList.remove('hidden');
       flash('Entraste al canal "' + payload + '"');
+      populateAudioDevices(); // con el micrófono ya autorizado, aparecen los nombres reales de los dispositivos
       break;
 
     case 'left':
@@ -1052,10 +1063,10 @@ function wireRadio() {
   pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); Radio.pttDown(); });
   pttBtn.addEventListener('touchend', () => Radio.pttUp());
 
-  // ---- Ajustes de PTT ----
-  $('#ptt-key').addEventListener('change', () => { Radio.setSettings({ pttKey: $('#ptt-key').value }); saveRadioPrefs(); });
-  $('#ptt-mode').addEventListener('change', () => { Radio.setSettings({ pttMode: $('#ptt-mode').value }); saveRadioPrefs(); });
-  $('#radio-volume').addEventListener('input', () => Radio.setVolume(parseInt($('#radio-volume').value, 10) / 100));
+  // ---- Ajustes de PTT (sincronizados con la pestaña 🎧 Audio) ----
+  $('#ptt-key').addEventListener('change', () => applyPttKey($('#ptt-key').value));
+  $('#ptt-mode').addEventListener('change', () => applyPttMode($('#ptt-mode').value));
+  $('#radio-volume').addEventListener('input', () => applyVolume(parseInt($('#radio-volume').value, 10)));
 
   // ---- Chat de radio ----
   const sendChat = () => {
@@ -1082,12 +1093,47 @@ function isTypingTarget(t) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
 }
 
+let pttModeText = '';
+
+function updatePttNotes() {
+  const key = $('#ptt-key').value;
+  const note = pttModeText === 'global'
+    ? '✅ Tecla global (' + key + '): funciona incluso dentro de ER:LC.'
+    : pttModeText === 'local'
+      ? '⚠️ Modo local: la tecla funciona solo con la app en primer plano.'
+      : '';
+  $('#ptt-note').textContent = note;
+  if ($('#audio-ptt-note')) $('#audio-ptt-note').textContent = note;
+}
+
+function applyPttKey(key) {
+  $('#ptt-key').value = key;
+  $('#audio-ptt-key').value = key;
+  Radio.setSettings({ pttKey: key });
+  updatePttNotes();
+  saveRadioPrefs();
+}
+
+function applyPttMode(mode) {
+  $('#ptt-mode').value = mode;
+  $('#audio-ptt-mode').value = mode;
+  Radio.setSettings({ pttMode: mode });
+  saveRadioPrefs();
+}
+
+function applyVolume(percent) {
+  const p = Math.max(0, Math.min(100, Number(percent) || 0));
+  $('#radio-volume').value = p;
+  $('#audio-volume').value = p;
+  Radio.setVolume(p / 100);
+}
+
 async function setupPtt() {
   const capable = await Radio.isGlobalPttCapable();
   if (capable) {
     window.cadNative.onPttDown(() => Radio.pttDown());
     window.cadNative.onPttUp(() => Radio.pttUp());
-    $('#ptt-note').textContent = '✅ Tecla global (' + $('#ptt-key').value + '): funciona incluso dentro de ER:LC.';
+    pttModeText = 'global';
   } else {
     document.addEventListener('keydown', (e) => {
       if (e.repeat || isTypingTarget(e.target)) return;
@@ -1103,8 +1149,9 @@ async function setupPtt() {
       if (e.key.toUpperCase() !== Radio.state.settings.pttKey.toUpperCase()) return;
       if (Radio.state.settings.pttMode === 'hold') Radio.pttUp();
     });
-    $('#ptt-note').textContent = '⚠️ Modo local: la tecla funciona solo con la app en primer plano.';
+    pttModeText = 'local';
   }
+  updatePttNotes();
 }
 
 // ============================================================
@@ -1166,7 +1213,262 @@ function wireHosting() {
 }
 
 // ============================================================
-// 15. Arranque
+// 15. Enlace con el bot de Discord (CAD → bot → Discord)
+// ============================================================
+// El CAD envía su estado (llamadas, unidades, BOLOs) al bot cada vez que
+// algo cambia; el bot decide qué anunciar en Discord. Ver bot/README.md.
+
+const LINK_PREFS_KEY = 'cad-erlc-link-prefs';
+let linkCfg = { url: '', key: '' };
+let linkTimer = null;
+
+function loadLinkPrefs() {
+  try { linkCfg = Object.assign(linkCfg, JSON.parse(localStorage.getItem(LINK_PREFS_KEY) || '{}')); } catch {}
+  $('#link-url').value = linkCfg.url || '';
+  $('#link-key').value = linkCfg.key || '';
+  if (linkCfg.url) renderLinkStatus();
+}
+
+function saveLinkPrefs() {
+  linkCfg = {
+    url: $('#link-url').value.trim().replace(/\/+$/, ''),
+    key: $('#link-key').value.trim(),
+  };
+  try { localStorage.setItem(LINK_PREFS_KEY, JSON.stringify(linkCfg)); } catch {}
+}
+
+function renderLinkStatus(ok, detail) {
+  const el = $('#link-status');
+  if (!linkCfg.url) {
+    el.textContent = 'Sin enlace. Si tenés el bot de Discord, poné su dirección y la clave.';
+    el.style.color = '';
+    return;
+  }
+  if (ok === true) {
+    el.textContent = '✅ Enlazado con el bot · última sincronización ' +
+      new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.style.color = '#22c55e';
+  } else if (ok === false) {
+    el.textContent = '⚠️ Sin conexión con el bot — revisá la dirección y la clave' + (detail ? ' (' + detail + ')' : '');
+    el.style.color = '#f97316';
+  } else {
+    el.textContent = 'Enlace configurado: ' + linkCfg.url;
+    el.style.color = '';
+  }
+}
+
+// Envía el estado completo (llamadas, unidades, BOLOs) al bot.
+async function linkPush() {
+  if (!linkCfg.url || !linkCfg.key) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const res = await fetch(linkCfg.url + '/cad/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-cad-key': linkCfg.key },
+      body: JSON.stringify({ calls: db.calls, units: db.units, bolos: db.bolos }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    renderLinkStatus(true);
+    return true;
+  } catch (err) {
+    renderLinkStatus(false, err.name === 'AbortError' ? 'sin respuesta' : err.message);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Pequeña espera para agrupar varios cambios seguidos y no saturar al bot.
+function linkPushSoon() {
+  if (!linkCfg.url || !linkCfg.key) return;
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(linkPush, 400);
+}
+
+function wireLink() {
+  $('#link-save').addEventListener('click', async () => {
+    saveLinkPrefs();
+    if (!linkCfg.url) { flash('Escribe la dirección del bot.'); renderLinkStatus(); return; }
+    if (!linkCfg.key) { flash('Escribe la clave del enlace.'); renderLinkStatus(); return; }
+    flash('Probando enlace con el bot…');
+    const ok = await linkPush();
+    flash(ok ? 'Enlace con el bot: OK ✅' : 'No se pudo enlazar con el bot ⚠️');
+  });
+}
+
+// ============================================================
+// 16. Pestaña 🎧 Audio: dispositivos, prueba de micrófono y tecla PTT
+// ============================================================
+
+const audioPrefs = { micDevice: '', outputDevice: '' };
+let micTest = null; // { stream, ctx, analyser, monitorGain, data, raf, lastLoud }
+
+function deviceLabel(dev, i) {
+  if (dev.label) return dev.label;
+  return dev.kind === 'audioinput' ? 'Micrófono ' + (i + 1) : 'Salida ' + (i + 1);
+}
+
+async function populateAudioDevices() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  let devices = [];
+  try { devices = await navigator.mediaDevices.enumerateDevices(); } catch { return; }
+
+  const inputSel = $('#audio-input');
+  const outputSel = $('#audio-output');
+  if (!inputSel || !outputSel) return;
+
+  const inputs = devices.filter((d) => d.kind === 'audioinput');
+  inputSel.innerHTML = inputs.length
+    ? inputs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(deviceLabel(d, i))}</option>`).join('')
+    : '<option value="">No se detectaron micrófonos</option>';
+  if (audioPrefs.micDevice && inputs.some((d) => d.deviceId === audioPrefs.micDevice)) {
+    inputSel.value = audioPrefs.micDevice;
+  }
+
+  const outputs = devices.filter((d) => d.kind === 'audiooutput' && d.deviceId !== 'default');
+  outputSel.innerHTML = '<option value="default">Predeterminado de Windows</option>'
+    + outputs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(deviceLabel(d, i))}</option>`).join('');
+  outputSel.value = outputs.some((d) => d.deviceId === audioPrefs.outputDevice) ? audioPrefs.outputDevice : 'default';
+}
+
+async function startMicTest() {
+  stopMicTest();
+  const box = $('#audio-test-box');
+  const status = $('#mic-test-status');
+  box.classList.remove('hidden');
+  status.textContent = 'Abriendo micrófono…';
+  status.classList.remove('ok');
+  try {
+    const deviceId = $('#audio-input').value;
+    const constraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+    if (deviceId) constraints.audio.deviceId = { exact: deviceId };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const ctx = new AudioContext();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const monitorGain = ctx.createGain();
+    monitorGain.gain.value = $('#audio-monitor').checked ? 1 : 0;
+    src.connect(monitorGain);
+    monitorGain.connect(ctx.destination);
+    const data = new Uint8Array(analyser.fftSize);
+    micTest = { stream, ctx, analyser, monitorGain, data, raf: null, lastLoud: 0 };
+
+    const bar = $('#mic-level-bar');
+    const loop = () => {
+      if (!micTest) return;
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = Math.abs(data[i] - 128) / 128;
+        if (v > peak) peak = v;
+      }
+      const pct = Math.min(100, Math.round(peak * 140));
+      bar.style.width = pct + '%';
+      bar.classList.toggle('hot', pct > 55);
+      const now = Date.now();
+      if (pct > 6) micTest.lastLoud = now;
+      if (micTest.lastLoud && now - micTest.lastLoud < 1200) {
+        status.textContent = '✅ Se está escuchando tu micrófono.';
+        status.classList.add('ok');
+      } else {
+        status.textContent = '🔇 No detectamos sonido… hablá al micrófono o revisá que no esté silenciado.';
+        status.classList.remove('ok');
+      }
+      micTest.raf = requestAnimationFrame(loop);
+    };
+    loop();
+
+    const btn = $('#audio-input-test');
+    btn.textContent = '⏹ Detener prueba';
+    btn.classList.remove('btn-primary');
+    populateAudioDevices(); // ya con permiso, aparecen los nombres reales de los micrófonos
+  } catch (err) {
+    status.textContent = '❌ No se pudo abrir el micrófono: ' + err.message;
+  }
+}
+
+function stopMicTest() {
+  if (!micTest) return;
+  try { cancelAnimationFrame(micTest.raf); } catch {}
+  try { for (const t of micTest.stream.getTracks()) t.stop(); } catch {}
+  try { micTest.ctx.close(); } catch {}
+  micTest = null;
+  const bar = $('#mic-level-bar');
+  if (bar) { bar.style.width = '0%'; bar.classList.remove('hot'); }
+  const box = $('#audio-test-box');
+  if (box) box.classList.add('hidden');
+  const btn = $('#audio-input-test');
+  if (btn) { btn.textContent = '🎤 Probar micrófono'; btn.classList.add('btn-primary'); }
+}
+
+function testOutputTone() {
+  try {
+    const ctx = new AudioContext();
+    const id = $('#audio-output').value || 'default';
+    if (ctx.setSinkId) ctx.setSinkId(id).catch(() => {});
+    const beep = (freq, start, dur) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    beep(620, 0, 0.18);
+    beep(880, 0.22, 0.3);
+    setTimeout(() => { try { ctx.close(); } catch {} }, 1200);
+  } catch (err) {
+    showRadioError('No se pudo probar la salida: ' + err.message);
+  }
+}
+
+function wireAudioTab() {
+  $('#audio-input').addEventListener('change', () => {
+    audioPrefs.micDevice = $('#audio-input').value;
+    Radio.setMicDevice(audioPrefs.micDevice);
+    saveRadioPrefs();
+    flash('Micrófono actualizado');
+  });
+
+  $('#audio-output').addEventListener('change', () => {
+    audioPrefs.outputDevice = $('#audio-output').value;
+    Radio.setOutputDevice(audioPrefs.outputDevice === 'default' ? '' : audioPrefs.outputDevice);
+    saveRadioPrefs();
+    flash('Salida de audio actualizada');
+    testOutputTone();
+  });
+
+  $('#audio-input-test').addEventListener('click', () => {
+    if (micTest) stopMicTest(); else startMicTest();
+  });
+
+  $('#audio-monitor').addEventListener('change', () => {
+    if (micTest) micTest.monitorGain.gain.value = $('#audio-monitor').checked ? 1 : 0;
+  });
+
+  $('#audio-output-test').addEventListener('click', testOutputTone);
+
+  // Ajustes de la tecla PTT dentro de la pestaña (sincronizados con la barra lateral)
+  $('#audio-ptt-key').addEventListener('change', () => applyPttKey($('#audio-ptt-key').value));
+  $('#audio-ptt-mode').addEventListener('change', () => applyPttMode($('#audio-ptt-mode').value));
+  $('#audio-volume').addEventListener('input', () => applyVolume(parseInt($('#audio-volume').value, 10)));
+
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', populateAudioDevices);
+  }
+}
+
+// ============================================================
+// 17. Arranque
 // ============================================================
 
 function init() {
@@ -1180,12 +1482,19 @@ function init() {
   loadRadioPrefs();
   Radio.setSettings({ pttKey: $('#ptt-key').value, pttMode: $('#ptt-mode').value });
   wireRadio();
+  wireAudioTab();
   wireHosting();
   setupPtt();
+  populateAudioDevices();
+
+  loadLinkPrefs();
+  wireLink();
 
   renderAll();
   renderChannels(Radio.DEFAULT_CHANNELS, null);
   renderMembers([]);
+
+  linkPushSoon(); // si hay enlace configurado, el bot recibe el estado al arrancar
 }
 
 init();

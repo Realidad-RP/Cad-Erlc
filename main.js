@@ -87,6 +87,9 @@ function setupPermissions() {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => {
     callback(true); // Es una app local: permitimos lo que necesite (micrófono)
   });
+  // Hace que los nombres de micrófonos/parlantes estén disponibles al instante
+  // (enumerateDevices) sin tener que abrir primero el micrófono.
+  session.defaultSession.setPermissionCheckHandler(() => true);
 }
 
 // ---------------- Push-to-talk global ----------------

@@ -22,3 +22,31 @@ services:
         sync: false
       - key: TURN_CREDENTIAL
         sync: false
+
+  # Bot de Discord: enlaza el CAD y el servidor de RP de ER:LC con tu Discord.
+  # Paso a paso: bot/README.md
+  - type: web
+    name: cad-erlc-bot
+    runtime: node
+    rootDir: bot
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: ERLC_SERVER_KEY
+        sync: false
+      - key: CAD_KEY
+        sync: false
+      - key: CH_DESPACHO
+        sync: false
+      - key: CH_BOLO
+        sync: false
+      - key: CH_ERLC
+        sync: false
+      - key: CH_ESTADO
+        sync: false

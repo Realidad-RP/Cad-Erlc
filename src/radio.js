@@ -52,7 +52,7 @@
     iceServers: [...DEFAULT_ICE_SERVERS],
     localStream: null,
     pttActive: false,
-    settings: { pttKey: 'V', pttMode: 'hold', volume: 1 },
+    settings: { pttKey: 'V', pttMode: 'hold', volume: 1, micDeviceId: '', outputDeviceId: '' },
     onEvent: null,
   };
 
@@ -306,12 +306,32 @@
   }
 
   // ---------------- Micrófono ----------------
+  function micConstraints() {
+    const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    if (state.settings.micDeviceId) audio.deviceId = { exact: state.settings.micDeviceId };
+    return { audio };
+  }
+
+  async function acquireMic() {
+    try {
+      return await navigator.mediaDevices.getUserMedia(micConstraints());
+    } catch (err) {
+      // Si el micrófono elegido ya no existe, usar el predeterminado
+      if (state.settings.micDeviceId) {
+        state.settings.micDeviceId = '';
+        emit('error', 'El micrófono elegido no está disponible; se usará el predeterminado.');
+        return await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      }
+      throw err;
+    }
+  }
+
   async function ensureMic() {
     if (state.localStream) return true;
     try {
-      state.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      state.localStream = await acquireMic();
       // El micrófono arranca CERRADO; solo se abre al pulsar el PTT
       for (const t of state.localStream.getAudioTracks()) t.enabled = false;
       emit('mic', true);
@@ -357,6 +377,10 @@
       audio.volume = state.settings.volume;
       audio.srcObject = e.streams[0];
       audio.play().catch(() => {});
+      // Enviar la voz al dispositivo de salida elegido (parlantes/auriculares)
+      if (audio.setSinkId) {
+        audio.setSinkId(state.settings.outputDeviceId || 'default').catch(() => {});
+      }
       entry.audio = audio;
       const box = document.getElementById('audio-container');
       if (box) box.appendChild(audio);
@@ -480,6 +504,40 @@
     }
   }
 
+  // Cambiar el micrófono en caliente (sin salir del canal)
+  async function setMicDevice(deviceId) {
+    state.settings.micDeviceId = deviceId || '';
+    if (!state.localStream) return true; // se aplicará al conectar
+    try {
+      const stream = await acquireMic();
+      for (const t of stream.getAudioTracks()) t.enabled = state.pttActive;
+      for (const entry of state.peers.values()) {
+        if (entry.pc.signalingState === 'closed') continue;
+        const sender = entry.pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
+        if (sender) await sender.replaceTrack(stream.getAudioTracks()[0]).catch(() => {});
+        else entry.pc.addTrack(stream.getAudioTracks()[0], stream);
+      }
+      for (const t of state.localStream.getAudioTracks()) t.stop();
+      state.localStream = stream;
+      emit('mic', true);
+      return true;
+    } catch (err) {
+      emit('error', 'No se pudo cambiar el micrófono: ' + err.message);
+      return false;
+    }
+  }
+
+  // Cambiar dónde se escucha la radio (parlantes/auriculares)
+  async function setOutputDevice(deviceId) {
+    state.settings.outputDeviceId = deviceId || '';
+    const id = state.settings.outputDeviceId || 'default';
+    for (const entry of state.peers.values()) {
+      if (entry.audio && entry.audio.setSinkId) {
+        entry.audio.setSinkId(id).catch(() => {});
+      }
+    }
+  }
+
   function sendChat(text) {
     if (!state.channel) {
       emit('error', 'Entra a un canal para usar el chat de radio.');
@@ -557,6 +615,8 @@
     pttUp,
     setSettings,
     setVolume,
+    setMicDevice,
+    setOutputDevice,
     sendChat,
     isGlobalPttCapable,
     DEFAULT_CHANNELS,

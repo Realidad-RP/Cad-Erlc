@@ -128,6 +128,20 @@
     </section>
 
     <section class="panel">
+      <h2>🔗 Enlace con el bot (Discord)</h2>
+      <div class="field">
+        <label>Dirección del bot</label>
+        <input id="link-url" placeholder="http://localhost:8790" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label>Clave del enlace</label>
+        <input id="link-key" type="password" placeholder="La misma clave que en el bot" />
+      </div>
+      <button id="link-save" class="btn btn-primary full">Guardar y probar</button>
+      <div id="link-status" class="muted small"></div>
+    </section>
+
+    <section class="panel">
       <h2>Registro de radio</h2>
       <div id="radio-chat" class="radio-chat"></div>
       <div class="chat-input">
@@ -145,6 +159,7 @@
       <button class="tab" data-tab="roster">👥 Roster</button>
       <button class="tab" data-tab="bolos">🔎 BOLOs</button>
       <button class="tab" data-tab="historial">📜 Historial</button>
+      <button class="tab" data-tab="audio">🎧 Audio</button>
     </nav>
 
     <!-- Despacho -->
@@ -234,6 +249,60 @@
           <button id="log-clear" class="btn btn-small btn-danger">Borrar historial</button>
         </div>
         <div id="log-list" class="log-list"></div>
+      </div>
+    </section>
+
+    <!-- Audio -->
+    <section id="tab-audio" class="tab-content">
+      <div class="panel">
+        <h2>🎧 Salida de audio — dónde escuchás la radio</h2>
+        <div class="field-row">
+          <div class="field wide"><label>Parlantes / auriculares</label>
+            <select id="audio-output"><option value="default">Predeterminado de Windows</option></select>
+          </div>
+          <div class="field field-btn"><button id="audio-output-test" class="btn" type="button">🔔 Probar sonido</button></div>
+        </div>
+        <div class="muted small">El cambio se aplica al instante a la voz de tus compañeros. Si no escuchás la prueba 🔔, elegí otro dispositivo.</div>
+      </div>
+
+      <div class="panel">
+        <h2>🎙️ Entrada de audio — tu micrófono</h2>
+        <div class="field-row">
+          <div class="field wide"><label>Micrófono</label><select id="audio-input"></select></div>
+          <div class="field field-btn"><button id="audio-input-test" class="btn btn-primary" type="button">🎤 Probar micrófono</button></div>
+        </div>
+        <div id="audio-test-box" class="audio-test-box hidden">
+          <div class="mic-level"><i id="mic-level-bar"></i></div>
+          <div id="mic-test-status" class="muted small">Esperando sonido…</div>
+          <label class="invite-user"><input type="checkbox" id="audio-monitor" /> Escucharme por los parlantes (usá auriculares para evitar acople 🔁)</label>
+        </div>
+        <div class="muted small">La prueba abre tu micrófono solo mientras esté activa. Para hablar en la radio seguí usando la tecla PTT de abajo.</div>
+      </div>
+
+      <div class="panel">
+        <h2>⌨️ Tecla de micrófono (push-to-talk)</h2>
+        <div class="field-row">
+          <div class="field"><label>Tecla</label>
+            <select id="audio-ptt-key">
+              <option value="V" selected>V</option>
+              <option value="B">B</option>
+              <option value="N">N</option>
+              <option value="M">M</option>
+              <option value="X">X</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+          <div class="field"><label>Modo</label>
+            <select id="audio-ptt-mode">
+              <option value="hold" selected>Mantener</option>
+              <option value="toggle">Alternar</option>
+            </select>
+          </div>
+          <div class="field"><label>Volumen de la radio</label>
+            <input type="range" id="audio-volume" min="0" max="100" value="100" />
+          </div>
+        </div>
+        <div class="muted small" id="audio-ptt-note"></div>
       </div>
     </section>
   </main>

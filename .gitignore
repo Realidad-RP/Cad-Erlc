@@ -10,3 +10,6 @@ dist/
 # Canales y roles guardados por el servidor local (se regeneran solos)
 server/channels.json
 server/roles.json
+
+# Configuración privada del bot (token de Discord, claves)
+bot/config.js

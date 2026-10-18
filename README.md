@@ -10,8 +10,10 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🔎 **BOLOs** de personas y vehículos.
 - 📜 **Historial** automático de todo lo que pasa.
 - 📻 **Radio de voz** estilo TeamSpeak: canales por sección, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
+- 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
+- 🤖 **Bot de Discord**: enlaza el CAD con tu Discord (llamadas, unidades, BOLOs, estado del juego en vivo y comandos dentro del juego).
 
 ## ▶️ Cómo ejecutarla
 
@@ -48,6 +50,15 @@ Notas:
   - El creador de un canal también puede invitar/eliminar el suyo.
   - *(Opcional)* En Render podés definir la variable `OWNER_PASSWORD` para fijar la contraseña del propietario desde el servidor.
 - Los canales creados **se guardan solos**: si el servidor en la nube se reinicia y los olvida, la primera app que se conecte los restaura automáticamente.
+
+## 🎧 Pestaña Audio (micrófono, parlantes y prueba)
+
+En la pestaña **🎧 Audio** de la app se configura todo el sonido:
+
+- **Salida de audio**: elegí por dónde escuchás la radio (parlantes, auriculares, etc.). El cambio se aplica **al instante** a las voces de tus compañeros. El botón **🔔 Probar sonido** reproduce un tono por el dispositivo elegido para confirmar que se escucha.
+- **Entrada de audio**: elegí tu micrófono. El botón **🎤 Probar micrófono** lo abre con un **medidor en vivo**: si la barra se mueve y dice "✅ Se está escuchando tu micrófono", está todo bien. Con la casilla **"Escucharme por los parlantes"** te escuchás a vos mismo (usá auriculares para evitar acople).
+- **Tecla del micrófono (PTT)**: tecla (**V**, **B**, **N**, **M**, **X**, **C**), modo (mantener/alternar) y volumen de la radio. Está sincronizada con la barra lateral del radio.
+- La prueba abre tu micrófono **solo mientras está activa** (se cierra al detenerla o al salir de la pestaña). Para hablar en la radio sigue funcionando la tecla PTT de siempre.
 
 ## 🌍 Radio para todo el mundo (internet)
 
@@ -107,6 +118,26 @@ npm run test-server
 
 Debe terminar con: `✅ PRUEBA OK`.
 
+## 🤖 Bot de Discord (CAD ↔ ER:LC)
+
+El bot publica en tu Discord las **llamadas, unidades y BOLOs del CAD al instante**, muestra el **estado en vivo del servidor de ER:LC** (jugadores), recibe las **llamadas de emergencia del juego** y permite **ejecutar comandos dentro del juego** con `/juego`.
+
+Guía completa paso a paso: **[bot/README.md](bot/README.md)**. Resumen:
+
+```
+cd bot
+npm install     (solo la primera vez)
+npm start       (o desde la raíz: npm run bot)
+```
+
+Después, en la app: panel **“🔗 Enlace con el bot (Discord)”** → dirección del bot + la misma clave que pusiste en `bot/config.js`.
+
+Requisitos:
+
+- Un bot de Discord (se crea gratis en el Developer Portal; la guía explica cómo).
+- Para los avisos del juego en tiempo real: el servidor privado necesita el pack **ERLC API** (se compra con Robux) y pegar el webhook HTTPS en *Settings → Event Webhook*.
+- Probar sin Discord ni internet: `npm run test-bot` → debe terminar con `✅ PRUEBA BOT OK`.
+
 ## 📦 Crear el .exe
 
 ```
@@ -130,6 +161,12 @@ Los archivos quedan en la carpeta **dist/** (instalador + versión **portátil**
 | `server/self-test.js` | Prueba automática del servidor |
 | `server/package.json` | Paquete independiente del servidor (para la nube) |
 | `server/Dockerfile` | Imagen Docker del servidor (para VPS) |
+| `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos |
+| `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
+| `bot/lib/erlc.js` | API de ER:LC (estado, jugadores, comandos) + firmas Ed25519 |
+| `bot/lib/server.js` | Servidor HTTP del bot (enlace CAD + webhooks del juego) |
+| `bot/config.js` | Claves del bot (privado, no se sube a GitHub) |
+| `bot/README.md` | Guía del bot paso a paso |
 | `render.yaml` | Despliegue automático en Render (raíz del proyecto) |
 
 Hecho con ❤️ para tu comunidad.

@@ -9,7 +9,9 @@
   "scripts": {
     "start": "electron .",
     "server": "node server/signaling.js",
+    "bot": "node bot/index.js",
     "test-server": "node server/self-test.js",
+    "test-bot": "node bot/self-test.js",
     "build": "electron-builder --win"
   },
   "dependencies": {

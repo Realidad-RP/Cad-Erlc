@@ -370,3 +370,34 @@ input[type="range"] { padding: 0; border: none; background: transparent; }
   box-shadow: 0 8px 24px #0009;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- Pestaña 🎧 Audio ---------- */
+.field-row .field-btn { flex: 0 0 auto; }
+.field-row .field-btn .btn { white-space: nowrap; }
+
+.audio-test-box {
+  margin-top: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.mic-level {
+  height: 16px;
+  border-radius: 9px;
+  background: #0b121b;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.mic-level i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22c55e, #eab308 62%, #ef4444);
+  transition: width .06s linear;
+}
+.mic-level i.hot { filter: brightness(1.3); }
+#mic-test-status.ok { color: var(--ok); }
