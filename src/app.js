@@ -1979,10 +1979,28 @@ function soundVolume(kind) {
   return isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
 }
 
-// Clic de radio del push-to-talk (suena al abrir y al cerrar el micrófono)
+// Clic del push-to-talk: precargado al arrancar para que suene AL INSTANTE (sin retraso)
+const PTT_SOUND_SRC = 'assets/motorola-ptt.mp3';
+const pttPool = [];
+let pttPoolIdx = 0;
+
+function preloadPttSound() {
+  try {
+    for (let i = 0; i < 3; i++) {
+      const a = new Audio(PTT_SOUND_SRC);
+      a.preload = 'auto';
+      a.load();
+      pttPool.push(a);
+    }
+  } catch {}
+}
+
 function playPttSound() {
   try {
-    const a = new Audio('assets/team-radio-sound-f1.mp3');
+    if (!pttPool.length) preloadPttSound();
+    const a = pttPool[pttPoolIdx++ % pttPool.length];
+    try { a.pause(); } catch {}
+    a.currentTime = 0;
     a.volume = soundVolume('radioVolume');
     a.play().catch(() => {});
   } catch {}
@@ -2418,6 +2436,7 @@ function init() {
   populateAudioDevices();
   loadPanicPrefs();
   wireLogin();
+  preloadPttSound();
 
   loadLinkPrefs();
   wireLink();

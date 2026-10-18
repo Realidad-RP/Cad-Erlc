@@ -13,7 +13,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 📞 **Central 911 civil**: una página web para que los civiles llamen al 911 y la llamada caiga solita en Despacho (con tipo, nombre y ubicación).
 - 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
 - 📜 **Historial** automático de todo lo que pasa.
-- 📻 **Radio de voz** estilo TeamSpeak: canales organizados en **secciones plegables estilo categorías de Discord**, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego). Al abrir y cerrar el micrófono suena un **clic de radio** estilo TeamSpeak (volumen configurable en 🎧 Audio).
+- 📻 **Radio de voz** estilo TeamSpeak: canales organizados en **secciones plegables estilo categorías de Discord**, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego). Al abrir y cerrar el micrófono suena un **clic de radio estilo Motorola** al instante (volumen configurable en 🎧 Audio).
 - 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
