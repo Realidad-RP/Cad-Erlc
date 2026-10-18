@@ -27,7 +27,7 @@ window.LR_CONFIG = {
 
   // Enlace de descarga del CAD (si lo publicás en OneDrive/GitHub/MediaFire).
   // Dejá "" para ocultar el botón.
-  cadDescarga: "",
+  cadDescarga: "https://github.com/Realidad-RP/Cad-Erlc/releases/download/v0.1.0/CAD-RLD-0.1.0.exe",
 
   /* ---------- Números de la portada ----------
      Poné los números reales de tu comunidad.
@@ -42,32 +42,52 @@ window.LR_CONFIG = {
      { nombre: "Ana", estrellas: 5, texto: "Muy buen rol, staff atento." }   */
   resenasEjemplo: [],
 
-  /* ---------- Equipo fundador ----------
-     foto: dejá "" para mostrar las iniciales en un círculo de color,
-     o poné la ruta de una imagen, ej: "assets/equipo/lucas.png".
-     discord / instagram: enlaces; "" = se ocultan.                    */
+  /* ---------- Equipo fundador (conectado a Roblox) ----------
+     🤖 Roblox: pegá el ID de Roblox de cada CEO (robloxId) y la web carga
+     sola su avatar y su nombre desde Roblox. Si algo falla, se muestran
+     las iniciales en un círculo de color.
+       ¿Cómo saco el ID? Entrá a su perfil en roblox.com y copiá el número
+       de la barra:  roblox.com/users/ESTE-NUMERO/profile
+     roblox:    el usuario, solo de referencia (por si lo necesitás después).
+     avatarUrl: opcional; imagen que se muestra al instante mientras carga.
+     nombre:    dejalo "" para usar automáticamente el nombre de Roblox,
+                o escribí el nombre que quieras mostrar.
+     foto:      opcional, una imagen tuya (ej: "assets/equipo/ana.png");
+                si la ponés, tiene prioridad sobre el avatar de Roblox.
+                                                                    */
+  avatarCompleto: false,   // true = avatar de cuerpo entero | false = solo la cara
+
   equipo: [
     {
-      nombre: "Tu Nombre",
-      rol: "Fundador & CEO",
+      nombre: "",
+      rol: "CEO & Fundador",
       desc: "Fundador de la comunidad. Lidera la dirección del proyecto, define los objetivos del servidor y coordina al equipo.",
       foto: "",
+      robloxId: "3004160461",
+      roblox: "marsineke1234",
+      avatarUrl: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-56514223316685631320578E72A29870-Png/420/420/AvatarHeadshot/Png/noFilter",
       discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     },
     {
-      nombre: "Nombre Apellido",
-      rol: "Socio & Director",
+      nombre: "",
+      rol: "CEO & Socio",
       desc: "Socio y director. Supervisa la experiencia de roleplay, fomenta la participación y cuida el ambiente del servidor.",
       foto: "",
+      robloxId: "",          // ← pegá acá el ID de Roblox del segundo CEO
+      roblox: "",
+      avatarUrl: "",
       discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     },
     {
-      nombre: "Nombre Apellido",
-      rol: "Jefe de Staff",
-      desc: "Lidera el equipo de moderación: gestiona denuncias, aplica la normativa y da soporte a los jugadores todos los días.",
+      nombre: "",
+      rol: "CEO & Director",
+      desc: "Lidera la moderación: gestiona denuncias, aplica la normativa y da soporte a los jugadores todos los días.",
       foto: "",
+      robloxId: "",          // ← pegá acá el ID de Roblox del tercer CEO
+      roblox: "",
+      avatarUrl: "",
       discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     }
