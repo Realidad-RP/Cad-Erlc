@@ -15,7 +15,7 @@ window.LR_CONFIG = {
   /* ---------- Enlaces principales ---------- */
   // ⚠️ IMPORTANTE: reemplazá esto por la invitación REAL de tu Discord.
   //    (En Discord: tu servidor → clic derecho en un canal → Invitar a personas → Editar enlace)
-  discord: "https://discord.gg/TU-INVITACION",
+  discord: "https://discord.gg/qytyw8E9dn",
 
   // Redes sociales. Dejá "" (vacío) en las que no tengas: se ocultan solas.
   instagram: "",
@@ -52,7 +52,7 @@ window.LR_CONFIG = {
       rol: "Fundador & CEO",
       desc: "Fundador de la comunidad. Lidera la dirección del proyecto, define los objetivos del servidor y coordina al equipo.",
       foto: "",
-      discord: "https://discord.gg/TU-INVITACION",
+      discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     },
     {
@@ -60,7 +60,7 @@ window.LR_CONFIG = {
       rol: "Socio & Director",
       desc: "Socio y director. Supervisa la experiencia de roleplay, fomenta la participación y cuida el ambiente del servidor.",
       foto: "",
-      discord: "https://discord.gg/TU-INVITACION",
+      discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     },
     {
@@ -68,19 +68,11 @@ window.LR_CONFIG = {
       rol: "Jefe de Staff",
       desc: "Lidera el equipo de moderación: gestiona denuncias, aplica la normativa y da soporte a los jugadores todos los días.",
       foto: "",
-      discord: "https://discord.gg/TU-INVITACION",
+      discord: "https://discord.gg/qytyw8E9dn",
       instagram: ""
     }
   ],
 
-  /* ---------- Tienda (textos de ayuda) ---------- */
-  // A dónde lleva el botón "Comprar" de cada producto (por defecto, tu Discord).
-  // Si tenés un canal de tickets, pegalo acá, ej:
-  // "https://discord.com/channels/123456789/987654321"
-  tiendaLink: "",
-  moneda: "RealCoins",      // moneda interna de la comunidad
-
   /* ---------- Pie de página ---------- */
-  metodosPago: ["PayPal", "Nequi", "Bancolombia", "PSE", "Transferencia"],
   anio: new Date().getFullYear()
 };

@@ -41,25 +41,6 @@
       }
     });
 
-    // Botones "Comprar" de la tienda → canal de tickets o Discord
-    const comprarHref = CFG.tiendaLink || CFG.discord || '#';
-    $$('.js-comprar').forEach((el) => {
-      el.setAttribute('href', comprarHref);
-      el.setAttribute('target', '_blank');
-      el.setAttribute('rel', 'noopener');
-    });
-
-    // Nombre de la moneda interna
-    $$('[data-txt="moneda"]').forEach((el) => { el.textContent = CFG.moneda || 'Coins'; });
-
-    // Métodos de pago del pie de página
-    const pay = $('#payChips');
-    if (pay) {
-      const list = (CFG.metodosPago || []).filter(Boolean);
-      pay.innerHTML = list.map((m) => '<span>' + esc(m) + '</span>').join('');
-      if (!list.length) pay.closest('.foot-bottom').style.display = 'none';
-    }
-
     // Año del pie de página
     const anio = $('#anio');
     if (anio) anio.textContent = CFG.anio || new Date().getFullYear();
@@ -369,31 +350,11 @@
   }
 
   /* ============================================================
-     7) FILTROS DE LA TIENDA
-     ============================================================ */
-  function setupFilters() {
-    const bar = $('#filtros');
-    if (!bar) return;
-    const cards = $$('[data-cat]');
-
-    $$('button', bar).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        $$('button', bar).forEach((b) => b.classList.toggle('active', b === btn));
-        const cat = btn.getAttribute('data-filter');
-        cards.forEach((c) => {
-          c.style.display = (cat === 'todos' || c.getAttribute('data-cat') === cat) ? '' : 'none';
-        });
-      });
-    });
-  }
-
-  /* ============================================================
      ARRANQUE
      ============================================================ */
   document.addEventListener('DOMContentLoaded', () => {
     applyConfig();
     setupHeader();
-    setupFilters();
     renderTeam();
     renderReviewLists();
     renderRatingPanel();
