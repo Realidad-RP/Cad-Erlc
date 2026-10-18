@@ -1,16 +1,18 @@
 // Prueba automática del servidor de radio (HTTP + WebSocket).
 // Uso:  npm run test-server
 //
-// Comprueba: salud HTTP, bienvenida, canales con roles/permisos,
-// entrada/salida de canales, chat y canales privados.
+// Comprueba: salud HTTP, bienvenida, canales por departamento, canales
+// privados con invitación, propietario con contraseña y asignación de roles.
 
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// La prueba usa su propio archivo de canales (no toca los reales)
+// La prueba usa sus propios archivos (no toca los canales/roles reales)
 process.env.CHANNELS_FILE = path.join(os.tmpdir(), 'cad-erlc-test-channels.json');
+process.env.ROLES_FILE = path.join(os.tmpdir(), 'cad-erlc-test-roles.json');
 try { fs.unlinkSync(process.env.CHANNELS_FILE); } catch {}
+try { fs.unlinkSync(process.env.ROLES_FILE); } catch {}
 
 const WebSocket = require('ws');
 const { createRadioServer } = require('./radio-server');
@@ -25,27 +27,29 @@ const { createRadioServer } = require('./radio-server');
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const mk = (name, department, role) =>
+  const mk = (name, department) =>
     new Promise((resolve) => {
       const ws = new WebSocket(`ws://localhost:${server.port}`);
       const messages = [];
       ws.on('message', (d) => messages.push(JSON.parse(d.toString())));
       ws.on('open', () => {
-        ws.send(JSON.stringify({ type: 'hello', name, department, role }));
+        ws.send(JSON.stringify({ type: 'hello', name, department }));
         resolve({ ws, messages });
       });
     });
 
   const findError = (client, re) => client.messages.find((m) => m.type === 'error' && re.test(m.message));
+  const hasChannel = (client, channelName) =>
+    client.messages.some((m) => m.type === 'channels' && Array.isArray(m.channels)
+      && m.channels.some((c) => c.name === channelName));
 
-  // Ana es oficial de policía (LCPD) con rol básico
-  const ana = await mk('Ana', 'LCPD', 'Miembro');
+  // Ana es oficial de policía (LCPD); Beto es de bomberos (LCFD)
+  const ana = await mk('Ana', 'LCPD');
   await wait(100);
   ana.ws.send(JSON.stringify({ type: 'join', channel: 'Despacho Central' }));
   await wait(200);
 
-  // Beto es supervisor de bomberos (LCFD)
-  const beto = await mk('Beto', 'LCFD', 'Supervisor');
+  const beto = await mk('Beto', 'LCFD');
   await wait(100);
   beto.ws.send(JSON.stringify({ type: 'join', channel: 'Despacho Central' }));
   await wait(300);
@@ -56,28 +60,50 @@ const { createRadioServer } = require('./radio-server');
   // 1) Ana NO puede entrar al canal exclusivo de bomberos
   ana.ws.send(JSON.stringify({ type: 'join', channel: 'Bomberos/EMS (LCFD)' }));
   await wait(200);
-  const aclDept = findError(ana, /LCFD/);
+  const aclDepartamento = findError(ana, /LCFD/);
 
-  // 2) Ana (Miembro) NO puede crear canales generales
+  // 2) Ningún Miembro puede crear canales generales (solo staff)
   ana.ws.send(JSON.stringify({ type: 'channel-create', name: 'General de Ana' }));
   await wait(200);
-  const aclCreate = findError(ana, /supervisores|administradores/i);
+  const aclCrearAna = findError(ana, /supervisores|administradores/i);
 
-  // 3) Beto (Supervisor) crea un canal privado e invita a Ana
+  beto.ws.send(JSON.stringify({ type: 'channel-create', name: 'General de Beto' }));
+  await wait(200);
+  const aclCrearBeto = findError(beto, /supervisores|administradores/i);
+
+  // 3) Ana crea la cuenta de PROPIETARIO con contraseña
+  ana.ws.send(JSON.stringify({ type: 'owner-setup', password: 'arca-segura-123' }));
+  await wait(200);
+  const propietarioCreado = ana.messages.some((m) => m.type === 'owner-status' && m.owner === true);
+
+  // 4) El propietario asigna Supervisor a Beto (se aplica al instante)
+  ana.ws.send(JSON.stringify({ type: 'role-assign', name: 'Beto', role: 'Supervisor' }));
+  await wait(200);
+  const rolAsignado = beto.messages.some((m) => m.type === 'role-changed' && m.role === 'Supervisor');
+
+  // 5) Beto NO puede asignar roles (solo el propietario)
+  beto.ws.send(JSON.stringify({ type: 'role-assign', name: 'Ana', role: 'Administrador' }));
+  await wait(200);
+  const soloPropietarioAsigna = findError(beto, /propietario/i);
+
+  // 6) Con su nuevo rol, Beto ya puede crear un canal general
+  beto.ws.send(JSON.stringify({ type: 'channel-create', name: 'Canal Supervisores' }));
+  await wait(200);
+  const supervisorPuedeCrear = hasChannel(ana, 'Canal Supervisores');
+
+  // 7) Canal privado con invitación: Beto lo crea e invita a Ana
   beto.ws.send(JSON.stringify({ type: 'channel-create', name: 'Prueba K9', private: true, members: ['Ana'] }));
   await wait(200);
-  const anaChannels = ana.messages.filter((m) => m.type === 'channels').pop();
-  const privateCreated = !!anaChannels && anaChannels.channels.some((c) => c.name === 'Prueba K9');
+  const privadoCreado = hasChannel(ana, 'Prueba K9');
 
-  // 4) Ana (invitada) SÍ puede entrar al canal privado
   ana.ws.send(JSON.stringify({ type: 'join', channel: 'Prueba K9' }));
   await wait(200);
-  const privateJoined = ana.messages.some((m) => m.type === 'joined' && m.channel === 'Prueba K9');
+  const privadoEntrada = ana.messages.some((m) => m.type === 'joined' && m.channel === 'Prueba K9');
 
-  // 5) Beto elimina el canal: Ana debe ser expulsada con aviso
+  // 8) Al eliminar el canal, los que estaban dentro son expulsados
   beto.ws.send(JSON.stringify({ type: 'channel-delete', channel: 'Prueba K9' }));
   await wait(200);
-  const kicked = ana.messages.some((m) => m.type === 'kicked');
+  const expulsadoAlBorrar = ana.messages.some((m) => m.type === 'kicked');
 
   const anaWelcome = ana.messages.find((m) => m.type === 'welcome');
   const anaJoined = ana.messages.find((m) => m.type === 'joined');
@@ -91,26 +117,33 @@ const { createRadioServer } = require('./radio-server');
       && anaWelcome.channels.length > 0
       && typeof anaWelcome.channels[0] === 'object'
       && typeof anaWelcome.channels[0].name === 'string',
+    rolEnBienvenida: !!anaWelcome && anaWelcome.role === 'Miembro',
     ice: !!anaWelcome && Array.isArray(anaWelcome.iceServers) && anaWelcome.iceServers.length > 0,
     joined: !!anaJoined && anaJoined.channel === 'Despacho Central',
     roster: rosterOk,
     chat: !!betoChat && betoChat.text === 'hola' && betoChat.name === 'Ana',
-    aclDepartamento: !!aclDept,
-    aclCrearGeneral: !!aclCreate,
-    privadoCreado: privateCreated,
-    privadoEntrada: privateJoined,
-    expulsadoAlBorrar: kicked,
+    aclDepartamento: !!aclDepartamento,
+    aclCrearGeneral: !!aclCrearAna,
+    aclCrearGeneralBeto: !!aclCrearBeto,
+    propietarioCreado,
+    rolAsignado,
+    soloPropietarioAsigna: !!soloPropietarioAsigna,
+    supervisorPuedeCrear,
+    privadoCreado,
+    privadoEntrada,
+    expulsadoAlBorrar,
   };
 
   console.log('Comprobaciones:', checks);
 
   const ok = Object.values(checks).every(Boolean);
   console.log(ok
-    ? '✅ PRUEBA OK: HTTP, roles, canales por departamento, privados e invitaciones funcionan.'
+    ? '✅ PRUEBA OK: roles, propietario, permisos, canales por departamento y privados funcionan.'
     : '❌ PRUEBA FALLIDA');
 
   server.close();
   try { fs.unlinkSync(process.env.CHANNELS_FILE); } catch {}
+  try { fs.unlinkSync(process.env.ROLES_FILE); } catch {}
   process.exit(ok ? 0 : 1);
 })().catch((err) => {
   console.error('❌ Error en la prueba:', err.message);

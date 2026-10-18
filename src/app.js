@@ -87,8 +87,25 @@ function fmtTime(ts) {
   });
 }
 
-// Roles del radio (el servidor valida los permisos de cada uno)
-const ROLES = ['Miembro', 'Supervisor', 'Administrador'];
+// Roles que el propietario puede asignar (el Propietario se crea con su contraseña)
+const ROLES_ASSIGNABLE = ['Miembro', 'Supervisor', 'Administrador'];
+
+// En esta PC se recuerdan la contraseña del propietario y los roles asignados
+// (para restaurarlos si el servidor de la nube se reinicia y los olvida)
+const OWNER_PASS_KEY = 'cad-erlc-owner-pass';
+const ROLES_CACHE_KEY = 'cad-erlc-roles-cache';
+let pendingOwnerPass = '';
+
+function getOwnerPass() {
+  try { return localStorage.getItem(OWNER_PASS_KEY) || ''; } catch { return ''; }
+}
+
+function setOwnerPass(pass) {
+  try {
+    if (pass) localStorage.setItem(OWNER_PASS_KEY, pass);
+    else localStorage.removeItem(OWNER_PASS_KEY);
+  } catch {}
+}
 
 function deptInfo(key) {
   return DEPARTMENTS[key] || { short: key || '—', name: key || 'Sin departamento', color: '#64748b' };
@@ -97,6 +114,18 @@ function deptInfo(key) {
 function deptBadgeHtml(key) {
   const d = deptInfo(key);
   return `<span class="badge" style="color:${d.color};border-color:${d.color}55;background:${d.color}18">${esc(d.short)}</span>`;
+}
+
+const ROLE_BADGES = {
+  Propietario:   { icon: '👑', color: '#eab308' },
+  Administrador: { icon: '🛡️', color: '#3b82f6' },
+  Supervisor:    { icon: '⭐', color: '#10b981' },
+};
+
+function roleBadgeHtml(role) {
+  const r = ROLE_BADGES[role];
+  if (!r) return '';
+  return `<span class="badge" title="${esc(role)}" style="color:${r.color};border-color:${r.color}55;background:${r.color}18">${r.icon}</span>`;
 }
 
 let toastTimer = null;
@@ -434,9 +463,6 @@ function populateSelects() {
   $('#roster-dept').innerHTML = deptOptions('LCPD');
   $('#radio-dept').innerHTML = deptOptions('DISPATCH');
   $('#channel-dept').innerHTML = deptOptions('LCPD');
-  $('#radio-role').innerHTML = ROLES
-    .map((r) => `<option value="${r}">${esc(r)}</option>`)
-    .join('');
 }
 
 function wireForms() {
@@ -567,7 +593,6 @@ function saveRadioPrefs() {
     server: $('#radio-server').value.trim(),
     name: $('#radio-name').value.trim(),
     dept: $('#radio-dept').value,
-    role: $('#radio-role').value,
     pttKey: $('#ptt-key').value,
     pttMode: $('#ptt-mode').value,
   };
@@ -580,7 +605,6 @@ function loadRadioPrefs() {
   if (prefs.server) $('#radio-server').value = prefs.server;
   if (prefs.name) $('#radio-name').value = prefs.name;
   if (prefs.dept) $('#radio-dept').value = prefs.dept;
-  if (prefs.role) $('#radio-role').value = prefs.role;
   if (prefs.pttKey) $('#ptt-key').value = prefs.pttKey;
   if (prefs.pttMode) $('#ptt-mode').value = prefs.pttMode;
 }
@@ -607,7 +631,7 @@ function setPttIndicator(on) {
 }
 
 function canJoinChannel(ch) {
-  const staff = Radio.state.role === 'Administrador' || Radio.state.role === 'Supervisor';
+  const staff = ['Propietario', 'Administrador', 'Supervisor'].includes(Radio.state.role);
   if (ch.department && ch.department !== Radio.state.department && !staff) {
     return { ok: false, why: `Canal exclusivo de ${deptInfo(ch.department).short}. No perteneces a ese departamento.` };
   }
@@ -695,7 +719,81 @@ function renderMembers(list) {
       <span class="talk-dot ${m.talking ? 'talking' : ''}"></span>
       <span>${esc(m.name)}</span>
       ${deptBadgeHtml(m.department)}
+      ${roleBadgeHtml(m.role)}
     </li>`).join('');
+}
+
+// ---- Caja del propietario (crear contraseña / iniciar sesión) ----
+function renderOwnerBox() {
+  const st = Radio.state;
+  const box = $('#owner-box');
+  if (!st.connected) {
+    box.innerHTML = '<div class="muted small">Conéctate al radio para administrar.</div>';
+    return;
+  }
+  if (st.isOwner) {
+    box.innerHTML = `
+      <div class="owner-line">👑 Eres el propietario${st.ownerName ? ' (' + esc(st.ownerName) + ')' : ''}.</div>
+      <div class="muted small">Asigná roles en el panel "Administración de roles".</div>
+      <button id="owner-logout" class="btn full">Cerrar sesión de propietario</button>`;
+  } else if (!st.ownerExists) {
+    box.innerHTML = `
+      <div class="muted small">Este servidor todavía no tiene propietario. Creá tu contraseña (solo la sabrás vos):</div>
+      <input id="owner-pass" type="password" placeholder="Contraseña de propietario" />
+      <button id="owner-btn" class="btn btn-primary full">👑 Crear propietario</button>`;
+  } else {
+    box.innerHTML = `
+      <div class="muted small">Servidor con propietario${st.ownerName ? ' (' + esc(st.ownerName) + ')' : ''}. Entrá con tu contraseña:</div>
+      <input id="owner-pass" type="password" placeholder="Contraseña de propietario" />
+      <button id="owner-btn" class="btn full">Iniciar sesión</button>`;
+  }
+
+  const passInput = box.querySelector('#owner-pass');
+  if (passInput) {
+    passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') ownerBoxAction(); });
+  }
+  const logoutBtn = box.querySelector('#owner-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      setOwnerPass('');
+      pendingOwnerPass = '';
+      Radio.ownerLogout();
+      flash('Sesión de propietario cerrada');
+    });
+  }
+  const btn = box.querySelector('#owner-btn');
+  if (btn) btn.addEventListener('click', ownerBoxAction);
+}
+
+function ownerBoxAction() {
+  const input = $('#owner-pass');
+  const pass = input ? input.value.trim() : '';
+  if (pass.length < 4) { showRadioError('La contraseña debe tener al menos 4 caracteres.'); return; }
+  pendingOwnerPass = pass;
+  if (Radio.state.ownerExists) Radio.ownerLogin(pass);
+  else Radio.ownerSetup(pass);
+  flash('Comprobando contraseña…');
+}
+
+// ---- Panel de administración de roles (solo propietario) ----
+function renderAdminPanel() {
+  const panel = $('#admin-panel');
+  if (!Radio.state.isOwner) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+
+  const users = (Radio.state.userlist || []).filter((u) => u.role !== 'Propietario');
+  const box = $('#admin-users');
+  if (!users.length) {
+    box.innerHTML = '<div class="muted small">No hay nadie más conectado ahora.</div>';
+    return;
+  }
+  box.innerHTML = users.map((u) => `<div class="admin-row">
+      <div class="admin-name">${esc(u.name)} ${deptBadgeHtml(u.department)} ${roleBadgeHtml(u.role)}</div>
+      <select data-admin-select="${esc(u.name)}">
+        ${ROLES_ASSIGNABLE.map((r) => `<option value="${r}" ${(u.role || 'Miembro') === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+      </select>
+      <button class="ch-act" data-admin-apply="${esc(u.name)}" title="Aplicar rol">✔</button>
+    </div>`).join('');
 }
 
 function appendRadioChat(msg) {
@@ -729,6 +827,8 @@ function onRadioEvent(event, payload) {
       renderMembers([]);
       setPttIndicator(false);
       $('#radio-leave').classList.add('hidden');
+      renderOwnerBox();
+      renderAdminPanel();
       break;
 
     case 'channels':
@@ -754,6 +854,34 @@ function onRadioEvent(event, payload) {
 
     case 'userlist':
       refreshInvitePickers();
+      renderAdminPanel();
+      break;
+
+    case 'owner':
+      if (payload.owner && payload.assignments) {
+        try { localStorage.setItem(ROLES_CACHE_KEY, JSON.stringify(payload.assignments)); } catch {}
+      }
+      // La contraseña se recuerda solo si el servidor la aceptó
+      if (payload.owner && pendingOwnerPass && !getOwnerPass()) {
+        setOwnerPass(pendingOwnerPass);
+        pendingOwnerPass = '';
+      }
+      renderOwnerBox();
+      renderAdminPanel();
+      if (payload.owner && payload.rolesFresh) {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(ROLES_CACHE_KEY) || 'null'); } catch {}
+        if (cached && Object.keys(cached).length) {
+          Radio.restoreRoles(cached);
+          flash('Restaurando roles guardados…');
+        }
+      }
+      break;
+
+    case 'role':
+      renderOwnerBox();
+      renderAdminPanel();
+      flash('Tu rol ahora es: ' + Radio.state.role);
       break;
 
     case 'kicked':
@@ -792,13 +920,12 @@ function wireRadio() {
     const url = $('#radio-server').value.trim() || 'ws://localhost:8787';
     const name = $('#radio-name').value.trim();
     const dept = $('#radio-dept').value;
-    const role = $('#radio-role').value;
     if (!name) { showRadioError('Escribe tu nombre para el radio.'); return; }
 
     const btn = $('#radio-connect');
     btn.disabled = true;
     btn.textContent = 'Conectando…';
-    const ok = await Radio.connect(url, name, dept, role);
+    const ok = await Radio.connect(url, name, dept, getOwnerPass());
     btn.disabled = false;
     if (!ok) {
       btn.textContent = 'Conectar';
@@ -906,6 +1033,17 @@ function wireRadio() {
     inviteChannel = null;
   });
 
+  // ---- Panel de administración de roles (solo propietario) ----
+  $('#admin-users').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-admin-apply]');
+    if (!btn) return;
+    const row = btn.closest('.admin-row');
+    const sel = row ? row.querySelector('select') : null;
+    if (!sel) return;
+    Radio.assignRole(btn.dataset.adminApply, sel.value);
+    flash('Rol actualizado: ' + btn.dataset.adminApply + ' → ' + sel.value);
+  });
+
   // ---- Botón de PTT en pantalla (ratón/táctil) ----
   const pttBtn = $('#ptt-button');
   pttBtn.addEventListener('mousedown', (e) => { e.preventDefault(); Radio.pttDown(); });
@@ -915,7 +1053,6 @@ function wireRadio() {
   pttBtn.addEventListener('touchend', () => Radio.pttUp());
 
   // ---- Ajustes de PTT ----
-  $('#radio-role').addEventListener('change', saveRadioPrefs);
   $('#ptt-key').addEventListener('change', () => { Radio.setSettings({ pttKey: $('#ptt-key').value }); saveRadioPrefs(); });
   $('#ptt-mode').addEventListener('change', () => { Radio.setSettings({ pttMode: $('#ptt-mode').value }); saveRadioPrefs(); });
   $('#radio-volume').addEventListener('input', () => Radio.setVolume(parseInt($('#radio-volume').value, 10) / 100));

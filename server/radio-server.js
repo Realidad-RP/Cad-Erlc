@@ -10,8 +10,11 @@
 // Canales y roles:
 //   - Cada canal puede ser de un departamento (solo esa sección entra) o general.
 //   - Los canales privados solo dejan entrar a los invitados (o al personal).
-//   - Los roles "Administrador" y "Supervisor" pueden gestionar cualquier canal;
-//     los "Miembro" pueden crear canales de SU sección y canales privados.
+//   - Los roles "Propietario", "Administrador" y "Supervisor" pueden gestionar
+//     cualquier canal; los "Miembro" pueden crear canales de SU sección y
+//     canales privados.
+//   - El "Propietario" (contraseña creada en la app, o variable OWNER_PASSWORD)
+//     tiene permisos totales y asigna los roles del resto (estilo Discord).
 //   - Los canales se guardan en channels.json. Si el servidor pierde ese archivo
 //     (reinicio en la nube), la primera app con caché los restaura sola.
 //
@@ -24,16 +27,25 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 // Departamentos válidos (deben coincidir con los de la app)
 const DEPARTMENTS = ['LCPD', 'CHP', 'LCFD', 'DOT', 'DISPATCH'];
 
 // Roles con permisos de gestión
-const STAFF_ROLES = ['Administrador', 'Supervisor'];
+const STAFF_ROLES = ['Propietario', 'Administrador', 'Supervisor'];
+
+// Roles que el propietario puede asignar desde la app
+const ASSIGNABLE_ROLES = ['Miembro', 'Supervisor', 'Administrador'];
 
 // Dónde se guardan los canales (se puede cambiar con la variable CHANNELS_FILE)
 const CHANNELS_FILE = process.env.CHANNELS_FILE || path.join(__dirname, 'channels.json');
+
+// Dónde se guardan el propietario y los roles asignados (variable ROLES_FILE)
+const ROLES_FILE = process.env.ROLES_FILE || path.join(__dirname, 'roles.json');
+
+const sha256 = (text) => crypto.createHash('sha256').update(String(text)).digest('hex');
 
 const DEFAULT_CHANNEL_DEFS = [
   { name: 'Despacho Central',     department: null,       private: false, members: [], createdBy: null },
@@ -164,6 +176,71 @@ function buildServer(wss, httpServer, port, iceServers) {
     console.log(`[Radio] ${storedDefs.length} canales cargados del disco.`);
   }
 
+  // ---------------- Propietario y roles ----------------
+  let rolesDb = { ownerHash: null, ownerName: null, assignments: {} };
+  let assignmentsTouched = false;
+
+  const loadRolesFromDisk = () => {
+    try {
+      const raw = fs.readFileSync(ROLES_FILE, 'utf8');
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') return obj;
+    } catch {}
+    return null;
+  };
+
+  const saveRolesToDisk = () => {
+    try {
+      fs.writeFileSync(ROLES_FILE, JSON.stringify(rolesDb));
+    } catch (err) {
+      console.warn('[Radio] No se pudieron guardar los roles:', err.message);
+    }
+  };
+
+  const storedRoles = loadRolesFromDisk();
+  if (storedRoles) {
+    rolesDb = {
+      ownerHash: typeof storedRoles.ownerHash === 'string' ? storedRoles.ownerHash : null,
+      ownerName: storedRoles.ownerName ? String(storedRoles.ownerName).slice(0, 40) : null,
+      assignments: (storedRoles.assignments && typeof storedRoles.assignments === 'object')
+        ? sanitizeAssignments(storedRoles.assignments) : {},
+    };
+    assignmentsTouched = Object.keys(rolesDb.assignments).length > 0;
+    console.log(`[Radio] Roles cargados: propietario ${rolesDb.ownerHash ? 'sí' : 'no'} · ${Object.keys(rolesDb.assignments).length} roles asignados.`);
+  }
+
+  // La contraseña del propietario también se puede fijar con la variable OWNER_PASSWORD
+  if (!rolesDb.ownerHash && process.env.OWNER_PASSWORD) {
+    rolesDb.ownerHash = sha256(process.env.OWNER_PASSWORD);
+    console.log('[Radio] Contraseña de propietario cargada desde OWNER_PASSWORD.');
+  }
+
+  function sanitizeAssignments(obj) {
+    const out = {};
+    if (!obj || typeof obj !== 'object') return out;
+    for (const [k, v] of Object.entries(obj).slice(0, 300)) {
+      const name = String(k).trim().slice(0, 40);
+      if (name && ASSIGNABLE_ROLES.includes(v)) out[name] = v;
+    }
+    return out;
+  }
+
+  const roleOf = (client) => {
+    if (client.isOwner) return 'Propietario';
+    return rolesDb.assignments[client.name] || 'Miembro';
+  };
+
+  const sendOwnerStatus = (ownerClient) => {
+    send(ownerClient.ws, {
+      type: 'owner-status',
+      owner: true,
+      ownerExists: !!rolesDb.ownerHash,
+      ownerName: rolesDb.ownerName,
+      rolesFresh: !assignmentsTouched,
+      assignments: { ...rolesDb.assignments },
+    });
+  };
+
   const send = (ws, msg) => {
     if (ws.readyState === 1) ws.send(JSON.stringify(msg));
   };
@@ -199,7 +276,7 @@ function buildServer(wss, httpServer, port, iceServers) {
   const membersOf = (channel) =>
     [...clients.values()]
       .filter((c) => c.channel === channel)
-      .map((c) => ({ id: c.id, name: c.name, department: c.department, talking: !!c.talking }));
+      .map((c) => ({ id: c.id, name: c.name, department: c.department, role: c.role, talking: !!c.talking }));
 
   const broadcastRoster = (channel) => {
     const members = membersOf(channel);
@@ -217,7 +294,7 @@ function buildServer(wss, httpServer, port, iceServers) {
   // Lista de todos los conectados (para invitar a canales privados)
   const broadcastUserlist = () => {
     const users = [...clients.values()].map((c) => ({
-      id: c.id, name: c.name, department: c.department, channel: c.channel,
+      id: c.id, name: c.name, department: c.department, role: c.role, channel: c.channel,
     }));
     for (const c of clients.values()) send(c.ws, { type: 'userlist', users });
   };
@@ -238,14 +315,23 @@ function buildServer(wss, httpServer, port, iceServers) {
         case 'hello': {
           client.name = String(msg.name || 'Anónimo').slice(0, 40);
           client.department = DEPARTMENTS.includes(msg.department) ? msg.department : 'DISPATCH';
-          client.role = STAFF_ROLES.includes(msg.role) ? msg.role : 'Miembro';
+          // El rol NO se elige desde la app: lo asigna el propietario.
+          // El propietario se identifica con su contraseña.
+          client.isOwner = !!rolesDb.ownerHash
+            && !!msg.ownerPassword
+            && sha256(msg.ownerPassword) === rolesDb.ownerHash;
+          client.role = roleOf(client);
           send(ws, {
             type: 'welcome',
             id: client.id,
+            role: client.role,
+            ownerExists: !!rolesDb.ownerHash,
+            ownerName: rolesDb.ownerName,
             channels: channelDefs.map((d) => serializeChannel(d, client)),
             channelsFresh: !channelsCustomized,
             iceServers,
           });
+          if (client.isOwner) sendOwnerStatus(client);
           broadcastUserlist();
           break;
         }
@@ -264,6 +350,99 @@ function buildServer(wss, httpServer, port, iceServers) {
           saveChannelsToDisk();
           broadcastChannels();
           console.log(`[Radio] Canales restaurados desde "${client.name}" (${defs.length}).`);
+          break;
+        }
+
+        // ---------------- Propietario ----------------
+        case 'owner-setup': {
+          if (rolesDb.ownerHash) {
+            send(ws, { type: 'error', message: 'Este servidor ya tiene propietario.' });
+            break;
+          }
+          const password = String(msg.password || '');
+          if (password.length < 4) {
+            send(ws, { type: 'error', message: 'La contraseña de propietario debe tener al menos 4 caracteres.' });
+            break;
+          }
+          rolesDb.ownerHash = sha256(password);
+          rolesDb.ownerName = client.name;
+          client.isOwner = true;
+          client.role = 'Propietario';
+          saveRolesToDisk();
+          console.log(`[Radio] Propietario creado: ${client.name}`);
+          sendOwnerStatus(client);
+          send(ws, { type: 'role-changed', role: 'Propietario' });
+          broadcastUserlist();
+          break;
+        }
+
+        case 'owner-login': {
+          if (!rolesDb.ownerHash) {
+            send(ws, { type: 'error', message: 'Este servidor todavía no tiene propietario. Creamos la contraseña primero.' });
+            break;
+          }
+          if (sha256(String(msg.password || '')) !== rolesDb.ownerHash) {
+            send(ws, { type: 'error', message: 'Contraseña de propietario incorrecta.' });
+            break;
+          }
+          client.isOwner = true;
+          client.role = 'Propietario';
+          sendOwnerStatus(client);
+          send(ws, { type: 'role-changed', role: 'Propietario' });
+          broadcastUserlist();
+          console.log(`[Radio] Propietario conectado: ${client.name}`);
+          break;
+        }
+
+        case 'owner-logout': {
+          client.isOwner = false;
+          client.role = roleOf(client);
+          send(ws, { type: 'role-changed', role: client.role });
+          send(ws, { type: 'owner-status', owner: false, ownerExists: !!rolesDb.ownerHash, ownerName: rolesDb.ownerName });
+          broadcastUserlist();
+          break;
+        }
+
+        // La app del propietario envía su lista de roles si el servidor
+        // acaba de arrancar (por ejemplo, tras reiniciarse en la nube).
+        case 'roles-restore': {
+          if (!client.isOwner || assignmentsTouched) break;
+          const defs = sanitizeAssignments(msg.assignments);
+          if (!Object.keys(defs).length) break;
+          rolesDb.assignments = defs;
+          assignmentsTouched = true;
+          saveRolesToDisk();
+          sendOwnerStatus(client);
+          broadcastUserlist();
+          console.log(`[Radio] Roles restaurados desde "${client.name}" (${Object.keys(defs).length}).`);
+          break;
+        }
+
+        case 'role-assign': {
+          if (!client.isOwner) {
+            send(ws, { type: 'error', message: 'Solo el propietario puede asignar roles.' });
+            break;
+          }
+          const targetName = String(msg.name || '').trim().slice(0, 40);
+          const role = msg.role;
+          if (!targetName || !ASSIGNABLE_ROLES.includes(role)) {
+            send(ws, { type: 'error', message: 'Rol o persona inválida.' });
+            break;
+          }
+          if (role === 'Miembro') delete rolesDb.assignments[targetName];
+          else rolesDb.assignments[targetName] = role;
+          assignmentsTouched = true;
+          saveRolesToDisk();
+          // Si esa persona está conectada, aplicarle el rol al instante
+          for (const c of clients.values()) {
+            if (c.name === targetName && !c.isOwner) {
+              c.role = roleOf(c);
+              send(c.ws, { type: 'role-changed', role: c.role });
+            }
+          }
+          console.log(`[Radio] Rol asignado: ${targetName} -> ${role} (por ${client.name})`);
+          sendOwnerStatus(client);
+          broadcastUserlist();
           break;
         }
 
@@ -377,7 +556,7 @@ function buildServer(wss, httpServer, port, iceServers) {
           send(ws, { type: 'joined', channel: def.name, members: membersOf(def.name) });
           broadcastToChannel(def.name, {
             type: 'peer-joined',
-            member: { id: client.id, name: client.name, department: client.department, talking: false },
+            member: { id: client.id, name: client.name, department: client.department, role: client.role, talking: false },
           }, client.id);
           broadcastRoster(def.name);
           broadcastUserlist();

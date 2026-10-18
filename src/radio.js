@@ -39,7 +39,10 @@
     myId: null,
     name: '',
     department: 'DISPATCH',
-    role: 'Miembro',
+    role: 'Miembro',       // lo asigna el propietario del servidor
+    isOwner: false,
+    ownerExists: false,
+    ownerName: null,
     serverUrl: '',
     channels: DEFAULT_CHANNELS.map((c) => ({ ...c })),
     channel: null,
@@ -97,13 +100,12 @@
   }
 
   // ---------------- Conexión al servidor ----------------
-  function connect(url, name, department, role) {
+  function connect(url, name, department, ownerPassword) {
     return new Promise((resolve) => {
       disconnect(true); // por si había una conexión anterior
       state.serverUrl = url;
       state.name = name;
       state.department = department;
-      state.role = role || 'Miembro';
 
       let ws;
       try {
@@ -126,7 +128,7 @@
       ws.onopen = () => {
         clearTimeout(timeout);
         state.connected = true;
-        send({ type: 'hello', name, department, role: state.role });
+        send({ type: 'hello', name, department, ownerPassword: ownerPassword || '' });
         emit('connected', { url });
         resolve(true);
       };
@@ -149,6 +151,7 @@
         state.channel = null;
         state.members.clear();
         state.userlist = [];
+        state.isOwner = false;
         closeAllPeers();
         emit('disconnected');
         if (!wasConnected) resolve(false);
@@ -171,6 +174,7 @@
     state.channel = null;
     state.members.clear();
     state.userlist = [];
+    state.isOwner = false;
     closeAllPeers();
     if (!silent) emit('disconnected');
   }
@@ -180,12 +184,22 @@
     switch (msg.type) {
       case 'welcome':
         state.myId = msg.id;
+        if (typeof msg.role === 'string') state.role = msg.role;
+        state.isOwner = state.role === 'Propietario';
+        state.ownerExists = !!msg.ownerExists;
+        state.ownerName = msg.ownerName || null;
         if (Array.isArray(msg.channels) && msg.channels.length) state.channels = msg.channels;
         // El servidor puede enviar STUN/TURN configurados (para internet)
         if (Array.isArray(msg.iceServers) && msg.iceServers.length) {
           state.iceServers = msg.iceServers;
         }
         emit('channels', state.channels);
+        emit('owner', {
+          owner: state.isOwner,
+          ownerExists: state.ownerExists,
+          ownerName: state.ownerName,
+          rolesFresh: false,
+        });
         // Si el servidor acaba de arrancar (sin canales guardados), los restauramos
         if (msg.channelsFresh) {
           const cached = readChannelCache();
@@ -250,6 +264,19 @@
         state.members.clear();
         emitRoster();
         emit('kicked', msg.reason || 'Te sacaron del canal.');
+        break;
+
+      case 'owner-status':
+        state.isOwner = !!msg.owner;
+        state.ownerExists = !!msg.ownerExists;
+        if (msg.ownerName) state.ownerName = msg.ownerName;
+        emit('owner', msg);
+        break;
+
+      case 'role-changed':
+        state.role = msg.role || 'Miembro';
+        state.isOwner = state.role === 'Propietario';
+        emit('role', state.role);
         break;
 
       case 'error':
@@ -468,6 +495,32 @@
     return false;
   }
 
+  // ---------------- Propietario y roles ----------------
+  function ownerSetup(password) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'owner-setup', password });
+  }
+
+  function ownerLogin(password) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'owner-login', password });
+  }
+
+  function ownerLogout() {
+    if (!state.connected) return;
+    send({ type: 'owner-logout' });
+  }
+
+  function assignRole(name, role) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'role-assign', name, role });
+  }
+
+  function restoreRoles(assignments) {
+    if (!state.connected) return;
+    send({ type: 'roles-restore', assignments });
+  }
+
   // ---------------- Crear / gestionar canales ----------------
   function createChannel({ name, department, private: isPrivate, members }) {
     if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
@@ -495,6 +548,11 @@
     createChannel,
     deleteChannel,
     inviteToChannel,
+    ownerSetup,
+    ownerLogin,
+    ownerLogout,
+    assignRole,
+    restoreRoles,
     pttDown,
     pttUp,
     setSettings,

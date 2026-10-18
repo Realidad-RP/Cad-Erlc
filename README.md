@@ -41,10 +41,12 @@ Notas:
 - Con **➕ Crear canal** se pueden crear más canales:
   - **De tu sección**: solo entra tu departamento (ej. canales extra de bomberos).
   - **🔒 Privados**: solo entran las personas que invites (botón **＋** en el canal).
-- **Roles** (se eligen en el panel del radio; se aplican al conectar):
+- **Roles** (los asigna el propietario; se aplican al instante):
+  - 👑 **Propietario**: permisos totales. La primera vez creás tu contraseña en la caja "👑 Propietario" del panel de radio; desde **"👑 Administración de roles"** asignás el rol de cada persona conectada (estilo Discord). La contraseña se recuerda en tu PC y podés cerrar sesión cuando quieras.
   - **Miembro**: crea canales de su sección y privados.
   - **Supervisor / Administrador**: crean canales generales y de cualquier sección; pueden invitar y eliminar en cualquier canal.
   - El creador de un canal también puede invitar/eliminar el suyo.
+  - *(Opcional)* En Render podés definir la variable `OWNER_PASSWORD` para fijar la contraseña del propietario desde el servidor.
 - Los canales creados **se guardan solos**: si el servidor en la nube se reinicia y los olvida, la primera app que se conecte los restaura automáticamente.
 
 ## 🌍 Radio para todo el mundo (internet)
