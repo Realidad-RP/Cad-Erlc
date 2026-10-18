@@ -8,6 +8,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "web": "start \"\" web/index.html",
     "server": "node server/signaling.js",
     "bot": "node bot/index.js",
     "test-server": "node server/self-test.js",
