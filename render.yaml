@@ -1,8 +1,8 @@
 # Despliegue automático en Render.com (plan gratuito)
-# 1) Subí este proyecto a GitHub.
+# 1) Subí este proyecto a GitHub (ya está hecho).
 # 2) En Render: New + -> Blueprint -> elegí tu repositorio.
-# 3) Render leerá este archivo y creará el servidor de radio.
-# 4) Copiá la URL wss://... que te dé y pegala en la app (campo "Servidor").
+# 3) Render leerá este archivo y creará el servidor de radio automáticamente.
+# 4) Copiá la URL wss://... y pegala en la app (campo "Servidor").
 #
 # Para TURN (redes estrictas), completá las variables TURN_* en el panel de Render.
 

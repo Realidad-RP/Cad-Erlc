@@ -43,7 +43,7 @@ El servidor de radio **solo presenta a las personas** (señalización). La voz v
 
 1. **Subí este proyecto a GitHub** (si no tenés Git: instalalo desde <https://git-scm.com>; luego `git init`, `git add .`, `git commit -m "CAD"` y creá el repositorio en GitHub para subirlo).
 2. Entrá a <https://render.com> → **New +** → **Blueprint** → elegí tu repositorio.
-   Render leerá `server/render.yaml` automáticamente (plan **Free**).
+   Render leerá el archivo `render.yaml` (raíz del proyecto) automáticamente (plan **Free**).
    *(Alternativa manual: New + → Web Service → Root Directory: `server` → Build: `npm install` → Start: `npm start`.)*
 3. Cuando termine, copiá la dirección que te da Render, tipo `wss://cad-erlc-radio.onrender.com`.
 4. En la app: pegá esa dirección en **Servidor**, poné tu nombre y **Conectar**. Todos tus compañeros usan la misma dirección. ✅
@@ -115,6 +115,6 @@ Los archivos quedan en la carpeta **dist/** (instalador + versión **portátil**
 | `server/self-test.js` | Prueba automática del servidor |
 | `server/package.json` | Paquete independiente del servidor (para la nube) |
 | `server/Dockerfile` | Imagen Docker del servidor (para VPS) |
-| `server/render.yaml` | Despliegue automático en Render |
+| `render.yaml` | Despliegue automático en Render (raíz del proyecto) |
 
 Hecho con ❤️ para tu comunidad.
