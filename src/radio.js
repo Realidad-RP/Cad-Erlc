@@ -302,6 +302,14 @@
       case 'chat':
         emit('chat', msg);
         break;
+
+      case 'panic':
+        emit('panic', msg);
+        break;
+
+      case 'panic-clear':
+        emit('panic-clear', msg);
+        break;
     }
   }
 
@@ -546,6 +554,20 @@
     send({ type: 'chat', text });
   }
 
+  // ---------------- Botón de pánico ----------------
+  function sendPanic(note) {
+    if (!state.connected) {
+      emit('error', 'Conéctate al radio para poder pedir ayuda.');
+      return;
+    }
+    send({ type: 'panic', note: String(note || '').slice(0, 200) });
+  }
+
+  function clearPanic() {
+    if (!state.connected) return;
+    send({ type: 'panic-clear' });
+  }
+
   async function isGlobalPttCapable() {
     if (window.cadNative && window.cadNative.pttCapable) {
       try { return await window.cadNative.pttCapable(); } catch { return false; }
@@ -618,6 +640,8 @@
     setMicDevice,
     setOutputDevice,
     sendChat,
+    sendPanic,
+    clearPanic,
     isGlobalPttCapable,
     DEFAULT_CHANNELS,
   };

@@ -47,7 +47,7 @@ const CALL_STATUSES = {
 // ============================================================
 
 const STORAGE_KEY = 'cad-erlc-v1';
-let db = { seq: 1, calls: [], units: [], roster: [], bolos: [], log: [] };
+let db = { seq: 1, calls: [], units: [], roster: [], bolos: [], log: [], persons: [], vehicles: [], fines: [], warrants: [], reports: [] };
 
 function loadDb() {
   try {
@@ -55,6 +55,10 @@ function loadDb() {
     if (raw) db = Object.assign(db, JSON.parse(raw));
   } catch (err) {
     console.warn('No se pudo cargar la base local:', err);
+  }
+  // Asegurar que existan todas las listas (bases de versiones anteriores)
+  for (const k of ['calls', 'units', 'roster', 'bolos', 'log', 'persons', 'vehicles', 'fines', 'warrants', 'reports']) {
+    if (!Array.isArray(db[k])) db[k] = [];
   }
 }
 
@@ -147,6 +151,7 @@ function renderAll() {
   renderUnits();
   renderRoster();
   renderBolos();
+  renderRegistros();
   renderLog();
 }
 
@@ -429,7 +434,380 @@ $('#bolos-list').addEventListener('click', (e) => {
 });
 
 // ============================================================
-// 9. Render del historial
+// 9. Registros: personas, vehículos, multas, órdenes y reportes
+// ============================================================
+
+const REC_PREFIX = { person: 'PER', vehicle: 'VEH', fine: 'MUL', warrant: 'ORD', report: 'REP' };
+
+const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+let recTab = 'person';
+let recQuery = '';
+let recFormRendered = null;
+let recDetail = null; // { kind, id }
+
+function officerName() {
+  return ($('#radio-name').value || '').trim() || 'Oficial';
+}
+
+function recFormHtml(kind) {
+  if (kind === 'person') {
+    return `
+      <div class="field wide"><label>Nombre completo *</label><input name="name" required placeholder="Ej: Juan Pérez" /></div>
+      <div class="field"><label>Fecha de nacimiento</label><input name="dob" type="date" /></div>
+      <div class="field"><label>Nº de licencia</label><input name="license" placeholder="Ej: 4471122" /></div>
+      <div class="field"><label>Estado de licencia</label>
+        <select name="licStatus"><option>Válida</option><option>Suspendida</option><option>Revocada</option></select>
+      </div>
+      <div class="field wide"><label>Notas / antecedentes</label><input name="notes" placeholder="Ej: Antecedente por robo (2025)" /></div>
+      <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Guardar persona</button></div>`;
+  }
+  if (kind === 'vehicle') {
+    return `
+      <div class="field"><label>Placa *</label><input name="plate" required placeholder="Ej: ABC 123" /></div>
+      <div class="field wide"><label>Marca / modelo</label><input name="model" placeholder="Ej: Bravado Banshee" /></div>
+      <div class="field"><label>Color</label><input name="color" placeholder="Ej: Rojo" /></div>
+      <div class="field"><label>Dueño (opcional)</label><input name="owner" placeholder="Ej: Juan Pérez" /></div>
+      <div class="field"><label>Estado</label><select name="status"><option>Normal</option><option>Robado</option></select></div>
+      <div class="field wide"><label>Notas</label><input name="notes" placeholder="Ej: Rayón en la puerta derecha" /></div>
+      <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Guardar vehículo</button></div>`;
+  }
+  if (kind === 'fine') {
+    return `
+      <div class="field wide"><label>Persona *</label><input name="person" required placeholder="Nombre del infractor" /></div>
+      <div class="field"><label>Monto ($)</label><input name="amount" type="number" min="0" step="50" required placeholder="Ej: 500" /></div>
+      <div class="field wide"><label>Motivo *</label><input name="reason" required placeholder="Ej: Exceso de velocidad" /></div>
+      <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Emitir multa</button></div>`;
+  }
+  if (kind === 'warrant') {
+    return `
+      <div class="field wide"><label>Persona *</label><input name="person" required placeholder="Nombre del buscado" /></div>
+      <div class="field"><label>Tipo</label><select name="kind"><option>Arresto</option><option>Registro</option><option>Citación</option></select></div>
+      <div class="field wide"><label>Motivo *</label><input name="reason" required placeholder="Ej: Robo a mano armada" /></div>
+      <div class="field field-btn"><button class="btn btn-danger" type="submit">⚖️ Emitir orden</button></div>`;
+  }
+  return `
+    <div class="field wide"><label>Título *</label><input name="title" required placeholder="Ej: Arresto por resistencia" /></div>
+    <div class="field"><label>Tipo</label><select name="kind"><option>Arresto</option><option>Incidente</option><option>Tráfico</option><option>Otro</option></select></div>
+    <div class="field wide"><label>Involucrados</label><input name="involved" placeholder="Ej: Juan Pérez · Testigo: Marta Gómez" /></div>
+    <div class="field wide"><label>Narrativa *</label><textarea name="body" required rows="4" placeholder="Contá qué pasó, paso a paso…"></textarea></div>
+    <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Guardar reporte</button></div>`;
+}
+
+function createRecordFromForm() {
+  const fd = new FormData($('#rec-form'));
+  const val = (k) => String(fd.get(k) || '').trim();
+  const kind = recTab;
+  const rec = { id: nextId(REC_PREFIX[kind]), ts: Date.now() };
+
+  if (kind === 'person') {
+    Object.assign(rec, { name: val('name'), dob: val('dob'), license: val('license'), licStatus: val('licStatus') || 'Válida', notes: val('notes') });
+    db.persons.unshift(rec);
+    addLog('📇 Persona registrada: ' + rec.name + (rec.license ? ' (lic. ' + rec.license + ')' : ''));
+  } else if (kind === 'vehicle') {
+    Object.assign(rec, { plate: val('plate').toUpperCase(), model: val('model'), color: val('color'), owner: val('owner'), status: val('status') || 'Normal', notes: val('notes') });
+    db.vehicles.unshift(rec);
+    addLog('🚗 Vehículo registrado: ' + rec.plate + (rec.model ? ' · ' + rec.model : '') + (rec.status === 'Robado' ? ' ⚠️ ROBADO' : ''));
+  } else if (kind === 'fine') {
+    Object.assign(rec, { person: val('person'), amount: Math.max(0, parseInt(fd.get('amount'), 10) || 0), reason: val('reason'), officer: officerName(), status: 'pendiente' });
+    db.fines.unshift(rec);
+    addLog('🧾 Multa de $' + rec.amount + ' a ' + rec.person + ' — ' + rec.reason);
+  } else if (kind === 'warrant') {
+    Object.assign(rec, { person: val('person'), wkind: val('kind') || 'Arresto', reason: val('reason'), officer: officerName(), status: 'activa' });
+    db.warrants.unshift(rec);
+    addLog('⚖️ Orden de ' + rec.wkind.toLowerCase() + ' contra ' + rec.person + ' — ' + rec.reason);
+  } else {
+    Object.assign(rec, { title: val('title'), rkind: val('kind') || 'Incidente', involved: val('involved'), body: val('body'), officer: officerName() });
+    db.reports.unshift(rec);
+    addLog('📝 Reporte: ' + rec.title);
+  }
+
+  saveDb();
+  $('#rec-form').reset();
+  flash('✅ Guardado: ' + (rec.name || rec.plate || rec.title || rec.person || 'registro'));
+  renderAll();
+}
+
+function renderRecSearch() {
+  const box = $('#rec-results');
+  if (!box) return;
+  const q = recQuery.trim().toLowerCase();
+  if (!q) { box.innerHTML = ''; return; }
+  const persons = db.persons.filter((p) =>
+    String(p.name || '').toLowerCase().includes(q) || String(p.license || '').toLowerCase().includes(q)).slice(0, 6);
+  const vehicles = db.vehicles.filter((v) =>
+    String(v.plate || '').toLowerCase().includes(q) || String(v.model || '').toLowerCase().includes(q)
+    || String(v.owner || '').toLowerCase().includes(q)).slice(0, 6);
+  if (!persons.length && !vehicles.length) {
+    box.innerHTML = '<div class="muted small">Sin resultados para "' + esc(recQuery) + '".</div>';
+    return;
+  }
+  const cards = [];
+  for (const p of persons) {
+    const fines = db.fines.filter((f) => sameName(f.person, p.name)).length;
+    const ords = db.warrants.filter((w) => w.status === 'activa' && sameName(w.person, p.name)).length;
+    cards.push(`<button class="rec-card" type="button" data-open="${esc(p.id)}" data-open-kind="person">
+      <span class="rec-card-title">👤 ${esc(p.name)}</span>
+      <span class="rec-card-meta">${p.license ? 'Lic. ' + esc(p.license) + ' · ' : ''}${esc(p.licStatus || 'Válida')}${fines ? ' · 🧾 ' + fines + ' multa(s)' : ''}${ords ? ' · ⚖️ ' + ords + ' orden(es) ACTIVA(S)' : ''}</span>
+    </button>`);
+  }
+  for (const v of vehicles) {
+    cards.push(`<button class="rec-card" type="button" data-open="${esc(v.id)}" data-open-kind="vehicle">
+      <span class="rec-card-title">🚗 ${esc(v.plate)} ${v.status === 'Robado' ? '⚠️ ROBADO' : ''}</span>
+      <span class="rec-card-meta">${esc([v.model, v.color].filter(Boolean).join(' · ') || 'Sin datos')}${v.owner ? ' · Dueño: ' + esc(v.owner) : ''}</span>
+    </button>`);
+  }
+  box.innerHTML = cards.join('');
+}
+
+function recSection(title, lines) {
+  if (!lines.length) return '';
+  return `<div class="rec-section"><h3>${title}</h3>${lines.map((l) => '<div class="rec-line">' + l + '</div>').join('')}</div>`;
+}
+
+function renderRecDetail() {
+  const box = $('#rec-detail');
+  if (!box) return;
+  if (!recDetail) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  const { kind, id } = recDetail;
+  let html = '';
+  const closeBtn = '<button class="btn btn-small" type="button" data-action="detail-close">✖ Cerrar ficha</button>';
+  const delBtn = (k) => `<button class="btn btn-small btn-danger" type="button" data-action="rec-delete" data-id="${esc(id)}">🗑 Eliminar</button>`;
+
+  if (kind === 'person') {
+    const p = db.persons.find((x) => x.id === id);
+    if (!p) { recDetail = null; return renderRecDetail(); }
+    const vehicles = db.vehicles.filter((v) => sameName(v.owner, p.name));
+    const fines = db.fines.filter((f) => sameName(f.person, p.name));
+    const warrants = db.warrants.filter((w) => sameName(w.person, p.name));
+    const reports = db.reports.filter((r) => String(r.involved || '').toLowerCase().includes(String(p.name).toLowerCase()) || sameName(r.officer, p.name));
+    html = `
+      <div class="panel-head"><h2>👤 ${esc(p.name)}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
+      <div class="rec-facts">
+        <span><b>Nº de licencia:</b> ${esc(p.license || '—')}</span>
+        <span><b>Estado:</b> <select class="rec-inline-select" data-action="lic-change" data-id="${esc(p.id)}">
+          ${['Válida', 'Suspendida', 'Revocada'].map((s) => `<option${s === (p.licStatus || 'Válida') ? ' selected' : ''}>${s}</option>`).join('')}
+        </select></span>
+        <span><b>Nacimiento:</b> ${esc(p.dob || '—')}</span>
+        <span><b>Registrada:</b> ${fmtTime(p.ts)}</span>
+      </div>
+      ${p.notes ? '<div class="muted small">📝 ' + esc(p.notes) + '</div>' : ''}
+      ${recSection('🚗 Vehículos a su nombre', vehicles.map((v) => esc(v.plate) + (v.model ? ' · ' + esc(v.model) : '') + (v.status === 'Robado' ? ' <b style="color:#ef4444">⚠️ ROBADO</b>' : '')))}
+      ${recSection('🧾 Multas', fines.map((f) => `$${f.amount} · ${esc(f.reason)} · <em>${esc(f.status)}</em>`))}
+      ${recSection('⚖️ Órdenes', warrants.map((w) => `${esc(w.wkind)}: ${esc(w.reason)} · <em>${esc(w.status)}</em>`))}
+      ${recSection('📝 Reportes', reports.map((r) => esc(r.title)))}`;
+  } else if (kind === 'vehicle') {
+    const v = db.vehicles.find((x) => x.id === id);
+    if (!v) { recDetail = null; return renderRecDetail(); }
+    const owner = db.persons.find((p) => sameName(p.name, v.owner));
+    html = `
+      <div class="panel-head"><h2>🚗 ${esc(v.plate)} ${v.status === 'Robado' ? '⚠️ ROBADO' : ''}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
+      <div class="rec-facts">
+        <span><b>Marca/modelo:</b> ${esc(v.model || '—')}</span>
+        <span><b>Color:</b> ${esc(v.color || '—')}</span>
+        <span><b>Dueño:</b> ${v.owner ? esc(v.owner) + (owner ? ' <em>(en registros)</em>' : ' <em>(sin ficha)</em>') : '—'}</span>
+        <span><b>Registrado:</b> ${fmtTime(v.ts)}</span>
+      </div>
+      ${v.notes ? '<div class="muted small">📝 ' + esc(v.notes) + '</div>' : ''}
+      <div class="rec-actions"><button class="btn btn-small ${v.status === 'Robado' ? 'btn-ok' : 'btn-danger'}" type="button" data-action="vehicle-stolen" data-id="${esc(v.id)}">
+        ${v.status === 'Robado' ? '✔ Marcar como normal' : '⚠️ Marcar como ROBADO'}
+      </button></div>`;
+  } else if (kind === 'fine') {
+    const f = db.fines.find((x) => x.id === id);
+    if (!f) { recDetail = null; return renderRecDetail(); }
+    html = `
+      <div class="panel-head"><h2>🧾 Multa #${esc(f.id)}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
+      <div class="rec-facts">
+        <span><b>Persona:</b> ${esc(f.person)}</span>
+        <span><b>Monto:</b> $${f.amount}</span>
+        <span><b>Estado:</b> ${esc(f.status)}</span>
+        <span><b>Emitida:</b> ${fmtTime(f.ts)} por ${esc(f.officer || '—')}</span>
+      </div>
+      <div class="muted small">📝 ${esc(f.reason)}</div>
+      <div class="rec-actions"><button class="btn btn-small ${f.status === 'pagada' ? '' : 'btn-ok'}" type="button" data-action="fine-toggle" data-id="${esc(f.id)}">
+        ${f.status === 'pagada' ? '↩️ Marcar como pendiente' : '✅ Marcar como PAGADA'}
+      </button></div>`;
+  } else if (kind === 'warrant') {
+    const w = db.warrants.find((x) => x.id === id);
+    if (!w) { recDetail = null; return renderRecDetail(); }
+    html = `
+      <div class="panel-head"><h2>⚖️ Orden #${esc(w.id)}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
+      <div class="rec-facts">
+        <span><b>Persona:</b> ${esc(w.person)}</span>
+        <span><b>Tipo:</b> ${esc(w.wkind)}</span>
+        <span><b>Estado:</b> ${esc(w.status)}</span>
+        <span><b>Emitida:</b> ${fmtTime(w.ts)} por ${esc(w.officer || '—')}</span>
+      </div>
+      <div class="muted small">📝 ${esc(w.reason)}</div>
+      <div class="rec-actions"><button class="btn btn-small ${w.status === 'cumplida' ? '' : 'btn-ok'}" type="button" data-action="warrant-toggle" data-id="${esc(w.id)}">
+        ${w.status === 'cumplida' ? '↩️ Reactivar orden' : '✅ Marcar como CUMPLIDA'}
+      </button></div>`;
+  } else if (kind === 'report') {
+    const r = db.reports.find((x) => x.id === id);
+    if (!r) { recDetail = null; return renderRecDetail(); }
+    html = `
+      <div class="panel-head"><h2>📝 ${esc(r.title)}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
+      <div class="rec-facts">
+        <span><b>Tipo:</b> ${esc(r.rkind)}</span>
+        <span><b>Involucrados:</b> ${esc(r.involved || '—')}</span>
+        <span><b>Fecha:</b> ${fmtTime(r.ts)} por ${esc(r.officer || '—')}</span>
+      </div>
+      <div class="rec-narrative">${esc(r.body).replace(/\n/g, '<br>')}</div>`;
+  }
+  box.innerHTML = html;
+  box.classList.remove('hidden');
+}
+
+function renderRecLists() {
+  const grid = $('#rec-lists');
+  if (!grid) return;
+
+  const personItems = db.persons.slice(0, 6).map((p) => `
+    <div class="rec-item" data-open="${esc(p.id)}" data-open-kind="person">
+      <div>👤 ${esc(p.name)}</div>
+      <div class="rec-item-row"><span class="tag">${esc(p.licStatus || 'Válida')}</span>${p.license ? '<span class="tag">Lic. ' + esc(p.license) + '</span>' : ''}</div>
+    </div>`).join('');
+
+  const vehicleItems = db.vehicles.slice(0, 6).map((v) => `
+    <div class="rec-item" data-open="${esc(v.id)}" data-open-kind="vehicle">
+      <div>🚗 ${esc(v.plate)}</div>
+      <div class="rec-item-row">
+        <span class="tag ${v.status === 'Robado' ? 'tag-bad' : 'tag-ok'}">${esc(v.status)}</span>
+        <button class="btn btn-small" type="button" data-action="vehicle-stolen" data-id="${esc(v.id)}">${v.status === 'Robado' ? '✔' : '⚠️'}</button>
+      </div>
+    </div>`).join('');
+
+  const fineItems = db.fines.slice(0, 6).map((f) => `
+    <div class="rec-item" data-open="${esc(f.id)}" data-open-kind="fine">
+      <div>${esc(f.person)} · $${f.amount}</div>
+      <div class="rec-item-row">
+        <span class="tag ${f.status === 'pagada' ? 'tag-ok' : 'tag-warn'}">${esc(f.status)}</span>
+        <button class="btn btn-small" type="button" data-action="fine-toggle" data-id="${esc(f.id)}">${f.status === 'pagada' ? '↩️' : '✅'}</button>
+      </div>
+    </div>`).join('');
+
+  const warrantItems = db.warrants.slice(0, 6).map((w) => `
+    <div class="rec-item" data-open="${esc(w.id)}" data-open-kind="warrant">
+      <div>${esc(w.person)}</div>
+      <div class="rec-item-row">
+        <span class="tag ${w.status === 'activa' ? 'tag-bad' : 'tag-ok'}">${esc(w.wkind)} · ${esc(w.status)}</span>
+        <button class="btn btn-small" type="button" data-action="warrant-toggle" data-id="${esc(w.id)}">${w.status === 'cumplida' ? '↩️' : '✅'}</button>
+      </div>
+    </div>`).join('');
+
+  const reportItems = db.reports.slice(0, 6).map((r) => `
+    <div class="rec-item" data-open="${esc(r.id)}" data-open-kind="report">
+      <div>📝 ${esc(r.title)}</div>
+      <div class="rec-item-row"><span class="tag">${esc(r.rkind)}</span><span class="tag">${fmtTime(r.ts)}</span></div>
+    </div>`).join('');
+
+  const col = (title, items, empty) =>
+    `<div class="rec-col"><h3>${title}</h3>${items || '<div class="muted small">' + empty + '</div>'}</div>`;
+
+  grid.innerHTML =
+    col('👤 Personas', personItems, 'Sin personas') +
+    col('🚗 Vehículos', vehicleItems, 'Sin vehículos') +
+    col('🧾 Multas', fineItems, 'Sin multas') +
+    col('⚖️ Órdenes', warrantItems, 'Sin órdenes') +
+    col('📝 Reportes', reportItems, 'Sin reportes');
+}
+
+function renderRegistros() {
+  document.querySelectorAll('.rec-new-tab').forEach((b) => b.classList.toggle('active', b.dataset.rec === recTab));
+  if (recFormRendered !== recTab) {
+    const form = $('#rec-form');
+    if (form) form.innerHTML = recFormHtml(recTab);
+    recFormRendered = recTab;
+  }
+  renderRecSearch();
+  renderRecLists();
+  renderRecDetail();
+}
+
+function handleRecAction(action, id) {
+  if (action === 'detail-close') { recDetail = null; renderRecDetail(); return; }
+  if (action === 'fine-toggle') {
+    const f = db.fines.find((x) => x.id === id);
+    if (!f) return;
+    f.status = f.status === 'pagada' ? 'pendiente' : 'pagada';
+    addLog('🧾 Multa de $' + f.amount + ' a ' + f.person + ' → ' + f.status);
+    flash('Multa: ' + f.status);
+  } else if (action === 'warrant-toggle') {
+    const w = db.warrants.find((x) => x.id === id);
+    if (!w) return;
+    w.status = w.status === 'cumplida' ? 'activa' : 'cumplida';
+    addLog('⚖️ Orden contra ' + w.person + ' → ' + w.status);
+    flash('Orden: ' + w.status);
+  } else if (action === 'vehicle-stolen') {
+    const v = db.vehicles.find((x) => x.id === id);
+    if (!v) return;
+    v.status = v.status === 'Robado' ? 'Normal' : 'Robado';
+    addLog('🚗 Vehículo ' + v.plate + ' → ' + (v.status === 'Robado' ? '⚠️ ROBADO' : 'normal'));
+    flash(v.plate + ': ' + v.status);
+  } else if (action === 'rec-delete') {
+    const arr = recDetail ? { person: db.persons, vehicle: db.vehicles, fine: db.fines, warrant: db.warrants, report: db.reports }[recDetail.kind] : null;
+    const i = arr ? arr.findIndex((x) => x.id === id) : -1;
+    if (i >= 0) {
+      arr.splice(i, 1);
+      addLog('🗑 Registro eliminado (' + id + ')');
+      flash('Registro eliminado');
+      recDetail = null;
+    }
+  }
+  saveDb();
+  renderAll();
+}
+
+function wireRegistros() {
+  document.querySelectorAll('.rec-new-tab').forEach((btn) => {
+    btn.addEventListener('click', () => { recTab = btn.dataset.rec; renderRegistros(); });
+  });
+
+  $('#rec-search').addEventListener('input', () => {
+    recQuery = $('#rec-search').value;
+    renderRecSearch();
+  });
+
+  $('#rec-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    createRecordFromForm();
+  });
+
+  $('#rec-results').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-open]');
+    if (!el) return;
+    recDetail = { kind: el.dataset.openKind, id: el.dataset.open };
+    renderRecDetail();
+  });
+
+  $('#rec-lists').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-action]');
+    if (act) { handleRecAction(act.dataset.action, act.dataset.id); return; }
+    const el = e.target.closest('[data-open]');
+    if (el) { recDetail = { kind: el.dataset.openKind, id: el.dataset.open }; renderRecDetail(); }
+  });
+
+  $('#rec-detail').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-action]');
+    if (act && act.tagName !== 'SELECT') handleRecAction(act.dataset.action, act.dataset.id);
+  });
+
+  $('#rec-detail').addEventListener('change', (e) => {
+    const sel = e.target.closest('select[data-action="lic-change"]');
+    if (!sel) return;
+    const p = db.persons.find((x) => x.id === sel.dataset.id);
+    if (p) {
+      p.licStatus = sel.value;
+      addLog('🪪 Licencia de ' + p.name + ' → ' + sel.value);
+      saveDb();
+      renderRecLists();
+      flash(p.name + ': licencia ' + sel.value);
+    }
+  });
+}
+
+// ============================================================
+// 10. Render del historial
 // ============================================================
 
 function renderLog() {
@@ -444,7 +822,7 @@ function renderLog() {
 }
 
 // ============================================================
-// 10. Formularios
+// 11. Formularios
 // ============================================================
 
 function populateSelects() {
@@ -558,7 +936,7 @@ function wireForms() {
 }
 
 // ============================================================
-// 11. Pestañas y reloj
+// 12. Pestañas y reloj
 // ============================================================
 
 function wireTabs() {
@@ -586,7 +964,7 @@ function startClock() {
 }
 
 // ============================================================
-// 12. Radio: interfaz
+// 13. Radio: interfaz
 // ============================================================
 
 const RADIO_PREFS_KEY = 'cad-erlc-radio-prefs';
@@ -906,6 +1284,14 @@ function onRadioEvent(event, payload) {
       appendRadioChat(payload);
       break;
 
+    case 'panic':
+      showPanicAlert(payload);
+      break;
+
+    case 'panic-clear':
+      hidePanicAlert(payload);
+      break;
+
     case 'ptt':
       setPttIndicator(payload);
       renderMembers(membersWithSelf());
@@ -1084,7 +1470,7 @@ function wireRadio() {
 }
 
 // ============================================================
-// 13. Push-to-talk (tecla global o modo local)
+// 14. Push-to-talk (tecla global o modo local)
 // ============================================================
 
 function isTypingTarget(t) {
@@ -1155,7 +1541,7 @@ async function setupPtt() {
 }
 
 // ============================================================
-// 14. Alojar el servidor de radio en esta PC
+// 15. Alojar el servidor de radio en esta PC
 // ============================================================
 
 let hostActive = false;
@@ -1213,7 +1599,7 @@ function wireHosting() {
 }
 
 // ============================================================
-// 15. Enlace con el bot de Discord (CAD → bot → Discord)
+// 16. Enlace con el bot de Discord (CAD → bot → Discord)
 // ============================================================
 // El CAD envía su estado (llamadas, unidades, BOLOs) al bot cada vez que
 // algo cambia; el bot decide qué anunciar en Discord. Ver bot/README.md.
@@ -1299,7 +1685,7 @@ function wireLink() {
 }
 
 // ============================================================
-// 16. Pestaña 🎧 Audio: dispositivos, prueba de micrófono y tecla PTT
+// 17. Pestaña 🎧 Audio: dispositivos, prueba de micrófono y tecla PTT
 // ============================================================
 
 const audioPrefs = { micDevice: '', outputDevice: '' };
@@ -1468,7 +1854,113 @@ function wireAudioTab() {
 }
 
 // ============================================================
-// 17. Arranque
+// 18. Botón de pánico 🆘
+// ============================================================
+
+let panicCtx = null;
+let panicTimer = null;
+
+function panicSoundStart() {
+  panicSoundStop();
+  try {
+    panicCtx = new AudioContext();
+    const ctx = panicCtx;
+    let high = false;
+    const beep = () => {
+      if (!panicCtx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = high ? 950 : 680;
+      high = !high;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.16, ctx.currentTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.44);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    };
+    beep();
+    panicTimer = setInterval(beep, 520);
+  } catch {}
+}
+
+function panicSoundStop() {
+  if (panicTimer) { clearInterval(panicTimer); panicTimer = null; }
+  if (panicCtx) { try { panicCtx.close(); } catch {} panicCtx = null; }
+}
+
+function createPanicCall(p) {
+  const already = db.calls.find((c) => c.panicFor === p.name && c.status !== 'cerrada' && Date.now() - c.createdAt < 60000);
+  if (already) return;
+  db.calls.unshift({
+    id: nextId('call'),
+    type: 'POLICE',
+    priority: 'Crítica',
+    location: p.note || 'Ubicación desconocida',
+    description: '🆘 PÁNICO: ' + p.name + ' (' + deptInfo(p.department).short + ') pide ayuda',
+    caller: p.name,
+    status: 'pendiente',
+    units: [],
+    createdAt: Date.now(),
+    panicFor: p.name,
+  });
+  saveDb();
+  renderCalls();
+}
+
+function showPanicAlert(p) {
+  const overlay = $('#panic-overlay');
+  if (!overlay) return;
+  const self = String(p.name || '').trim() === ($('#radio-name').value || '').trim();
+  const d = deptInfo(p.department);
+  $('#panic-title').textContent = self ? '🆘 TU ALERTA FUE ENVIADA' : '🆘 ' + p.name + ' PIDE AYUDA';
+  $('#panic-body').innerHTML =
+    deptBadgeHtml(p.department) + ' ' +
+    (p.note ? '📍 ' + esc(p.note) : '📍 Ubicación desconocida') +
+    (self
+      ? '<div class="muted small">Tus compañeros ya recibieron la alerta. Cuando estés a salvo, tocá "✅ TODO CONTROLADO".</div>'
+      : '<div class="muted small">Se creó la llamada en Despacho automáticamente. 📟</div>');
+  $('#panic-when').textContent = '⏰ ' + new Date(p.ts || Date.now()).toLocaleTimeString('es-ES');
+  $('#panic-clear').classList.toggle('hidden', !self);
+  overlay.classList.remove('hidden');
+  panicSoundStart();
+  createPanicCall(p);
+  addLog('🆘 ' + p.name + ' (' + d.short + ') ¡PIDIÓ AYUDA!' + (p.note ? ' — ' + p.note : ''));
+  renderLog();
+  flash('🚨 ALERTA: ' + p.name);
+}
+
+function hidePanicAlert(p) {
+  const overlay = $('#panic-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  panicSoundStop();
+  addLog('✅ ' + ((p && p.name) || 'La unidad') + ' dio el TODO CONTROLADO.');
+  renderLog();
+  flash('✅ Todo controlado — ' + ((p && p.name) || ''));
+}
+
+function wirePanic() {
+  $('#panic-btn').addEventListener('click', () => {
+    if (!Radio.state.connected) {
+      showRadioError('Conéctate al radio primero para poder pedir ayuda.');
+      return;
+    }
+    const note = ($('#panic-where').value || '').trim();
+    Radio.sendPanic(note);
+    $('#panic-where').value = '';
+    flash('🆘 Enviando alerta a todo el CAD…');
+  });
+  $('#panic-ack').addEventListener('click', () => {
+    $('#panic-overlay').classList.add('hidden');
+    panicSoundStop();
+  });
+  $('#panic-clear').addEventListener('click', () => Radio.clearPanic());
+}
+
+// ============================================================
+// 19. Arranque
 // ============================================================
 
 function init() {
@@ -1483,6 +1975,8 @@ function init() {
   Radio.setSettings({ pttKey: $('#ptt-key').value, pttMode: $('#ptt-mode').value });
   wireRadio();
   wireAudioTab();
+  wireRegistros();
+  wirePanic();
   wireHosting();
   setupPtt();
   populateAudioDevices();

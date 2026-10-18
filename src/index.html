@@ -128,6 +128,15 @@
     </section>
 
     <section class="panel">
+      <h2>🚨 Emergencia</h2>
+      <div class="field"><label>Dónde estás (opcional)</label>
+        <input id="panic-where" placeholder="Ej: Ruta 7, frente a la gasolinera" />
+      </div>
+      <button id="panic-btn" class="btn btn-danger full panic-btn" type="button">🆘 PEDIR AYUDA (PÁNICO)</button>
+      <div class="muted small">Avisa a TODO el CAD al instante, con alerta roja y sirena.</div>
+    </section>
+
+    <section class="panel">
       <h2>🔗 Enlace con el bot (Discord)</h2>
       <div class="field">
         <label>Dirección del bot</label>
@@ -158,6 +167,7 @@
       <button class="tab" data-tab="unidades">🚓 Unidades</button>
       <button class="tab" data-tab="roster">👥 Roster</button>
       <button class="tab" data-tab="bolos">🔎 BOLOs</button>
+      <button class="tab" data-tab="registros">📇 Registros</button>
       <button class="tab" data-tab="historial">📜 Historial</button>
       <button class="tab" data-tab="audio">🎧 Audio</button>
     </nav>
@@ -241,6 +251,37 @@
       <div id="bolos-list" class="cards"></div>
     </section>
 
+    <!-- Registros -->
+    <section id="tab-registros" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>🔎 Buscador de registros</h2>
+          <span class="muted small">Escribí un nombre, licencia o placa</span>
+        </div>
+        <input id="rec-search" placeholder="Ej: Juan Pérez · ABC 123 · Lic. 4471122" autocomplete="off" />
+        <div id="rec-results" class="rec-results"></div>
+      </div>
+
+      <div id="rec-detail" class="panel hidden"></div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>➕ Nuevo registro</h2></div>
+        <div class="rec-tabs">
+          <button class="btn btn-small rec-new-tab active" data-rec="person" type="button">👤 Persona</button>
+          <button class="btn btn-small rec-new-tab" data-rec="vehicle" type="button">🚗 Vehículo</button>
+          <button class="btn btn-small rec-new-tab" data-rec="fine" type="button">🧾 Multa</button>
+          <button class="btn btn-small rec-new-tab" data-rec="warrant" type="button">⚖️ Orden</button>
+          <button class="btn btn-small rec-new-tab" data-rec="report" type="button">📝 Reporte</button>
+        </div>
+        <form id="rec-form" class="form-grid"></form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Últimos registros</h2></div>
+        <div id="rec-lists" class="rec-grid"></div>
+      </div>
+    </section>
+
     <!-- Historial -->
     <section id="tab-historial" class="tab-content">
       <div class="panel">
@@ -310,6 +351,19 @@
 
 <div id="toast" class="toast"></div>
 <div id="audio-container" hidden></div>
+
+<!-- Alerta de pánico a pantalla completa -->
+<div id="panic-overlay" class="panic-overlay hidden">
+  <div class="panic-card">
+    <div class="panic-title" id="panic-title">🆘 ALERTA</div>
+    <div class="panic-body" id="panic-body"></div>
+    <div class="muted small" id="panic-when"></div>
+    <div class="panic-actions">
+      <button id="panic-ack" class="btn" type="button">✔ ENTENDIDO (cerrar)</button>
+      <button id="panic-clear" class="btn btn-primary hidden" type="button">✅ TODO CONTROLADO</button>
+    </div>
+  </div>
+</div>
 
 <script src="radio.js"></script>
 <script src="app.js"></script>

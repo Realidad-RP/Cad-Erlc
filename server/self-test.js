@@ -105,6 +105,27 @@ const { createRadioServer } = require('./radio-server');
   await wait(200);
   const expulsadoAlBorrar = ana.messages.some((m) => m.type === 'kicked');
 
+  // 9) Botón de pánico: Ana pide ayuda y la alerta llega a todos
+  ana.ws.send(JSON.stringify({ type: 'panic', note: 'Ruta 7 frente a la gasolinera' }));
+  await wait(200);
+  const panicoLlega = ana.messages.some((m) => m.type === 'panic' && m.name === 'Ana' && /Ruta 7/.test(m.note || ''))
+    && beto.messages.some((m) => m.type === 'panic' && m.name === 'Ana');
+
+  // 10) Quien se conecta DESPUÉS también ve la alerta activa
+  const carla = await mk('Carla', 'CHP');
+  await wait(200);
+  const panicoParaNuevos = carla.messages.some((m) => m.type === 'panic' && m.name === 'Ana');
+  carla.ws.close();
+
+  // 11) Quien no activó la alerta no puede cancelarla; quien la activó sí
+  beto.ws.send(JSON.stringify({ type: 'panic-clear' }));
+  await wait(200);
+  const miembroNoCancela = !ana.messages.some((m) => m.type === 'panic-clear');
+  ana.ws.send(JSON.stringify({ type: 'panic-clear' }));
+  await wait(200);
+  const panicoCancelado = ana.messages.some((m) => m.type === 'panic-clear')
+    && beto.messages.some((m) => m.type === 'panic-clear');
+
   const anaWelcome = ana.messages.find((m) => m.type === 'welcome');
   const anaJoined = ana.messages.find((m) => m.type === 'joined');
   const rosterOk = ana.messages.some((m) => m.type === 'roster' && m.members && m.members.length === 2);
@@ -132,13 +153,17 @@ const { createRadioServer } = require('./radio-server');
     privadoCreado,
     privadoEntrada,
     expulsadoAlBorrar,
+    panicoLlega,
+    panicoParaNuevos,
+    miembroNoCancela,
+    panicoCancelado,
   };
 
   console.log('Comprobaciones:', checks);
 
   const ok = Object.values(checks).every(Boolean);
   console.log(ok
-    ? '✅ PRUEBA OK: roles, propietario, permisos, canales por departamento y privados funcionan.'
+    ? '✅ PRUEBA OK: roles, propietario, permisos, canales y botón de pánico funcionan.'
     : '❌ PRUEBA FALLIDA');
 
   server.close();

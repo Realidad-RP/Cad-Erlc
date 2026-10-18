@@ -146,6 +146,7 @@ function createRadioServer(port = 8787, maxTries = 10) {
 function buildServer(wss, httpServer, port, iceServers) {
   let nextId = 1;
   const clients = new Map(); // id -> { id, ws, name, department, role, channel, talking }
+  let activePanic = null; // última alerta 🆘 sin "todo controlado" (para quien se conecte después)
 
   // ---------------- Estado de los canales ----------------
   let channelDefs = DEFAULT_CHANNEL_DEFS.map((d) => ({ ...d, members: [] }));
@@ -332,6 +333,7 @@ function buildServer(wss, httpServer, port, iceServers) {
             iceServers,
           });
           if (client.isOwner) sendOwnerStatus(client);
+          if (activePanic) send(ws, { type: 'panic', ...activePanic });
           broadcastUserlist();
           break;
         }
@@ -602,6 +604,33 @@ function buildServer(wss, httpServer, port, iceServers) {
               ts: Date.now(),
             });
           }
+          break;
+        }
+
+        // ---------------- Botón de pánico ----------------
+        case 'panic': {
+          const now = Date.now();
+          if (client.lastPanicAt && now - client.lastPanicAt < 15000) break; // anti-spam
+          client.lastPanicAt = now;
+          activePanic = {
+            from: client.id,
+            name: client.name,
+            department: client.department,
+            note: String(msg.note || '').slice(0, 200),
+            ts: now,
+          };
+          for (const c of clients.values()) send(c.ws, { type: 'panic', ...activePanic });
+          console.log(`[Radio] 🆘 PÁNICO de ${client.name} (${client.department})${activePanic.note ? ' — ' + activePanic.note : ''}`);
+          break;
+        }
+
+        case 'panic-clear': {
+          if (!activePanic) break;
+          // Solo quien la activó (o un administrador) puede dar el "todo controlado"
+          if (client.id !== activePanic.from && !isAdmin(client)) break;
+          activePanic = null;
+          for (const c of clients.values()) send(c.ws, { type: 'panic-clear', name: client.name, ts: Date.now() });
+          console.log(`[Radio] ✅ Pánico controlado por ${client.name}`);
           break;
         }
       }
