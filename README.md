@@ -9,15 +9,16 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 👥 **Roster** de personal con rango y departamento.
 - 🔎 **BOLOs** de personas y vehículos.
 - 📇 **Registros**: fichas de personas y vehículos con buscador (por nombre, DNI, licencia o placa), multas, órdenes y reportes.
-- 🆘 **Botón de pánico**: pedís ayuda con un clic y le salta una alerta roja con sirena a todo el CAD al instante (crea la llamada en Despacho sola).
+- 🆘 **Botón de pánico**: pedís ayuda con un clic **o con una tecla global (F8, funciona con la ventana minimizada o jugando)** y le salta una alerta roja con sirena a todo el CAD al instante (crea la llamada en Despacho sola).
 - 📞 **Central 911 civil**: una página web para que los civiles llamen al 911 y la llamada caiga solita en Despacho (con tipo, nombre y ubicación).
 - 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
 - 📜 **Historial** automático de todo lo que pasa.
-- 📻 **Radio de voz** estilo TeamSpeak: canales por sección, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
+- 📻 **Radio de voz** estilo TeamSpeak: canales organizados en **secciones plegables estilo categorías de Discord**, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
 - 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
 - 🤖 **Bot de Discord**: enlaza el CAD con tu Discord (llamadas, unidades, BOLOs, estado del juego en vivo, comandos dentro del juego y **búsqueda de personas por DNI** con `/dni`).
+- 🔐 **Acceso con contraseña**: al abrir la app se pide la contraseña **LAAY** (se cambia en una línea de `src/app.js`) y entrás directo al **MDT general**.
 
 ## ▶️ Cómo ejecutarla
 
@@ -44,6 +45,7 @@ Notas:
 ## 📡 Canales, secciones y roles
 
 - Cada sección tiene su **canal exclusivo**: **LCPD**, **CHP** (Highway Patrol), **LCFD** (Bomberos/EMS), **DOT** y **Central 9-1-1**. Solo entra quien pertenece a esa sección.
+- Los canales se agrupan en **secciones plegables, igual que las categorías de Discord**: tocá el nombre de la sección para plegarla o mostrarla. Al crear un canal elegís su sección (General, Departamentos, Operaciones, Privados, Comando… o la que quieras).
 - Con **➕ Crear canal** se pueden crear más canales:
   - **De tu sección**: solo entra tu departamento (ej. canales extra de bomberos).
   - **🔒 Privados**: solo entran las personas que invites (botón **＋** en el canal).
@@ -83,7 +85,9 @@ En la pestaña **📇 Registros** está el "archivo" del CAD, estilo Sonoran:
 En la barra lateral, panel **🚨 Emergencia**:
 
 1. (Opcional, pero muy recomendado) Escribí **dónde estás**: ayuda muchísimo a los que van a ayudarte.
-2. Tocá **🆘 PEDIR AYUDA (PÁNICO)**.
+2. Tocá **🆘 PEDIR AYUDA (PÁNICO)** — o presioná la **tecla de pánico**.
+
+La **tecla de pánico** (por defecto **F8**, se cambia en el mismo panel) funciona **aunque tengas el CAD minimizado o estés jugando ER:LC a pantalla completa**: el ícono del CAD destella en la barra de tareas para confirmarte que la alerta salió.
 
 A **todos** los conectados al radio les salta al instante una **alerta roja a pantalla completa con sirena** con tu nombre, tu departamento y tu ubicación, **y se crea la llamada en Despacho automáticamente** 📟. Cuando estés a salvo, tocá **✅ TODO CONTROLADO** para avisar que ya pasó (solo vos —o un administrador— pueden cancelarla). Si alguien se conecta después y la alerta sigue activa, también la ve. Hay un límite anti-spam de 15 segundos entre alertas.
 

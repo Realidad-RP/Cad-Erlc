@@ -58,6 +58,10 @@
         <div class="field"><label>Nombre del canal</label>
           <input id="channel-name" placeholder="Ej: Unidad K9 · Aéreo" maxlength="32" />
         </div>
+        <div class="field"><label>Sección (categoría, estilo Discord)</label>
+          <input id="channel-cat" list="channel-cat-list" placeholder="Ej: Departamentos · Operaciones · Privados" maxlength="24" />
+          <datalist id="channel-cat-list"></datalist>
+        </div>
         <div class="field-row">
           <div class="field"><label>Visibilidad</label>
             <select id="channel-vis">
@@ -101,6 +105,27 @@
     </section>
 
     <section class="panel">
+      <h2>🚨 Emergencia</h2>
+      <div class="field"><label>Dónde estás (opcional)</label>
+        <input id="panic-where" placeholder="Ej: Ruta 7, frente a la gasolinera" />
+      </div>
+      <button id="panic-btn" class="btn btn-danger full panic-btn" type="button">🆘 PEDIR AYUDA (PÁNICO)</button>
+      <div class="field-row">
+        <div class="field"><label>Tecla de pánico (funciona minimizado)</label>
+          <select id="panic-key">
+            <option value="F6">F6</option>
+            <option value="F7">F7</option>
+            <option value="F8" selected>F8</option>
+            <option value="F9">F9</option>
+            <option value="F10">F10</option>
+            <option value="">— Sin tecla —</option>
+          </select>
+        </div>
+      </div>
+      <div class="muted small">Avisa a TODO el CAD al instante (alerta roja y sirena). La tecla funciona aunque tengas el CAD minimizado o estés en ER:LC.</div>
+    </section>
+
+    <section class="panel">
       <h2>Push-to-talk</h2>
       <div id="ptt-indicator" class="ptt-indicator">🎙 Micrófono cerrado</div>
       <button id="ptt-button" class="ptt-button">🎙️ Mantener para hablar</button>
@@ -129,12 +154,12 @@
     </section>
 
     <section class="panel">
-      <h2>🚨 Emergencia</h2>
-      <div class="field"><label>Dónde estás (opcional)</label>
-        <input id="panic-where" placeholder="Ej: Ruta 7, frente a la gasolinera" />
+      <h2>Registro de radio</h2>
+      <div id="radio-chat" class="radio-chat"></div>
+      <div class="chat-input">
+        <input id="radio-chat-input" placeholder="Mensaje de radio…" />
+        <button id="radio-chat-send" class="btn">➤</button>
       </div>
-      <button id="panic-btn" class="btn btn-danger full panic-btn" type="button">🆘 PEDIR AYUDA (PÁNICO)</button>
-      <div class="muted small">Avisa a TODO el CAD al instante, con alerta roja y sirena.</div>
     </section>
 
     <section class="panel">
@@ -150,15 +175,6 @@
       <button id="link-save" class="btn btn-primary full">Guardar y probar</button>
       <div id="link-status" class="muted small"></div>
       <div class="muted small">En Discord, el bot también responde <b>/dni 30123456</b>: busca a esa persona en los registros del CAD.</div>
-    </section>
-
-    <section class="panel">
-      <h2>Registro de radio</h2>
-      <div id="radio-chat" class="radio-chat"></div>
-      <div class="chat-input">
-        <input id="radio-chat-input" placeholder="Mensaje de radio…" />
-        <button id="radio-chat-send" class="btn">➤</button>
-      </div>
     </section>
   </aside>
 
@@ -412,6 +428,21 @@
       <button id="panic-ack" class="btn" type="button">✔ ENTENDIDO (cerrar)</button>
       <button id="panic-clear" class="btn btn-primary hidden" type="button">✅ TODO CONTROLADO</button>
     </div>
+  </div>
+</div>
+
+<!-- Pantalla de acceso (contraseña para el MDT) -->
+<div id="login-overlay" class="login-overlay">
+  <div class="login-card">
+    <img src="assets/logo.png" alt="Escudo" class="login-logo" />
+    <div class="login-title">CAD <span>| AYUNTAMIENTO |</span> Los Angeles</div>
+    <div class="login-sub">Escribí la contraseña para entrar al MDT general</div>
+    <div class="login-row">
+      <input id="login-pass" type="password" placeholder="Contraseña" autocomplete="off" spellcheck="false" />
+      <button id="login-enter" class="btn btn-primary" type="button">Entrar</button>
+    </div>
+    <div id="login-error" class="login-error hidden">❌ Contraseña incorrecta. Probá de nuevo.</div>
+    <div class="login-hint muted small">🚓 MDT general · La Realidad RP</div>
   </div>
 </div>
 

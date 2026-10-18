@@ -19,14 +19,14 @@
 
   // Canales de ejemplo (se muestran cuando no hay conexión; el servidor envía los reales)
   const DEFAULT_CHANNELS = [
-    { name: 'Despacho Central',     department: null,       private: false },
-    { name: 'Policía (LCPD)',       department: 'LCPD',     private: false },
-    { name: 'Highway Patrol (CHP)', department: 'CHP',      private: false },
-    { name: 'Bomberos/EMS (LCFD)',  department: 'LCFD',     private: false },
-    { name: 'Transporte (DOT)',     department: 'DOT',      private: false },
-    { name: 'Central 9-1-1',        department: 'DISPATCH', private: false },
-    { name: 'Táctico 1',            department: null,       private: false },
-    { name: 'Táctico 2',            department: null,       private: false },
+    { name: 'Despacho Central',     department: null,       private: false, category: 'Central' },
+    { name: 'Policía (LCPD)',       department: 'LCPD',     private: false, category: 'Departamentos' },
+    { name: 'Highway Patrol (CHP)', department: 'CHP',      private: false, category: 'Departamentos' },
+    { name: 'Bomberos/EMS (LCFD)',  department: 'LCFD',     private: false, category: 'Departamentos' },
+    { name: 'Transporte (DOT)',     department: 'DOT',      private: false, category: 'Departamentos' },
+    { name: 'Central 9-1-1',        department: 'DISPATCH', private: false, category: 'Departamentos' },
+    { name: 'Táctico 1',            department: null,       private: false, category: 'Operaciones' },
+    { name: 'Táctico 2',            department: null,       private: false, category: 'Operaciones' },
   ];
 
   // Caché de canales: si el servidor se reinicia y olvida los canales creados,
@@ -606,9 +606,9 @@
   }
 
   // ---------------- Crear / gestionar canales ----------------
-  function createChannel({ name, department, private: isPrivate, members }) {
+  function createChannel({ name, department, private: isPrivate, members, category }) {
     if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
-    send({ type: 'channel-create', name, department: department || null, private: !!isPrivate, members: members || [] });
+    send({ type: 'channel-create', name, department: department || null, private: !!isPrivate, members: members || [], category: category || null });
   }
 
   function deleteChannel(name) {

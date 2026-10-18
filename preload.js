@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('cadNative', {
   setPttConfig: (cfg) => ipcRenderer.send('ptt-config', cfg),
   pttCapable: () => ipcRenderer.invoke('ptt-capable'),
 
+  // ---- Tecla global de pánico (funciona con la ventana minimizada) ----
+  setPanicConfig: (cfg) => ipcRenderer.send('panic-config', cfg),
+  onPanicHotkey: (cb) => ipcRenderer.on('panic-hotkey', () => cb()),
+
   // ---- Servidor de radio integrado ----
   hostStart: (port) => ipcRenderer.invoke('host-start', port),
   hostStop: () => ipcRenderer.invoke('host-stop'),

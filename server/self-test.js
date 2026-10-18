@@ -92,9 +92,11 @@ const { createRadioServer } = require('./radio-server');
   const supervisorPuedeCrear = hasChannel(ana, 'Canal Supervisores');
 
   // 7) Canal privado con invitación: Beto lo crea e invita a Ana
-  beto.ws.send(JSON.stringify({ type: 'channel-create', name: 'Prueba K9', private: true, members: ['Ana'] }));
+  beto.ws.send(JSON.stringify({ type: 'channel-create', name: 'Prueba K9', private: true, members: ['Ana'], category: 'Operaciones' }));
   await wait(200);
   const privadoCreado = hasChannel(ana, 'Prueba K9');
+  const categoriaCanal = ana.messages.some((m) => m.type === 'channels'
+    && m.channels.some((c) => c.name === 'Prueba K9' && c.category === 'Operaciones'));
 
   ana.ws.send(JSON.stringify({ type: 'join', channel: 'Prueba K9' }));
   await wait(200);
@@ -181,6 +183,7 @@ const { createRadioServer } = require('./radio-server');
     soloPropietarioAsigna: !!soloPropietarioAsigna,
     supervisorPuedeCrear,
     privadoCreado,
+    categoriaCanal,
     privadoEntrada,
     expulsadoAlBorrar,
     panicoLlega,

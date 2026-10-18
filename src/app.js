@@ -1047,28 +1047,60 @@ function canJoinChannel(ch) {
   return { ok: true };
 }
 
+// Secciones plegadas de la lista de canales (se recuerdan en tu PC)
+let catsColapsadas = new Set();
+try { catsColapsadas = new Set(JSON.parse(localStorage.getItem('cad-erlc-ch-cats') || '[]')); } catch {}
+function guardarCatsColapsadas() {
+  try { localStorage.setItem('cad-erlc-ch-cats', JSON.stringify([...catsColapsadas])); } catch {}
+}
+
+function channelRowHtml(ch, current) {
+  const name = ch.name || ch;
+  const inChannel = name === current && Radio.state.channel;
+  const count = inChannel
+    ? Radio.state.members.size + 1
+    : (ch.private && ch.memberCount ? `👥${ch.memberCount}` : '');
+  const badge = ch.department ? deptBadgeHtml(ch.department) : '';
+  const icon = ch.private ? '🔒' : '#';
+  const special = ch.private || ch.department ? ' special' : '';
+  const actions = ch.canManage
+    ? `<span class="channel-actions">
+         ${ch.private ? `<button class="ch-act" data-invite="${esc(name)}" title="Invitar personas">＋</button>` : ''}
+         <button class="ch-act" data-del="${esc(name)}" title="Eliminar canal">🗑</button>
+       </span>`
+    : '';
+  return `<div class="channel-row">
+    <button class="channel ${inChannel ? 'active' : ''}${special}" data-channel="${esc(name)}">
+      <span class="channel-icon">${icon}</span><span class="channel-name">${esc(name)}</span>${badge}<span class="channel-count">${count}</span>
+    </button>${actions}
+  </div>`;
+}
+
+// Lista de canales agrupada en secciones plegables (estilo categorías de Discord)
 function renderChannels(channels, current) {
-  $('#channel-list').innerHTML = (channels || []).map((ch) => {
-    const name = ch.name || ch;
-    const inChannel = name === current && Radio.state.channel;
-    const count = inChannel
-      ? Radio.state.members.size + 1
-      : (ch.private && ch.memberCount ? `👥${ch.memberCount}` : '');
-    const badge = ch.department ? deptBadgeHtml(ch.department) : '';
-    const icon = ch.private ? '🔒' : '#';
-    const special = ch.private || ch.department ? ' special' : '';
-    const actions = ch.canManage
-      ? `<span class="channel-actions">
-           ${ch.private ? `<button class="ch-act" data-invite="${esc(name)}" title="Invitar personas">＋</button>` : ''}
-           <button class="ch-act" data-del="${esc(name)}" title="Eliminar canal">🗑</button>
-         </span>`
-      : '';
-    return `<div class="channel-row">
-      <button class="channel ${inChannel ? 'active' : ''}${special}" data-channel="${esc(name)}">
-        <span class="channel-icon">${icon}</span><span class="channel-name">${esc(name)}</span>${badge}<span class="channel-count">${count}</span>
-      </button>${actions}
-    </div>`;
-  }).join('');
+  const box = $('#channel-list');
+  const list = channels || [];
+  if (!list.length) { box.innerHTML = '<div class="muted small">Sin canales.</div>'; return; }
+
+  const grupos = new Map();
+  for (const ch of list) {
+    const cat = String(ch.category || 'General');
+    if (!grupos.has(cat)) grupos.set(cat, []);
+    grupos.get(cat).push(ch);
+  }
+
+  let html = '';
+  for (const [cat, chs] of grupos) {
+    const colapsada = catsColapsadas.has(cat);
+    html += `<button class="ch-cat ${colapsada ? 'collapsed' : ''}" data-cat="${esc(cat)}" type="button" title="${colapsada ? 'Mostrar' : 'Ocultar'} sección ${esc(cat)}">
+      <span class="ch-cat-arrow">▾</span><span class="ch-cat-name">${esc(cat)}</span>
+      <span class="ch-cat-count">${chs.length}</span>
+    </button>`;
+    if (!colapsada) {
+      html += `<div class="ch-cat-body">${chs.map((ch) => channelRowHtml(ch, current)).join('')}</div>`;
+    }
+  }
+  box.innerHTML = html;
 }
 
 // Lista de conectados (con casillas) para invitar a canales privados
@@ -1373,6 +1405,15 @@ function wireRadio() {
   };
 
   $('#channel-list').addEventListener('click', async (e) => {
+    const catBtn = e.target.closest('.ch-cat');
+    if (catBtn) {
+      const cat = catBtn.dataset.cat;
+      if (catsColapsadas.has(cat)) catsColapsadas.delete(cat);
+      else catsColapsadas.add(cat);
+      guardarCatsColapsadas();
+      renderChannels(Radio.state.channels, Radio.state.channel);
+      return;
+    }
     const act = e.target.closest('.ch-act');
     if (act) {
       if (!Radio.state.connected) { showRadioError('Primero conéctate al servidor de radio.'); return; }
@@ -1405,6 +1446,11 @@ function wireRadio() {
     form.classList.remove('hidden');
     $('#channel-name').value = '';
 
+    // Secciones sugeridas (estilo categorías de Discord): las básicas + las que ya existen
+    const base = ['General', 'Departamentos', 'Operaciones', 'Privados', 'Comando'];
+    const cats = [...new Set([...base, ...(Radio.state.channels || []).map((c) => c.category || 'General')])];
+    $('#channel-cat-list').innerHTML = cats.map((c) => `<option value="${esc(c)}"></option>`).join('');
+
     const staff = Radio.state.role === 'Administrador' || Radio.state.role === 'Supervisor';
     const vis = $('#channel-vis');
     vis.querySelector('option[value="general"]').disabled = !staff;
@@ -1416,6 +1462,7 @@ function wireRadio() {
 
     $('#channel-invite-wrap').classList.toggle('hidden', vis.value !== 'private');
     if (vis.value === 'private') renderInvitePicker('#channel-invite-list', []);
+    $('#channel-cat').value = vis.value === 'private' ? 'Privados' : (vis.value === 'dept' ? 'Departamentos' : 'General');
 
     $('#channel-name').focus();
   };
@@ -1429,6 +1476,7 @@ function wireRadio() {
     $('#channel-dept').disabled = !staff || vis === 'private';
     $('#channel-invite-wrap').classList.toggle('hidden', vis !== 'private');
     if (vis === 'private') renderInvitePicker('#channel-invite-list', []);
+    $('#channel-cat').value = vis === 'private' ? 'Privados' : (vis === 'dept' ? 'Departamentos' : 'General');
   });
 
   $('#channel-create-ok').addEventListener('click', () => {
@@ -1438,7 +1486,8 @@ function wireRadio() {
     const department = vis === 'dept' ? $('#channel-dept').value : null;
     const isPrivate = vis === 'private';
     const members = isPrivate ? pickedNames('#channel-invite-list') : [];
-    Radio.createChannel({ name, department, private: isPrivate, members });
+    const category = ($('#channel-cat').value || '').trim() || 'General';
+    Radio.createChannel({ name, department, private: isPrivate, members, category });
     $('#channel-form').classList.add('hidden');
     flash('Creando canal…');
   });
@@ -1972,16 +2021,13 @@ function hidePanicAlert(p) {
 }
 
 function wirePanic() {
-  $('#panic-btn').addEventListener('click', () => {
-    if (!Radio.state.connected) {
-      showRadioError('Conéctate al radio primero para poder pedir ayuda.');
-      return;
-    }
-    const note = ($('#panic-where').value || '').trim();
-    Radio.sendPanic(note);
-    $('#panic-where').value = '';
-    flash('🆘 Enviando alerta a todo el CAD…');
+  $('#panic-btn').addEventListener('click', () => dispararPanico());
+  $('#panic-key').addEventListener('change', () => {
+    sendPanicConfig();
+    flash('🆘 Tecla de pánico: ' + ($('#panic-key').value || 'sin tecla'));
   });
+  // Tecla global: dispara el pánico aunque la ventana esté minimizada o jugando ER:LC
+  if (window.cadNative && cadNative.onPanicHotkey) cadNative.onPanicHotkey(() => dispararPanico());
   $('#panic-ack').addEventListener('click', () => {
     $('#panic-overlay').classList.add('hidden');
     panicSoundStop();
@@ -2250,6 +2296,69 @@ function wireErlc() {
 }
 
 // ============================================================
+// 19b. Acceso con contraseña + tecla global de pánico
+// ============================================================
+
+// Contraseña para entrar al MDT (se pide al abrir la app)
+const CLAVE_INGRESO = 'LAAY';
+
+function wireLogin() {
+  const overlay = $('#login-overlay');
+  if (!overlay) return;
+  const input = $('#login-pass');
+  const entrar = () => {
+    const ok = (input.value || '').trim().toUpperCase() === CLAVE_INGRESO;
+    if (!ok) {
+      $('#login-error').classList.remove('hidden');
+      input.value = '';
+      input.focus();
+      overlay.classList.remove('shake');
+      void overlay.offsetWidth; // reinicia la animación de error
+      overlay.classList.add('shake');
+      return;
+    }
+    overlay.classList.add('hidden');
+    input.value = '';
+    // Directo al MDT general (vista principal)
+    const home = document.querySelector('.tab[data-tab="despacho"]');
+    if (home) home.click();
+    flash('🔓 Bienvenido al MDT general');
+  };
+  $('#login-enter').addEventListener('click', entrar);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') entrar(); });
+  setTimeout(() => input.focus(), 250);
+}
+
+const PANIC_PREFS_KEY = 'cad-erlc-panic-prefs';
+
+function sendPanicConfig() {
+  const sel = $('#panic-key');
+  const key = sel ? sel.value : 'F8';
+  try { localStorage.setItem(PANIC_PREFS_KEY, JSON.stringify({ key })); } catch {}
+  if (window.cadNative && cadNative.setPanicConfig) cadNative.setPanicConfig({ key });
+}
+
+function loadPanicPrefs() {
+  let prefs = { key: 'F8' };
+  try { prefs = Object.assign(prefs, JSON.parse(localStorage.getItem(PANIC_PREFS_KEY) || '{}')); } catch {}
+  const sel = $('#panic-key');
+  if (sel) sel.value = prefs.key || '';
+  sendPanicConfig();
+}
+
+// Dispara la alerta de pánico: lo usan el botón y la tecla global
+function dispararPanico() {
+  if (!Radio.state.connected) {
+    showRadioError('Conéctate al radio primero para poder pedir ayuda.');
+    return;
+  }
+  const note = ($('#panic-where').value || '').trim();
+  Radio.sendPanic(note);
+  $('#panic-where').value = '';
+  flash('🆘 Enviando alerta a todo el CAD…');
+}
+
+// ============================================================
 // 20. Arranque
 // ============================================================
 
@@ -2271,6 +2380,8 @@ function init() {
   wireHosting();
   setupPtt();
   populateAudioDevices();
+  loadPanicPrefs();
+  wireLogin();
 
   loadLinkPrefs();
   wireLink();

@@ -48,14 +48,14 @@ const ROLES_FILE = process.env.ROLES_FILE || path.join(__dirname, 'roles.json');
 const sha256 = (text) => crypto.createHash('sha256').update(String(text)).digest('hex');
 
 const DEFAULT_CHANNEL_DEFS = [
-  { name: 'Despacho Central',     department: null,       private: false, members: [], createdBy: null },
-  { name: 'Policía (LCPD)',       department: 'LCPD',     private: false, members: [], createdBy: null },
-  { name: 'Highway Patrol (CHP)', department: 'CHP',      private: false, members: [], createdBy: null },
-  { name: 'Bomberos/EMS (LCFD)',  department: 'LCFD',     private: false, members: [], createdBy: null },
-  { name: 'Transporte (DOT)',     department: 'DOT',      private: false, members: [], createdBy: null },
-  { name: 'Central 9-1-1',        department: 'DISPATCH', private: false, members: [], createdBy: null },
-  { name: 'Táctico 1',            department: null,       private: false, members: [], createdBy: null },
-  { name: 'Táctico 2',            department: null,       private: false, members: [], createdBy: null },
+  { name: 'Despacho Central',     department: null,       private: false, category: 'Central',       members: [], createdBy: null },
+  { name: 'Policía (LCPD)',       department: 'LCPD',     private: false, category: 'Departamentos', members: [], createdBy: null },
+  { name: 'Highway Patrol (CHP)', department: 'CHP',      private: false, category: 'Departamentos', members: [], createdBy: null },
+  { name: 'Bomberos/EMS (LCFD)',  department: 'LCFD',     private: false, category: 'Departamentos', members: [], createdBy: null },
+  { name: 'Transporte (DOT)',     department: 'DOT',      private: false, category: 'Departamentos', members: [], createdBy: null },
+  { name: 'Central 9-1-1',        department: 'DISPATCH', private: false, category: 'Departamentos', members: [], createdBy: null },
+  { name: 'Táctico 1',            department: null,       private: false, category: 'Operaciones',   members: [], createdBy: null },
+  { name: 'Táctico 2',            department: null,       private: false, category: 'Operaciones',   members: [], createdBy: null },
 ];
 
 // Valida y limpia la definición de un canal (venga de un cliente o del disco).
@@ -73,7 +73,9 @@ function normalizeChannelDef(raw) {
       )].slice(0, 50)
     : [];
   const createdBy = raw.createdBy ? String(raw.createdBy).slice(0, 40) : null;
-  return { name, department, private: isPrivate, members, createdBy };
+  // Sección (categoría) estilo Discord; por defecto "General"
+  const category = String(raw.category || '').trim().replace(/\s+/g, ' ').slice(0, 24) || 'General';
+  return { name, department, private: isPrivate, members, createdBy, category };
 }
 
 // STUN público por defecto (ayuda a descubrir la dirección de cada PC)
@@ -312,6 +314,7 @@ function buildServer(wss, httpServer, port, iceServers) {
     const canManage = isAdmin(client) || client.role === 'Supervisor' || (def.createdBy && def.createdBy === client.name);
     return {
       name: def.name,
+      category: def.category || 'General',
       department: def.department,
       private: def.private,
       createdBy: def.createdBy,
@@ -509,6 +512,7 @@ function buildServer(wss, httpServer, port, iceServers) {
             private: msg.private,
             members: msg.members,
             createdBy: client.name,
+            category: msg.category,
           });
           if (!def) {
             send(ws, { type: 'error', message: 'Nombre de canal inválido (mínimo 2 letras).' });

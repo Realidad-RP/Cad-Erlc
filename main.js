@@ -6,7 +6,7 @@
 //  - La tecla global de push-to-talk (funciona aunque estés dentro de ER:LC)
 //  - El servidor de radio integrado (opcional, para alojar el radio)
 
-const { app, BrowserWindow, session, ipcMain } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -299,10 +299,50 @@ function setupErlcIPC() {
   });
 }
 
+// ---------------- Tecla global de pánico ----------------
+// Dispara el pánico aunque la app esté minimizada o jugando ER:LC a pantalla
+// completa (registro de atajos globales de Windows).
+function setupGlobalPanic() {
+  let panicKey = 'F8';
+
+  const apply = () => {
+    try { globalShortcut.unregisterAll(); } catch {}
+    if (!panicKey) {
+      console.log('[Pánico] Tecla global desactivada.');
+      return;
+    }
+    try {
+      const ok = globalShortcut.register(panicKey, () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('panic-hotkey');
+          mainWindow.flashFrame(true); // destella el ícono para avisar que salió la alerta
+          mainWindow.once('focus', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.flashFrame(false);
+          });
+        }
+      });
+      if (ok) console.log(`[Pánico] Tecla global lista: ${panicKey}`);
+      else console.warn(`[Pánico] No se pudo registrar la tecla ${panicKey} (¿la usa otro programa?).`);
+    } catch (err) {
+      console.warn('[Pánico] Error al registrar la tecla:', err.message);
+    }
+  };
+
+  ipcMain.on('panic-config', (_e, cfg) => {
+    if (cfg && typeof cfg.key === 'string') {
+      panicKey = cfg.key;
+      apply();
+    }
+  });
+
+  apply();
+}
+
 // ---------------- Ciclo de vida de la app ----------------
 app.whenReady().then(() => {
   setupPermissions();
   setupGlobalPTT();
+  setupGlobalPanic();
   setupRadioServerIPC();
   setupErlcIPC();
   createSplash();
@@ -318,6 +358,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  try { globalShortcut.unregisterAll(); } catch {}
   if (radioServer) {
     try { radioServer.close(); } catch {}
   }
