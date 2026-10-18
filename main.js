@@ -253,11 +253,58 @@ function setupRadioServerIPC() {
   });
 }
 
+// ---------------- API de ER:LC (se consulta desde acá, sin CORS) ----------------
+// La server-key la escribe el usuario en la pestaña 🟢 ER:LC de la app.
+function setupErlcIPC() {
+  ipcMain.handle('erlc-request', async (_e, payload = {}) => {
+    const { serverKey, path: apiPath, method = 'GET', body = null } = payload || {};
+    if (!serverKey || typeof serverKey !== 'string') {
+      return { ok: false, status: 0, error: 'Falta la server-key de ER:LC.' };
+    }
+    if (typeof apiPath !== 'string' || !apiPath.startsWith('/')) {
+      return { ok: false, status: 0, error: 'Ruta inválida.' };
+    }
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const res = await fetch('https://api.erlc.gg' + apiPath, {
+        method,
+        headers: {
+          'server-key': serverKey,
+          ...(body ? { 'Content-Type': 'application/json' } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        retryAfter: parseInt(res.headers.get('retry-after') || '0', 10) || 0,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        status: 0,
+        error: err && err.name === 'AbortError'
+          ? 'Se agotó el tiempo de espera. ¿Tenés internet?'
+          : String((err && err.message) || err),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+}
+
 // ---------------- Ciclo de vida de la app ----------------
 app.whenReady().then(() => {
   setupPermissions();
   setupGlobalPTT();
   setupRadioServerIPC();
+  setupErlcIPC();
   createSplash();
   createWindow();
 

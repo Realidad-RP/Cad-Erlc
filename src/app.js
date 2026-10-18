@@ -1960,7 +1960,174 @@ function wirePanic() {
 }
 
 // ============================================================
-// 19. Arranque
+// 19. 🟢 Servidor ER:LC en vivo (API oficial)
+// ============================================================
+
+const ERLC_KEY_STORAGE = 'cad-erlc-erlc-key';
+const erlc = { connected: false, key: '', timer: null, lastCmdAt: 0, server: null, players: [] };
+
+function erlcSetStatus(text, ok) {
+  const el = $('#erlc-status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok === true ? 'var(--ok)' : ok === false ? '#ef4444' : '';
+}
+
+function erlcPlayerName(p) {
+  return String(p.Player || p.Username || '¿?').split(':')[0].trim() || '¿?';
+}
+
+function erlcTeamColor(team) {
+  if (/police|policía|policia|lcpd/i.test(team)) return '#3b82f6';
+  if (/sheriff|chp|highway|patrol/i.test(team)) return '#eab308';
+  if (/fire|bomber|ems|medical|médic/i.test(team)) return '#ef4444';
+  if (/dot|transport/i.test(team)) return '#a855f7';
+  if (/mod|admin|staff|owner/i.test(team)) return '#10b981';
+  return '#94a3b8';
+}
+
+function renderErlcPlayers() {
+  const tbody = $('#erlc-tbody');
+  if (!tbody) return;
+  const list = erlc.players;
+  $('#erlc-players-count').textContent = '👥 ' + list.length + ' en el juego';
+  tbody.innerHTML = list.map((p) => {
+    const team = String(p.Team || 'Sin equipo');
+    const color = erlcTeamColor(team);
+    return `<tr>
+      <td>${esc(erlcPlayerName(p))}</td>
+      <td><span class="pill" style="color:${color};background:${color}1c">${esc(team)}</span></td>
+      <td>${p.Callsign ? esc(String(p.Callsign)) : '<span class="muted">—</span>'}</td>
+      <td>${p.Permission ? esc(String(p.Permission)) : '<span class="muted">—</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="muted">Nadie conectado al juego ahora mismo.</td></tr>';
+}
+
+async function erlcRefresh() {
+  if (!erlc.key) return;
+  if (!window.cadNative || !window.cadNative.erlcRequest) {
+    erlcSetStatus('⚠️ Esta versión de la app no incluye la integración. Actualizá el .exe.', false);
+    return;
+  }
+
+  const [srv, ply] = await Promise.all([
+    window.cadNative.erlcRequest({ serverKey: erlc.key, path: '/v1/server' }),
+    window.cadNative.erlcRequest({ serverKey: erlc.key, path: '/v1/server/players' }),
+  ]);
+
+  if (!srv.ok && !ply.ok) {
+    const st = srv.status || ply.status;
+    if (st === 401 || st === 403) {
+      erlcSetStatus('❌ Server-key inválida. Copiala de nuevo desde el juego (Settings → API key).', false);
+    } else if (st === 429) {
+      erlcSetStatus('⏳ La API pidió esperar unos segundos…', false);
+    } else {
+      erlcSetStatus('❌ No se pudo conectar: ' + (srv.error || ply.error || ('HTTP ' + st)), false);
+    }
+    return;
+  }
+
+  if (srv.ok && srv.data) erlc.server = srv.data;
+  if (Array.isArray(ply.data)) erlc.players = ply.data;
+
+  const d = erlc.server || {};
+  const name = d.Name || d.name || 'Servidor ER:LC';
+  $('#erlc-server-name').textContent = '🟢 ' + name;
+  erlcSetStatus('✅ Conectado. Se actualiza solo cada 10 segundos.', true);
+  renderErlcPlayers();
+
+  const parts = ['🕒 Actualizado: ' + new Date().toLocaleTimeString('es-ES')];
+  if (d.CurrentPlayers != null) parts.push('🎮 ' + d.CurrentPlayers + '/' + (d.MaxPlayers ?? '?') + ' jugadores');
+  if (d.JoinKey) parts.push('🔑 Clave de ingreso: ' + d.JoinKey);
+  $('#erlc-updated').textContent = parts.join(' · ');
+
+  $('#erlc-live').classList.remove('hidden');
+  $('#erlc-cmd-panel').classList.remove('hidden');
+}
+
+function erlcStopPolling() {
+  if (erlc.timer) { clearInterval(erlc.timer); erlc.timer = null; }
+}
+
+function erlcConnect() {
+  const keyInput = $('#erlc-key');
+  const key = (keyInput.value || '').trim() || erlc.key;
+  if (!key) {
+    erlcSetStatus('⚠️ Pegá primero tu server-key.', false);
+    return;
+  }
+  erlc.key = key;
+  keyInput.value = key;
+  try { localStorage.setItem(ERLC_KEY_STORAGE, key); } catch {}
+  erlc.connected = true;
+  $('#erlc-connect').classList.add('hidden');
+  $('#erlc-disconnect').classList.remove('hidden');
+  erlcSetStatus('⏳ Conectando con la API de ER:LC…');
+  erlcRefresh();
+  erlcStopPolling();
+  erlc.timer = setInterval(() => { erlcRefresh(); }, 10000);
+}
+
+function erlcDisconnect() {
+  erlc.connected = false;
+  erlcStopPolling();
+  $('#erlc-connect').classList.remove('hidden');
+  $('#erlc-disconnect').classList.add('hidden');
+  $('#erlc-live').classList.add('hidden');
+  $('#erlc-cmd-panel').classList.add('hidden');
+  erlcSetStatus('Desconectado. La clave queda guardada para la próxima vez.');
+}
+
+async function erlcSendCommand() {
+  const input = $('#erlc-cmd');
+  const cmd = (input.value || '').trim();
+  if (!cmd) return;
+  if (!erlc.key) { flash('⚠️ Conectate primero al servidor ER:LC.'); return; }
+  const wait = 5000 - (Date.now() - erlc.lastCmdAt);
+  if (wait > 0) { flash('⏳ Esperá ' + Math.ceil(wait / 1000) + ' s (límite de la API).'); return; }
+
+  const btn = $('#erlc-send');
+  btn.disabled = true;
+  const r = await window.cadNative.erlcRequest({
+    serverKey: erlc.key,
+    path: '/v2/server/command',
+    method: 'POST',
+    body: { command: cmd },
+  });
+  btn.disabled = false;
+
+  if (r.ok) {
+    erlc.lastCmdAt = Date.now();
+    input.value = '';
+    flash('✅ Enviado al juego: ' + cmd);
+    addLog('📨 Mensaje al juego: ' + cmd);
+    renderLog();
+  } else if (r.status === 429) {
+    erlc.lastCmdAt = Date.now();
+    flash('⏳ La API pidió esperar ' + (r.retryAfter || 5) + ' segundos.');
+  } else {
+    flash('❌ No se pudo enviar (' + (r.status ? 'HTTP ' + r.status : r.error) + ').');
+  }
+}
+
+function wireErlc() {
+  try { erlc.key = localStorage.getItem(ERLC_KEY_STORAGE) || ''; } catch {}
+  if (erlc.key) {
+    $('#erlc-key').value = erlc.key;
+    erlcSetStatus('⚡ Tenés una clave guardada. Tocá Conectar para ver el servidor en vivo.');
+  }
+  $('#erlc-connect').addEventListener('click', erlcConnect);
+  $('#erlc-disconnect').addEventListener('click', erlcDisconnect);
+  $('#erlc-send').addEventListener('click', erlcSendCommand);
+  $('#erlc-cmd').addEventListener('keydown', (e) => { if (e.key === 'Enter') erlcSendCommand(); });
+
+  // Al abrir la pestaña, refrescar al instante (si ya está conectado)
+  const tabBtn = document.querySelector('.tab[data-tab="erlc"]');
+  if (tabBtn) tabBtn.addEventListener('click', () => { if (erlc.connected) erlcRefresh(); });
+}
+
+// ============================================================
+// 20. Arranque
 // ============================================================
 
 function init() {
@@ -1977,6 +2144,7 @@ function init() {
   wireAudioTab();
   wireRegistros();
   wirePanic();
+  wireErlc();
   wireHosting();
   setupPtt();
   populateAudioDevices();

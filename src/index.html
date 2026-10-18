@@ -168,6 +168,7 @@
       <button class="tab" data-tab="roster">👥 Roster</button>
       <button class="tab" data-tab="bolos">🔎 BOLOs</button>
       <button class="tab" data-tab="registros">📇 Registros</button>
+      <button class="tab" data-tab="erlc">🟢 ER:LC</button>
       <button class="tab" data-tab="historial">📜 Historial</button>
       <button class="tab" data-tab="audio">🎧 Audio</button>
     </nav>
@@ -279,6 +280,53 @@
       <div class="panel">
         <div class="panel-head"><h2>Últimos registros</h2></div>
         <div id="rec-lists" class="rec-grid"></div>
+      </div>
+    </section>
+
+    <!-- Servidor ER:LC en vivo -->
+    <section id="tab-erlc" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>🟢 Servidor ER:LC en vivo</h2>
+          <span class="muted small">La clave se saca dentro del juego: Settings → API key (o erlc.link/sk)</span>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex:1">
+            <label>Server-key (queda guardada solo en tu PC)</label>
+            <input id="erlc-key" type="password" placeholder="Pegá acá tu server-key…" autocomplete="off" />
+          </div>
+          <button id="erlc-connect" class="btn btn-primary" type="button">🔌 Conectar</button>
+          <button id="erlc-disconnect" class="btn hidden" type="button">Desconectar</button>
+        </div>
+        <div id="erlc-status" class="muted small">Sin conectar. Pegá tu server-key y tocá Conectar.</div>
+      </div>
+
+      <div id="erlc-live" class="panel hidden">
+        <div class="panel-head">
+          <h2 id="erlc-server-name">🟢 Servidor</h2>
+          <span id="erlc-players-count" class="pill"></span>
+        </div>
+        <div>
+          <table class="table">
+            <thead><tr><th>Jugador</th><th>Equipo</th><th>Indicativo</th><th>Permiso</th></tr></thead>
+            <tbody id="erlc-tbody"></tbody>
+          </table>
+        </div>
+        <div class="muted small" id="erlc-updated"></div>
+      </div>
+
+      <div id="erlc-cmd-panel" class="panel hidden">
+        <div class="panel-head">
+          <h2>📨 Mandar mensaje al juego</h2>
+          <span class="muted small">Máximo 1 comando cada ~5 segundos</span>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex:1">
+            <input id="erlc-cmd" placeholder="Ej: :h ¡Atención a todas las unidades!" />
+          </div>
+          <button id="erlc-send" class="btn btn-primary" type="button">▶ Enviar</button>
+        </div>
+        <div class="muted small">Se ejecuta como administrador del servidor (comandos del juego, empiezan con ":"). Ejemplos: <b>:h</b> aviso global · <b>:pm Nombre mensaje</b> mensaje privado.</div>
       </div>
     </section>
 

@@ -10,6 +10,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🔎 **BOLOs** de personas y vehículos.
 - 📇 **Registros**: fichas de personas y vehículos con buscador (por nombre, licencia o placa), multas, órdenes y reportes.
 - 🆘 **Botón de pánico**: pedís ayuda con un clic y le salta una alerta roja con sirena a todo el CAD al instante (crea la llamada en Despacho sola).
+- 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
 - 📜 **Historial** automático de todo lo que pasa.
 - 📻 **Radio de voz** estilo TeamSpeak: canales por sección, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
 - 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
@@ -84,6 +85,15 @@ En la barra lateral, panel **🚨 Emergencia**:
 2. Tocá **🆘 PEDIR AYUDA (PÁNICO)**.
 
 A **todos** los conectados al radio les salta al instante una **alerta roja a pantalla completa con sirena** con tu nombre, tu departamento y tu ubicación, **y se crea la llamada en Despacho automáticamente** 📟. Cuando estés a salvo, tocá **✅ TODO CONTROLADO** para avisar que ya pasó (solo vos —o un administrador— pueden cancelarla). Si alguien se conecta después y la alerta sigue activa, también la ve. Hay un límite anti-spam de 15 segundos entre alertas.
+
+## 🟢 Servidor ER:LC en vivo (pestaña ER:LC)
+
+Si tu servidor privado tiene el pack **ERLC API** (se compra con Robux), la app puede ver el juego en vivo:
+
+1. En el juego: **Settings → API key** (o https://erlc.link/sk) y copiá la clave.
+2. En el CAD: pestaña **🟢 ER:LC** → pegá la clave → **🔌 Conectar**.
+
+Vas a ver, actualizado solo cada 10 segundos: el **nombre del servidor**, cuántos **jugadores** hay (12/50), la **clave de ingreso** y la **tabla de conectados** con su **equipo** (policía, bomberos…) e **indicativo** si están en servicio. También podés **mandar mensajes al juego** desde el CAD (los comandos del juego, ej. `:h` aviso global). Límite de la API: 1 comando cada ~5 segundos. La clave queda guardada **solo en tu PC**, nunca se comparte.
 
 ## 🌍 Radio para todo el mundo (internet)
 

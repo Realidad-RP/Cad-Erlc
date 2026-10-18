@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('cadNative', {
   hostStop: () => ipcRenderer.invoke('host-stop'),
   hostStatus: () => ipcRenderer.invoke('host-status'),
   getLanIps: () => ipcRenderer.invoke('get-lan-ips'),
+
+  // ---- API oficial de ER:LC (servidor en vivo) ----
+  erlcRequest: (payload) => ipcRenderer.invoke('erlc-request', payload),
 });
