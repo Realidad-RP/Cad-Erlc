@@ -1208,6 +1208,7 @@ function onRadioEvent(event, payload) {
 
     case 'disconnected':
       setRadioStatus(false);
+      updateErlcVisibility();
       $('#radio-connect').textContent = 'Conectar';
       $('#radio-connect').classList.add('btn-primary');
       $('#radio-connect').classList.remove('btn-danger');
@@ -1257,6 +1258,7 @@ function onRadioEvent(event, payload) {
       }
       renderOwnerBox();
       renderAdminPanel();
+      updateErlcVisibility();
       if (payload.owner && payload.rolesFresh) {
         let cached = null;
         try { cached = JSON.parse(localStorage.getItem(ROLES_CACHE_KEY) || 'null'); } catch {}
@@ -1270,6 +1272,7 @@ function onRadioEvent(event, payload) {
     case 'role':
       renderOwnerBox();
       renderAdminPanel();
+      updateErlcVisibility();
       flash('Tu rol ahora es: ' + Radio.state.role);
       break;
 
@@ -2032,6 +2035,38 @@ function updateCivilUrl() {
 const ERLC_KEY_STORAGE = 'cad-erlc-erlc-key';
 const erlc = { connected: false, key: '', timer: null, lastCmdAt: 0, server: null, players: [] };
 
+// Permisos de la pestaña ER:LC:
+//  - Ver el servidor en vivo: Propietario, Administrador y Supervisor.
+//  - Mandar comandos al juego: solo Propietario y Administrador.
+// Además hace falta estar conectado al radio (ahí es donde se sabe tu rol).
+function erlcCanView() {
+  return Radio.state.connected
+    && ['Propietario', 'Administrador', 'Supervisor'].includes(Radio.state.role);
+}
+
+function erlcCanCommand() {
+  return Radio.state.connected
+    && ['Propietario', 'Administrador'].includes(Radio.state.role);
+}
+
+function updateErlcVisibility() {
+  const btn = $('#tab-btn-erlc');
+  if (!btn) return;
+  const canView = erlcCanView();
+  btn.classList.toggle('hidden', !canView);
+  if (!canView) {
+    // Si estaba en la pestaña, volver a Despacho
+    const sec = $('#tab-erlc');
+    if (sec && sec.classList.contains('active')) {
+      const home = document.querySelector('.tab[data-tab="despacho"]');
+      if (home) home.click();
+    }
+    if (erlc.connected) erlcDisconnect();
+  } else if (!erlcCanCommand()) {
+    $('#erlc-cmd-panel').classList.add('hidden');
+  }
+}
+
 function erlcSetStatus(text, ok) {
   const el = $('#erlc-status');
   if (!el) return;
@@ -2108,7 +2143,7 @@ async function erlcRefresh() {
   $('#erlc-updated').textContent = parts.join(' · ');
 
   $('#erlc-live').classList.remove('hidden');
-  $('#erlc-cmd-panel').classList.remove('hidden');
+  $('#erlc-cmd-panel').classList.toggle('hidden', !erlcCanCommand());
 }
 
 function erlcStopPolling() {
@@ -2149,6 +2184,7 @@ async function erlcSendCommand() {
   const cmd = (input.value || '').trim();
   if (!cmd) return;
   if (!erlc.key) { flash('⚠️ Conectate primero al servidor ER:LC.'); return; }
+  if (!erlcCanCommand()) { flash('⚠️ Solo el Propietario y los Administradores pueden mandar mensajes al juego.'); return; }
   const wait = 5000 - (Date.now() - erlc.lastCmdAt);
   if (wait > 0) { flash('⏳ Esperá ' + Math.ceil(wait / 1000) + ' s (límite de la API).'); return; }
 
@@ -2190,6 +2226,8 @@ function wireErlc() {
   // Al abrir la pestaña, refrescar al instante (si ya está conectado)
   const tabBtn = document.querySelector('.tab[data-tab="erlc"]');
   if (tabBtn) tabBtn.addEventListener('click', () => { if (erlc.connected) erlcRefresh(); });
+
+  updateErlcVisibility();
 }
 
 // ============================================================

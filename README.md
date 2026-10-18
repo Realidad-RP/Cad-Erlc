@@ -106,6 +106,8 @@ Si tu servidor privado tiene el pack **ERLC API** (se compra con Robux), la app 
 
 Vas a ver, actualizado solo cada 10 segundos: el **nombre del servidor**, cuántos **jugadores** hay (12/50), la **clave de ingreso** y la **tabla de conectados** con su **equipo** (policía, bomberos…) e **indicativo** si están en servicio. También podés **mandar mensajes al juego** desde el CAD (los comandos del juego, ej. `:h` aviso global). Límite de la API: 1 comando cada ~5 segundos. La clave queda guardada **solo en tu PC**, nunca se comparte.
 
+> **¿Quién puede usar la pestaña?** Solo aparece para **Propietario, Administrador y Supervisor** (conectados al radio). **Mandar mensajes al juego** solo pueden el **Propietario y los Administradores** — los Supervisores pueden mirar, pero no ejecutar comandos. Para el resto de los miembros la pestaña ni aparece.
+
 ## 🌍 Radio para todo el mundo (internet)
 
 El servidor de radio **solo presenta a las personas** (señalización). La voz viaja directo de PC a PC. Por eso, para gente de otros países hay que poner el servidor en internet:
@@ -230,11 +232,13 @@ Firmar el `.exe` con un certificado elimina el aviso para siempre: **EV** (~300�
 | `server/self-test.js` | Prueba automática del servidor |
 | `server/package.json` | Paquete independiente del servidor (para la nube) |
 | `server/Dockerfile` | Imagen Docker del servidor (para VPS) |
-| `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos || `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
+| `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos |
+| `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
 | `bot/lib/erlc.js` | API de ER:LC (estado, jugadores, comandos) + firmas Ed25519 |
 | `bot/lib/server.js` | Servidor HTTP del bot (enlace CAD + webhooks del juego) |
 | `bot/config.js` | Claves del bot (privado, no se sube a GitHub) |
 | `bot/README.md` | Guía del bot paso a paso |
 | `render.yaml` | Despliegue automático en Render (raíz del proyecto) |
+| `web/` | 🌐 Página web de la comunidad (ver [web/README.md](web/README.md); se abre con `npm run web`) |
 
 Hecho con ❤️ para tu comunidad.
