@@ -10,6 +10,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🔎 **BOLOs** de personas y vehículos.
 - 📇 **Registros**: fichas de personas y vehículos con buscador (por nombre, licencia o placa), multas, órdenes y reportes.
 - 🆘 **Botón de pánico**: pedís ayuda con un clic y le salta una alerta roja con sirena a todo el CAD al instante (crea la llamada en Despacho sola).
+- 📞 **Central 911 civil**: una página web para que los civiles llamen al 911 y la llamada caiga solita en Despacho (con tipo, nombre y ubicación).
 - 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
 - 📜 **Historial** automático de todo lo que pasa.
 - 📻 **Radio de voz** estilo TeamSpeak: canales por sección, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
@@ -85,6 +86,16 @@ En la barra lateral, panel **🚨 Emergencia**:
 2. Tocá **🆘 PEDIR AYUDA (PÁNICO)**.
 
 A **todos** los conectados al radio les salta al instante una **alerta roja a pantalla completa con sirena** con tu nombre, tu departamento y tu ubicación, **y se crea la llamada en Despacho automáticamente** 📟. Cuando estés a salvo, tocá **✅ TODO CONTROLADO** para avisar que ya pasó (solo vos —o un administrador— pueden cancelarla). Si alguien se conecta después y la alerta sigue activa, también la ve. Hay un límite anti-spam de 15 segundos entre alertas.
+
+## 📞 Central 911 para civiles (página web)
+
+Tus civiles (incluso **sin el CAD instalado**) pueden llamar al 911 desde el celular o la PC:
+
+- El enlace es el **mismo servidor de radio + `/911`**. Ejemplo: `https://cad-erlc-radio.onrender.com/911`. En la app, debajo del campo del servidor de radio, te aparece el enlace exacto para compartir.
+- El civil elige el tipo (🚓 🚑 🚒 🛣️ ❓), escribe su nombre, dónde está y qué pasa, y toca **📞 LLAMAR AL 911**.
+- Al instante, en el **Despacho de todos** aparece la llamada con tipo, nombre, ubicación y prioridad **Alta**, suena un aviso y queda registrada en el Historial. 📟
+
+Hay un límite anti-spam de 20 segundos entre llamadas por persona. (La página deja bien claro que es para **roleplay**, no para emergencias reales.)
 
 ## 🟢 Servidor ER:LC en vivo (pestaña ER:LC)
 
@@ -219,8 +230,7 @@ Firmar el `.exe` con un certificado elimina el aviso para siempre: **EV** (~300�
 | `server/self-test.js` | Prueba automática del servidor |
 | `server/package.json` | Paquete independiente del servidor (para la nube) |
 | `server/Dockerfile` | Imagen Docker del servidor (para VPS) |
-| `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos |
-| `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
+| `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos || `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
 | `bot/lib/erlc.js` | API de ER:LC (estado, jugadores, comandos) + firmas Ed25519 |
 | `bot/lib/server.js` | Servidor HTTP del bot (enlace CAD + webhooks del juego) |
 | `bot/config.js` | Claves del bot (privado, no se sube a GitHub) |

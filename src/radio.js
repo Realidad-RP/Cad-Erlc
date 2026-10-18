@@ -310,6 +310,10 @@
       case 'panic-clear':
         emit('panic-clear', msg);
         break;
+
+      case 'civil-call':
+        emit('civil-call', msg.call);
+        break;
     }
   }
 

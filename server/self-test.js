@@ -126,6 +126,28 @@ const { createRadioServer } = require('./radio-server');
   const panicoCancelado = ana.messages.some((m) => m.type === 'panic-clear')
     && beto.messages.some((m) => m.type === 'panic-clear');
 
+  // 12) La página del 911 para civiles se sirve desde el propio servidor
+  const civilPage = await fetch(`http://localhost:${server.port}/911`).then((r) => r.text()).catch(() => '');
+  const civilPagina = civilPage.includes('LLAMAR AL 911');
+
+  // 13) Una llamada civil aparece al instante en el CAD de todos
+  const civilRes = await fetch(`http://localhost:${server.port}/911`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'POLICE', name: 'Ciudadano Test', location: 'Calle 5 con Avenida 2', description: 'Robo en la tienda' }),
+  }).then((r) => r.json()).catch(() => ({}));
+  await wait(200);
+  const civilLlega = !!civilRes.ok && ana.messages.some((m) => m.type === 'civil-call'
+    && m.call && m.call.name === 'Ciudadano Test' && m.call.kind === 'POLICE');
+
+  // 14) Anti-spam: la segunda llamada seguida se rechaza
+  const civilSpam = await fetch(`http://localhost:${server.port}/911`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'FIRE', name: 'Spam', location: 'x', description: 'y' }),
+  }).then((r) => r.status).catch(() => 0);
+  const civilAntiSpam = civilSpam === 429;
+
   const anaWelcome = ana.messages.find((m) => m.type === 'welcome');
   const anaJoined = ana.messages.find((m) => m.type === 'joined');
   const rosterOk = ana.messages.some((m) => m.type === 'roster' && m.members && m.members.length === 2);
@@ -157,13 +179,16 @@ const { createRadioServer } = require('./radio-server');
     panicoParaNuevos,
     miembroNoCancela,
     panicoCancelado,
+    civilPagina,
+    civilLlega,
+    civilAntiSpam,
   };
 
   console.log('Comprobaciones:', checks);
 
   const ok = Object.values(checks).every(Boolean);
   console.log(ok
-    ? '✅ PRUEBA OK: roles, propietario, permisos, canales y botón de pánico funcionan.'
+    ? '✅ PRUEBA OK: roles, propietario, permisos, canales, botón de pánico y llamadas al 911 funcionan.'
     : '❌ PRUEBA FALLIDA');
 
   server.close();

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tienda — La Realidad RP | Membresías, Kits y RealCoins</title>
+  <meta name="description" content="Tienda oficial de La Realidad RP: membresías VIP y ÉLITE, kits de inicio y RealCoins para Emergency Response: Liberty County.">
+  <meta name="theme-color" content="#070b12">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#como-jugar">Cómo unirse</a>
+        <a href="index.html#servidores">Servidores</a>
+        <a href="tienda.html" class="active">Tienda</a>
+        <a href="resenas.html">Reseñas</a>
+        <a href="normativa.html">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <p class="crumb"><a href="index.html">Inicio</a> · Tienda</p>
+        <h1>Tienda de La Realidad RP</h1>
+        <p>Membresías, kits y <span data-txt="moneda">RealCoins</span> para potenciar tu roleplay.
+           Las compras ayudan a mantener los servidores y los eventos de la comunidad. 💚</p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:20px">
+      <div class="container">
+        <div class="filter-bar" id="filtros">
+          <button class="filter active" data-filter="todos">Todos</button>
+          <button class="filter" data-filter="membresias">Membresías</button>
+          <button class="filter" data-filter="kits">Kits</button>
+          <button class="filter" data-filter="monedas">Monedas</button>
+        </div>
+
+        <!-- ============ MEMBRESÍAS ============ -->
+        <h2 id="membresias" style="font-size:26px;margin:10px 0 20px">⭐ Membresías</h2>
+        <div class="grid cols-3" style="margin-bottom:52px">
+          <article class="card product" data-cat="membresias">
+            <div class="p-icon">⭐</div>
+            <span class="p-tag">Membresía</span>
+            <h3>VIP+</h3>
+            <p>El primer paso para destacar en la ciudad.</p>
+            <ul class="p-list">
+              <li>Cola prioritaria en el servidor</li>
+              <li>Rol exclusivo VIP+ en el Discord</li>
+              <li>+10% de paga en tu trabajo</li>
+              <li>1 plaza de garaje extra</li>
+            </ul>
+            <div class="p-price"><span class="amount">$4.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="membresias">
+            <span class="p-badge hot">Más popular</span>
+            <div class="p-icon">👑</div>
+            <span class="p-tag">Membresía</span>
+            <h3>ÉLITE</h3>
+            <p>Avanzá más rápido y bien armado.</p>
+            <ul class="p-list">
+              <li>Todo lo de VIP+</li>
+              <li>Paga doble en tu trabajo</li>
+              <li>Vehículos deportivos exclusivos</li>
+              <li>Prioridad en whitelist y trámites</li>
+              <li>2 kits mensuales de regalo</li>
+            </ul>
+            <div class="p-price"><span class="amount">$9.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-primary btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="membresias">
+            <div class="p-icon">💎</div>
+            <span class="p-tag">Membresía</span>
+            <h3>DIAMANTE</h3>
+            <p>La experiencia completa, sin límites.</p>
+            <ul class="p-list">
+              <li>Todo lo de ÉLITE</li>
+              <li>3 vehículos premium a elección</li>
+              <li>Ingresos dobles en tus negocios</li>
+              <li>Casa en zona exclusiva de Los Angeles</li>
+              <li>Acceso anticipado a eventos</li>
+            </ul>
+            <div class="p-price"><span class="amount">$19.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-gold btn-full js-comprar">Comprar</a>
+          </article>
+        </div>
+
+        <!-- ============ KITS ============ -->
+        <h2 id="kits" style="font-size:26px;margin:10px 0 20px">🎒 Kits</h2>
+        <div class="grid cols-3" style="margin-bottom:52px">
+          <article class="card product" data-cat="kits">
+            <div class="p-icon">📦</div>
+            <span class="p-tag teal">Kit</span>
+            <h3>KIT INICIO</h3>
+            <p>Todo lo básico para arrancar tu primer día.</p>
+            <ul class="p-list">
+              <li>150.000 en efectivo</li>
+              <li>Vehículo económico de inicio</li>
+              <li>Licencia de conducir</li>
+            </ul>
+            <div class="p-price"><span class="amount">$2.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="kits">
+            <span class="p-badge best">Mejor valor</span>
+            <div class="p-icon">🎒</div>
+            <span class="p-tag teal">Kit</span>
+            <h3>KIT FULL</h3>
+            <p>La experiencia completa: dinero, vehículos y personaje listo.</p>
+            <ul class="p-list">
+              <li>500.000 en efectivo</li>
+              <li>Vehículo deportivo de regalo</li>
+              <li>Licencia y casa de inicio</li>
+              <li>Kit de herramientas y teléfono</li>
+            </ul>
+            <div class="p-price"><span class="amount">$7.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="kits">
+            <div class="p-icon">🚓</div>
+            <span class="p-tag teal">Kit</span>
+            <h3>KIT DEPARTAMENTOS</h3>
+            <p>Para fuerzas del orden y servicios de emergencia.</p>
+            <ul class="p-list">
+              <li>Uniforme y equipamiento por departamento</li>
+              <li>Curso de academia acelerado</li>
+              <li>Accesorios tácticos oficiales</li>
+            </ul>
+            <div class="p-price"><span class="amount">$4.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+        </div>
+
+        <!-- ============ MONEDAS ============ -->
+        <h2 id="monedas" style="font-size:26px;margin:10px 0 20px">🪙 <span data-txt="moneda">RealCoins</span></h2>
+        <p class="muted" style="margin-bottom:20px">La moneda interna de la comunidad. Sirve para kits, whitelist rápida, trámites y objetos exclusivos.</p>
+        <div class="grid cols-3">
+          <article class="card product" data-cat="monedas">
+            <div class="p-icon">🪙</div>
+            <span class="p-tag">Monedas</span>
+            <h3>1.000 <span data-txt="moneda">RealCoins</span></h3>
+            <p>Recarga básica para empezar a comprar.</p>
+            <ul class="p-list">
+              <li>1.000 coins a tu cuenta</li>
+              <li>Se acredita al instante</li>
+            </ul>
+            <div class="p-price"><span class="amount">$4.99</span><span class="per">USD</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="monedas">
+            <span class="p-badge best">Mejor valor</span>
+            <div class="p-icon">💰</div>
+            <span class="p-tag">Monedas</span>
+            <h3>2.500 <span data-txt="moneda">RealCoins</span></h3>
+            <p>Recarga 2.000 + 500 de bono para gastar.</p>
+            <ul class="p-list">
+              <li>2.000 base + 500 de bono</li>
+              <li>Para kits, whitelist rápida y más</li>
+              <li>Se acredita al instante</li>
+            </ul>
+            <div class="p-price"><span class="amount">$9.99</span><span class="per">USD</span></div>
+            <a class="btn btn-primary btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product" data-cat="monedas">
+            <div class="p-icon">🏆</div>
+            <span class="p-tag">Monedas</span>
+            <h3>6.000 <span data-txt="moneda">RealCoins</span></h3>
+            <p>La recarga más grande, con el mejor bono.</p>
+            <ul class="p-list">
+              <li>6.000 coins a tu cuenta</li>
+              <li>Bono extra del 30%</li>
+              <li>Se acredita al instante</li>
+            </ul>
+            <div class="p-price"><span class="amount">$19.99</span><span class="per">USD</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CÓMO COMPRAR ============ -->
+    <section class="section section-alt">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Compras seguras</span>
+          <h2>¿Cómo comprar?</h2>
+          <p class="sub">Todas las compras se gestionan de forma segura por nuestro equipo en Discord.</p>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card step-card">
+            <div class="step-num">1</div>
+            <span class="step-tag">Ticket</span>
+            <h3>Abrí un ticket</h3>
+            <p>Entrá al Discord y abrí un ticket en el canal de compras. Decinos qué producto querés.</p>
+          </article>
+          <article class="card step-card">
+            <div class="step-num">2</div>
+            <span class="step-tag">Pago</span>
+            <h3>Elegí tu método de pago</h3>
+            <p>Coordinamos el pago (PayPal, transferencia y métodos locales). Recibirás tu comprobante.</p>
+          </article>
+          <article class="card step-card">
+            <div class="step-num">3</div>
+            <span class="step-tag">Entrega</span>
+            <h3>Recibí tu compra</h3>
+            <p>El staff te entrega el contenido en minutos y queda registrado a tu nombre.</p>
+          </article>
+        </div>
+
+        <div class="notice" style="max-width:860px;margin:30px auto 0">
+          <b>Importante:</b> los precios pueden cambiar sin aviso y las compras sostienen los costos del servidor.
+          Si tenés un problema con una compra, abrí un ticket y el staff te va a ayudar.
+        </div>
+
+        <div class="hero-actions" style="margin-top:30px">
+          <a class="btn btn-primary btn-lg" data-link="discord">Abrir ticket en Discord</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+            <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+          </a>
+          <p>La comunidad de roleplay en español de Emergency Response: Liberty County. Whitelist, economía interna, eventos y soporte 24/7.</p>
+          <div class="socials">
+            <a data-link="discord" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>
+            <a data-link="instagram" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>
+            <a data-link="tiktok" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M15 3c.3 1.9 1.6 3.4 3.5 3.8v2.1c-1.3-.1-2.5-.6-3.5-1.4v6.2a5.3 5.3 0 1 1-5.3-5.3c.3 0 .6 0 .8.1v2.2a3.1 3.1 0 1 0 2.2 3V3h2.3z"/></svg></a>
+            <a data-link="youtube" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15.2V8.8l5.2 3.2z"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Comunidad</div>
+          <ul>
+            <li><a href="index.html#como-jugar">Cómo unirse</a></li>
+            <li><a href="index.html#servidores">Servidores</a></li>
+            <li><a href="resenas.html">Reseñas</a></li>
+            <li><a href="index.html#equipo">Equipo</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Tienda</div>
+          <ul>
+            <li><a href="tienda.html">Catálogo completo</a></li>
+            <li><a href="tienda.html#membresias">Membresías</a></li>
+            <li><a href="tienda.html#kits">Kits</a></li>
+            <li><a href="tienda.html#monedas">Monedas</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Soporte</div>
+          <ul>
+            <li><a data-link="discord">Discord</a></li>
+            <li><a data-link="correo">Correo</a></li>
+            <li><a href="normativa.html">Normativa</a></li>
+            <li><a href="terminos.html">Términos</a></li>
+            <li><a href="privacidad.html">Privacidad</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP. Todos los derechos reservados.</p>
+        <div class="pay-chips" id="payChips"></div>
+      </div>
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

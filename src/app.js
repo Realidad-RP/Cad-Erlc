@@ -1292,6 +1292,10 @@ function onRadioEvent(event, payload) {
       hidePanicAlert(payload);
       break;
 
+    case 'civil-call':
+      receiveCivilCall(payload);
+      break;
+
     case 'ptt':
       setPttIndicator(payload);
       renderMembers(membersWithSelf());
@@ -1308,6 +1312,10 @@ function onRadioEvent(event, payload) {
 }
 
 function wireRadio() {
+  // Enlace público del 911 para civiles (se calcula según el servidor de radio)
+  $('#radio-server').addEventListener('input', updateCivilUrl);
+  updateCivilUrl();
+
   // ---- Conectar / desconectar ----
   $('#radio-connect').addEventListener('click', async () => {
     if (Radio.state.connected) {
@@ -1854,7 +1862,7 @@ function wireAudioTab() {
 }
 
 // ============================================================
-// 18. Botón de pánico 🆘
+// 18. Botón de pánico 🆘 y llamadas al 911 📞
 // ============================================================
 
 let panicCtx = null;
@@ -1957,6 +1965,64 @@ function wirePanic() {
     panicSoundStop();
   });
   $('#panic-clear').addEventListener('click', () => Radio.clearPanic());
+}
+
+// ---------- Llamadas al 911 (desde la página web para civiles) ----------
+
+function civilCallSound() {
+  try {
+    const ctx = new AudioContext();
+    const play = (when, freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + when);
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + when + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + when);
+      osc.stop(ctx.currentTime + when + 0.3);
+    };
+    play(0, 880);
+    play(0.28, 1180);
+    setTimeout(() => { try { ctx.close(); } catch {} }, 1200);
+  } catch {}
+}
+
+function receiveCivilCall(call) {
+  if (!call || !call.id) return;
+  if (db.calls.some((c) => c.civilId === call.id)) return; // ya la registramos
+  db.calls.unshift({
+    id: nextId('call'),
+    civilId: call.id,
+    type: call.kind || 'OTHER',
+    priority: 'Alta',
+    location: call.location || 'Ubicación desconocida',
+    description: '📞 911: ' + (call.description || 'Sin detalles'),
+    caller: call.name || 'Ciudadano',
+    status: 'pendiente',
+    units: [],
+    createdAt: Date.now(),
+  });
+  addLog('📞 Llamada 911 de ' + (call.name || 'un ciudadano') + ' — ' + (call.location || ''));
+  saveDb();
+  renderCalls();
+  renderLog();
+  flash('📞 ¡LLAMADA 911! ' + (call.name || 'Ciudadano') + ' — ' + (call.location || ''));
+  civilCallSound();
+}
+
+// Muestra el enlace público del 911 (según el servidor de radio escrito arriba)
+function updateCivilUrl() {
+  const el = $('#radio-civil-url');
+  if (!el) return;
+  const raw = ($('#radio-server').value || '').trim();
+  const m = raw.match(/^wss?:\/\/(.+?)\/?$/i);
+  if (!m) { el.textContent = ''; return; }
+  const httpUrl = (raw.toLowerCase().startsWith('wss') ? 'https://' : 'http://') + m[1].replace(/\/+$/, '');
+  el.textContent = '📞 Los civiles llaman al 911 acá: ' + httpUrl + '/911 (compartiles ese enlace)';
 }
 
 // ============================================================

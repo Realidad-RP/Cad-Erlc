@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>La Realidad RP — Servidor de Roleplay en Los Angeles | ER:LC</title>
+  <meta name="description" content="La Realidad RP: comunidad de roleplay (RP) en Emergency Response: Liberty County (Roblox). Servidor de Los Angeles con whitelist, economía interna, eventos exclusivos y soporte 24/7.">
+  <meta name="theme-color" content="#070b12">
+  <meta property="og:title" content="La Realidad RP — Roleplay en Los Angeles">
+  <meta property="og:description" content="Viví el roleplay en ER:LC como nunca antes. Unite a La Realidad RP.">
+  <meta property="og:image" content="assets/logo.png">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===================== CABECERA ===================== -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html" class="active">Inicio</a>
+        <a href="#como-jugar">Cómo unirse</a>
+        <a href="#servidores">Servidores</a>
+        <a href="tienda.html">Tienda</a>
+        <a href="resenas.html">Reseñas</a>
+        <a href="normativa.html">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== PORTADA ===================== -->
+    <section class="hero">
+      <div class="container">
+        <span class="badge-pill reveal"><i class="dot"></i> Comunidad activa de roleplay en ER:LC</span>
+        <h1 class="hero-title reveal">LA REALIDAD <span class="grad">RP</span></h1>
+        <p class="hero-lead reveal">
+          Somos la comunidad de roleplay de <strong>Los Angeles</strong> en Emergency Response: Liberty County.
+          Whitelist, economía interna, eventos exclusivos y un staff que está para vos todos los días.
+          Viví el roleplay como nunca antes.
+        </p>
+
+        <div class="hero-actions reveal">
+          <a class="btn btn-primary btn-lg" data-link="discord">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+            Unirme al Discord
+          </a>
+          <a class="btn btn-ghost btn-lg" href="#como-jugar">Cómo empezar</a>
+        </div>
+
+        <div class="trust-chips reveal">
+          <span class="chip">👥 <strong>Comunidad verificada</strong></span>
+          <span class="chip">💰 <strong>Economía interna</strong></span>
+          <span class="chip">🎭 <strong>Roleplay avanzado</strong></span>
+          <span class="chip">🛡️ <strong>Soporte 24/7</strong></span>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-num" id="statMiembros">—</span>
+            <span class="stat-label">Miembros Discord</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statOnline">—</span>
+            <span class="stat-label">Jugadores en línea</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statRating">—</span>
+            <span class="stat-label">Valoración</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="statResenas">0</span>
+            <span class="stat-label">Reseñas</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CÓMO UNIRSE ===================== -->
+    <section class="section" id="como-jugar">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Empezar es fácil</span>
+          <h2>¿Cómo puedo jugar?</h2>
+          <p class="sub">Seguí estos simples pasos y unite a la mejor experiencia de roleplay en ER:LC.</p>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card step-card">
+            <div class="step-num">1</div>
+            <span class="step-tag">Únete</span>
+            <h3>Entrá a nuestro Discord</h3>
+            <p>Unite al Discord de la comunidad: ahí te damos la bienvenida, los roles y toda la información del servidor.</p>
+          </article>
+
+          <article class="card step-card">
+            <div class="step-num">2</div>
+            <span class="step-tag">Verificación</span>
+            <h3>Completá la whitelist</h3>
+            <p>Leé la <a href="normativa.html" style="color:var(--accent)">normativa</a> y pasá el cuestionario. Nos asegura un rol de calidad para todos.</p>
+          </article>
+
+          <article class="card step-card">
+            <div class="step-num">3</div>
+            <span class="step-tag">Documentación</span>
+            <h3>Sacá tu DNI y jugá</h3>
+            <p>Generá tu documento de identidad, creá tu personaje y empezá tu historia en Los Angeles.</p>
+          </article>
+        </div>
+
+        <div class="hero-actions" style="margin-top:36px">
+          <a class="btn btn-primary" data-link="discord">Unirme al Discord</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SERVIDORES ===================== -->
+    <section class="section section-alt" id="servidores">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Nuestros servidores</span>
+          <h2>Elegí dónde jugar</h2>
+          <p class="sub">Nuestros servidores están abiertos para toda la comunidad. ¡Entrá y empezá tu rol!</p>
+        </div>
+
+        <div class="grid cols-4">
+          <article class="card server-card">
+            <div class="server-thumb g1">
+              <span class="status online"><i class="dot"></i> Online</span>
+              <span class="city">Los Santos</span>
+            </div>
+            <div class="server-body">
+              <h3>Los Santos</h3>
+              <p>El servidor principal: rol libre todos los días con la ciudad completa para vos.</p>
+              <div class="server-players">
+                <span>Jugadores</span>
+                <span><b class="js-online">—</b> / 50</span>
+              </div>
+              <a class="btn btn-primary btn-full" data-link="discord">Unirse</a>
+            </div>
+          </article>
+
+          <article class="card server-card">
+            <div class="server-thumb g2">
+              <span class="status soon">Pronto</span>
+              <span class="city">Eventos</span>
+            </div>
+            <div class="server-body">
+              <h3>Eventos y Carreras</h3>
+              <p>Carreras clandestinas, redadas y eventos con premios para toda la comunidad.</p>
+              <div class="server-players">
+                <span>Jugadores</span>
+                <span><b>0</b> / 50</span>
+              </div>
+              <span class="btn btn-ghost btn-full" style="opacity:.55;pointer-events:none">Próximamente</span>
+            </div>
+          </article>
+
+          <article class="card server-card">
+            <div class="server-thumb g3">
+              <span class="status soon">Pronto</span>
+              <span class="city">Academia</span>
+            </div>
+            <div class="server-body">
+              <h3>Academia de Staff</h3>
+              <p>Entrenamiento para policías, bomberos y nuevos miembros antes de salir a la calle.</p>
+              <div class="server-players">
+                <span>Jugadores</span>
+                <span><b>0</b> / 50</span>
+              </div>
+              <span class="btn btn-ghost btn-full" style="opacity:.55;pointer-events:none">Próximamente</span>
+            </div>
+          </article>
+
+          <article class="card server-card">
+            <div class="server-thumb g4">
+              <span class="status soon">Pronto</span>
+              <span class="city">Vice City</span>
+            </div>
+            <div class="server-body">
+              <h3>Vice City</h3>
+              <p>La próxima ciudad de la comunidad: playas, vida nocturna y rol de lujo.</p>
+              <div class="server-players">
+                <span>Jugadores</span>
+                <span><b>0</b> / 50</span>
+              </div>
+              <span class="btn btn-ghost btn-full" style="opacity:.55;pointer-events:none">Próximamente</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TIENDA (PREVIEW) ===================== -->
+    <section class="section" id="tienda">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Tienda oficial</span>
+          <h2>Potenciá tu experiencia</h2>
+          <p class="sub">Membresías, kits y <span data-txt="moneda">RealCoins</span> para llevar tu roleplay al siguiente nivel.</p>
+        </div>
+
+        <div class="grid cols-3">
+          <article class="card product">
+            <span class="p-badge hot">Más popular</span>
+            <div class="p-icon">⭐</div>
+            <span class="p-tag">Membresía</span>
+            <h3>VIP+</h3>
+            <p>Entrá siempre primero y destacá tu personaje.</p>
+            <ul class="p-list">
+              <li>Cola prioritaria en el servidor</li>
+              <li>Rol exclusivo en el Discord</li>
+              <li>+10% de paga en tu trabajo</li>
+            </ul>
+            <div class="p-price"><span class="amount">$4.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-gold btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product">
+            <div class="p-icon">🎒</div>
+            <span class="p-tag teal">Kit</span>
+            <h3>KIT FULL</h3>
+            <p>La experiencia completa para arrancar en el servidor.</p>
+            <ul class="p-list">
+              <li>500.000 en efectivo</li>
+              <li>Vehículo deportivo de regalo</li>
+              <li>Licencia y casa de inicio</li>
+            </ul>
+            <div class="p-price"><span class="amount">$7.99</span><span class="per">único pago</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+
+          <article class="card product">
+            <span class="p-badge best">Mejor valor</span>
+            <div class="p-icon">🪙</div>
+            <span class="p-tag">Monedas</span>
+            <h3>2.500 <span data-txt="moneda">RealCoins</span></h3>
+            <p>Cargá tu cuenta y gastalas en lo que quieras.</p>
+            <ul class="p-list">
+              <li>2.000 base + 500 de bono</li>
+              <li>Para kits, whitelist rápida y más</li>
+              <li>Se acredita al instante</li>
+            </ul>
+            <div class="p-price"><span class="amount">$9.99</span><span class="per">USD</span></div>
+            <a class="btn btn-ghost btn-full js-comprar">Comprar</a>
+          </article>
+        </div>
+
+        <div class="hero-actions" style="margin-top:36px">
+          <a class="btn btn-ghost btn-lg" href="tienda.html">Ver la tienda completa</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== RESEÑAS ===================== -->
+    <section class="section section-alt" id="resenas">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Comunidad</span>
+          <h2>Lo que dicen nuestros jugadores</h2>
+          <p class="sub">Opiniones reales de quienes ya juegan en La Realidad RP.</p>
+        </div>
+
+        <div class="grid cols-2" style="margin-bottom:26px">
+          <div class="card" style="display:flex;flex-direction:column;gap:8px;justify-content:center;text-align:center">
+            <span style="font-size:46px;font-weight:900" class="js-rating-num">—</span>
+            <span class="js-rating-stars" style="justify-content:center;display:flex"></span>
+            <span class="muted js-rating-count">todavía sin reseñas</span>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+            <h3 style="margin:0">¿Ya jugaste en La Realidad RP?</h3>
+            <p>Contá tu experiencia y ayudá a que más personas se sumen a la comunidad.</p>
+            <a class="btn btn-primary" href="resenas.html" style="align-self:flex-start">Dejar mi reseña</a>
+          </div>
+        </div>
+
+        <div class="grid cols-3" id="resenasDestacadas"></div>
+
+        <div class="hero-actions" style="margin-top:30px">
+          <a class="btn btn-ghost" href="resenas.html">Ver todas las reseñas</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SOBRE NOSOTROS ===================== -->
+    <section class="section" id="nosotros">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Sobre nosotros</span>
+          <h2>La comunidad de roleplay de Los Angeles</h2>
+          <p class="sub">La Realidad RP nació con una visión: crear la experiencia de roleplay definitiva en Emergency Response: Liberty County.</p>
+        </div>
+
+        <div class="grid cols-4">
+          <article class="card">
+            <div class="p-icon">🤝</div>
+            <h3>Comunidad verificada</h3>
+            <p>Todos nuestros miembros pasan por un proceso de whitelist y aceptan la normativa.</p>
+          </article>
+          <article class="card">
+            <div class="p-icon">🛡️</div>
+            <h3>Soporte 24/7</h3>
+            <p>Nuestro staff está disponible en el Discord para dudas, trámites y reportes.</p>
+          </article>
+          <article class="card">
+            <div class="p-icon">🎉</div>
+            <h3>Eventos exclusivos</h3>
+            <p>Eventos semanales con premios: carreras, redadas, festivales y mucho más.</p>
+          </article>
+          <article class="card">
+            <div class="p-icon">🎭</div>
+            <h3>Roleplay serio</h3>
+            <p>Reglas claras y moderación justa para que cada historia se sienta de verdad.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== EQUIPO ===================== -->
+    <section class="section section-alt" id="equipo">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">El equipo</span>
+          <h2>Nuestro equipo fundador</h2>
+          <p class="sub">Conocé a las personas que hacen posible esta comunidad.</p>
+        </div>
+
+        <div class="grid cols-3" id="equipoGrid"></div>
+
+        <div class="cta-band" style="margin-top:48px">
+          <h2>¿Querés sumarte al equipo?</h2>
+          <p>Postulate como staff en nuestro Discord y ayudá a construir y hacer crecer La Realidad RP.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" data-link="discord">Postularme en Discord</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CTA FINAL ===================== -->
+    <section class="section">
+      <div class="container">
+        <div class="cta-band">
+          <h2>¿Listo para vivir el roleplay?</h2>
+          <p>Unite hoy a La Realidad RP. Te esperamos en Los Angeles. 🌆</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" data-link="discord">Unirme al Discord</a>
+            <a class="btn btn-ghost btn-lg" href="tienda.html">Ver la tienda</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== PIE DE PÁGINA ===================== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+            <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+          </a>
+          <p>La comunidad de roleplay en español de Emergency Response: Liberty County. Whitelist, economía interna, eventos y soporte 24/7.</p>
+          <div class="socials">
+            <a data-link="discord" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>
+            <a data-link="instagram" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>
+            <a data-link="tiktok" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M15 3c.3 1.9 1.6 3.4 3.5 3.8v2.1c-1.3-.1-2.5-.6-3.5-1.4v6.2a5.3 5.3 0 1 1-5.3-5.3c.3 0 .6 0 .8.1v2.2a3.1 3.1 0 1 0 2.2 3V3h2.3z"/></svg></a>
+            <a data-link="youtube" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15.2V8.8l5.2 3.2z"/></svg></a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <div class="foot-title">Comunidad</div>
+          <ul>
+            <li><a href="#como-jugar">Cómo unirse</a></li>
+            <li><a href="#servidores">Servidores</a></li>
+            <li><a href="resenas.html">Reseñas</a></li>
+            <li><a href="#equipo">Equipo</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <div class="foot-title">Tienda</div>
+          <ul>
+            <li><a href="tienda.html">Catálogo completo</a></li>
+            <li><a href="tienda.html#membresias">Membresías</a></li>
+            <li><a href="tienda.html#kits">Kits</a></li>
+            <li><a href="tienda.html#monedas">Monedas</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <div class="foot-title">Soporte</div>
+          <ul>
+            <li><a data-link="discord">Discord</a></li>
+            <li><a data-link="correo">Correo</a></li>
+            <li><a href="normativa.html">Normativa</a></li>
+            <li><a href="terminos.html">Términos</a></li>
+            <li><a href="privacidad.html">Privacidad</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP. Todos los derechos reservados.</p>
+        <div class="pay-chips" id="payChips"></div>
+      </div>
+
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

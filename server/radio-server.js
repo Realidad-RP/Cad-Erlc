@@ -103,6 +103,9 @@ function buildIceServers() {
   return servers;
 }
 
+// Página pública para que los civiles llamen al 911 (la sirve este mismo servidor).
+const CIVILIAN_PAGE = require('./ciudadano-page');
+
 // Intenta escuchar en `port`; si está ocupado, prueba los siguientes puertos.
 function createRadioServer(port = 8787, maxTries = 10) {
   return new Promise((resolve, reject) => {
@@ -111,16 +114,7 @@ function createRadioServer(port = 8787, maxTries = 10) {
     const tryListen = (p) => {
       const iceServers = buildIceServers();
 
-      const httpServer = http.createServer((req, res) => {
-        const body = req.url === '/health'
-          ? 'ok'
-          : 'CAD ER:LC — servidor de radio activo\n';
-        res.writeHead(200, {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
-        });
-        res.end(body);
-      });
+      const httpServer = http.createServer();
 
       const wss = new WebSocketServer({ server: httpServer });
 
@@ -147,6 +141,66 @@ function buildServer(wss, httpServer, port, iceServers) {
   let nextId = 1;
   const clients = new Map(); // id -> { id, ws, name, department, role, channel, talking }
   let activePanic = null; // última alerta 🆘 sin "todo controlado" (para quien se conecte después)
+
+  // ---- HTTP: salud, página del 911 para civiles y recepción de llamadas ----
+  const civilLastByIp = new Map(); // anti-spam por IP
+  const CIVIL_TYPES = { POLICE: 'Policía', MEDICAL: 'Médica', FIRE: 'Incendio', TRAFFIC: 'Tránsito', OTHER: 'Otra' };
+
+  httpServer.on('request', (req, res) => {
+    const url = String(req.url || '/').split('?')[0];
+
+    // Página pública para civiles
+    if (url === '/911' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(CIVILIAN_PAGE);
+      return;
+    }
+
+    // Llamada al 911 desde la página de civiles
+    if (url === '/911' && req.method === 'POST') {
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || (req.socket && req.socket.remoteAddress) || '?';
+      if (Date.now() - (civilLastByIp.get(ip) || 0) < 20000) {
+        res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: 'Esperá unos segundos antes de volver a llamar.' }));
+        return;
+      }
+      let raw = '';
+      let tooBig = false;
+      req.on('data', (chunk) => {
+        raw += chunk;
+        if (raw.length > 10000) { tooBig = true; req.destroy(); }
+      });
+      req.on('end', () => {
+        if (tooBig) return;
+        let body = {};
+        try { body = JSON.parse(raw || '{}'); } catch {}
+        const kind = CIVIL_TYPES[body.kind] ? body.kind : 'OTHER';
+        const call = {
+          id: 'CIV-' + Date.now().toString(36).toUpperCase(),
+          kind,
+          kindLabel: CIVIL_TYPES[kind],
+          name: String(body.name || '').trim().slice(0, 60) || 'Ciudadano anónimo',
+          location: String(body.location || '').trim().slice(0, 120) || 'Ubicación desconocida',
+          description: String(body.description || '').trim().slice(0, 500) || 'Sin detalles',
+          ts: Date.now(),
+        };
+        civilLastByIp.set(ip, Date.now());
+        for (const c of clients.values()) send(c.ws, { type: 'civil-call', call });
+        console.log(`[Radio] 📞 911 (${CIVIL_TYPES[kind]}): ${call.name} — ${call.location}`);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, id: call.id }));
+      });
+      return;
+    }
+
+    const body = url === '/health' ? 'ok' : 'CAD ER:LC — servidor de radio activo\n';
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(body);
+  });
 
   // ---------------- Estado de los canales ----------------
   let channelDefs = DEFAULT_CHANNEL_DEFS.map((d) => ({ ...d, members: [] }));
