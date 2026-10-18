@@ -146,6 +146,29 @@ npm run build
 
 Los archivos quedan en la carpeta **dist/** (instalador + versión **portátil** `.exe`).
 
+## 🌐 Compartir el CAD con tus miembros (sin avisos de Windows)
+
+El `.exe` no está firmado digitalmente, así que al descargarlo desde el navegador Windows muestra el aviso *"Windows protegió tu PC"* (SmartScreen). Es normal en apps nuevas: **no significa que tenga virus** (Microsoft Defender lo escanea y no encuentra amenazas).
+
+### ✅ Recomendado: OneDrive con "acceso directo" (gratis, sin avisos y con actualizaciones automáticas)
+
+1. En tu OneDrive, compartí **la carpeta** (no el archivo) con permiso **"Cualquier persona con el enlace puede editar"**. ⚠️ Tiene que ser **"puede editar"**: con "solo ver" el botón de agregar no les aparece.
+2. Cada miembro, en OneDrive.com: inicia sesión (cuenta Microsoft) → **Compartido** → clic en el círculo de la carpeta (o clic derecho) → **"Agregar acceso directo a Mis archivos"**.
+3. La carpeta se sincroniza sola a su PC (dentro de su OneDrive, con la app que ya viene en Windows). Abren el `.exe` desde ahí: **sin ningún aviso** ✅.
+4. Cuando actualices el `.exe` (mismo nombre), **a todos se les actualiza solo**.
+
+📄 La guía lista para reenviar a Discord: [`docs/COMPARTIR-CON-MIEMBROS.md`](docs/COMPARTIR-CON-MIEMBROS.md)
+
+> Las carpetas compartidas **no gastan** el almacenamiento de los miembros (solo el tuyo). Si alguien borrara el archivo por error, volvés a subirlo y listo.
+
+### Si lo bajan desde el navegador (link normal)
+
+El aviso aparece **una vez**: "Más información" → **"Ejecutar de todas formas"**. Alternativa: clic derecho al `.exe` → **Propiedades** → marcar **"Desbloquear"** → Aplicar.
+
+### 🔏 Firma digital (opcional, de pago)
+
+Firmar el `.exe` con un certificado elimina el aviso para siempre: **EV** (~300–600 USD/año) desde el primer día; **OV** (~130–300 USD/año) después de ganar reputación. Se configura en `package.json` → `build.win` de electron-builder.
+
 ## 🗂️ Estructura del proyecto
 
 | Archivo | Función |
