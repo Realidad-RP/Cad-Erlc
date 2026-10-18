@@ -13,6 +13,7 @@ services:
     rootDir: server
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     plan: free
     envVars:
       - key: TURN_URLS
