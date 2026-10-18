@@ -1,5 +1,5 @@
 // ============================================================
-//  Radio de voz (cliente WebRTC) — CAD ER:LC
+//  Radio de voz (cliente WebRTC) — CAD | AYUNTAMIENTO | Los Angeles
 // ============================================================
 // Este archivo se encarga de:
 //   - Conectarse al servidor de radio (el que aloja la app o uno suelto)

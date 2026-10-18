@@ -1,6 +1,6 @@
 {
   "name": "cad-erlc",
-  "productName": "CAD ERLC",
+  "productName": "CAD AYUNTAMIENTO Los Angeles",
   "version": "0.1.0",
   "description": "CAD (Computer Aided Dispatch) con radio de voz para comunidades de ER:LC",
   "main": "main.js",
@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "es.caderlc.app",
-    "productName": "CAD ERLC",
+    "productName": "CAD AYUNTAMIENTO Los Angeles",
     "win": {
       "target": [
         "nsis",

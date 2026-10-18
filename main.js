@@ -1,4 +1,4 @@
-// CAD ER:LC — Proceso principal de Electron
+// CAD | AYUNTAMIENTO | Los Angeles — Proceso principal de Electron
 //
 // Aquí vive todo lo que necesita permisos especiales:
 //  - La ventana de la app
@@ -21,7 +21,7 @@ function createWindow() {
     height: 920,
     minWidth: 1120,
     minHeight: 680,
-    title: 'CAD ER:LC',
+    title: 'CAD | AYUNTAMIENTO | Los Angeles',
     backgroundColor: '#0b1015',
     autoHideMenuBar: true,
     webPreferences: {

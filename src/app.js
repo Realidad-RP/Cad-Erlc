@@ -1,5 +1,5 @@
 // ============================================================
-//  CAD ER:LC — lógica de la interfaz
+//  CAD | AYUNTAMIENTO | Los Angeles — lógica de la interfaz
 // ============================================================
 // Aquí vive el despacho (llamadas, unidades, roster, BOLOs, historial),
 // la conexión con el radio de voz y los ajustes de push-to-talk.
