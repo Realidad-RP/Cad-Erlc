@@ -8,7 +8,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🚓 **Unidades**: indicativos con estados 10-code (10-8, 10-6, 10-97, 10-23, 10-7).
 - 👥 **Roster** de personal con rango y departamento.
 - 🔎 **BOLOs** de personas y vehículos.
-- 📇 **Registros**: fichas de personas y vehículos con buscador (por nombre, licencia o placa), multas, órdenes y reportes.
+- 📇 **Registros**: fichas de personas y vehículos con buscador (por nombre, DNI, licencia o placa), multas, órdenes y reportes.
 - 🆘 **Botón de pánico**: pedís ayuda con un clic y le salta una alerta roja con sirena a todo el CAD al instante (crea la llamada en Despacho sola).
 - 📞 **Central 911 civil**: una página web para que los civiles llamen al 911 y la llamada caiga solita en Despacho (con tipo, nombre y ubicación).
 - 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
@@ -17,7 +17,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
-- 🤖 **Bot de Discord**: enlaza el CAD con tu Discord (llamadas, unidades, BOLOs, estado del juego en vivo y comandos dentro del juego).
+- 🤖 **Bot de Discord**: enlaza el CAD con tu Discord (llamadas, unidades, BOLOs, estado del juego en vivo, comandos dentro del juego y **búsqueda de personas por DNI** con `/dni`).
 
 ## ▶️ Cómo ejecutarla
 
@@ -68,8 +68,8 @@ En la pestaña **🎧 Audio** de la app se configura todo el sonido:
 
 En la pestaña **📇 Registros** está el "archivo" del CAD, estilo Sonoran:
 
-- 🔎 **Buscador**: escribí un nombre, una licencia o una placa y te muestra las fichas al instante (con cuántas multas y órdenes activas tiene esa persona).
-- 👤 **Personas**: ficha con Nº de licencia y su estado (Válida/Suspendida/Revocada), fecha de nacimiento y notas. Desde la ficha podés **cambiar el estado de la licencia** en un clic.
+- 🔎 **Buscador**: escribí un nombre, un **DNI**, una licencia o una placa y te muestra las fichas al instante (con cuántas multas y órdenes activas tiene esa persona).
+- 👤 **Personas**: ficha con **DNI**, Nº de licencia y su estado (Válida/Suspendida/Revocada), fecha de nacimiento y notas. Desde la ficha podés **cambiar el estado de la licencia** en un clic.
 - 🚗 **Vehículos**: placa, marca/modelo, color, dueño y estado (**Normal / ⚠️ ROBADO** con un botón para alternarlo).
 - 🧾 **Multas**: persona, monto y motivo; se marcan como **pagadas** con un clic.
 - ⚖️ **Órdenes** de arresto, registro o citación; se marcan como **cumplidas**.
@@ -107,16 +107,6 @@ Si tu servidor privado tiene el pack **ERLC API** (se compra con Robux), la app 
 Vas a ver, actualizado solo cada 10 segundos: el **nombre del servidor**, cuántos **jugadores** hay (12/50), la **clave de ingreso** y la **tabla de conectados** con su **equipo** (policía, bomberos…) e **indicativo** si están en servicio. También podés **mandar mensajes al juego** desde el CAD (los comandos del juego, ej. `:h` aviso global). Límite de la API: 1 comando cada ~5 segundos. La clave queda guardada **solo en tu PC**, nunca se comparte.
 
 > **¿Quién puede usar la pestaña?** Solo aparece para **Propietario, Administrador y Supervisor** (conectados al radio). **Mandar mensajes al juego** solo pueden el **Propietario y los Administradores** — los Supervisores pueden mirar, pero no ejecutar comandos. Para el resto de los miembros la pestaña ni aparece.
-
-## 🗺️ Mapa de unidades en vivo (pestaña Mapa)
-
-Un mapa estilo 3D (inclinado) donde se ven **solo los puntos de las unidades con su placa** (indicativo), sincronizado al instante entre todos los conectados:
-
-1. Conectate al radio → pestaña **🗺️ Mapa**.
-2. Escribí tu **indicativo** (ej. L-12), elegí tu departamento → **📍 Colocar mi unidad**.
-3. Tocá el mapa o **arrastrá tu punto** para moverte. El color del punto es de tu departamento.
-
-Notas: ER:LC no entrega las posiciones reales por su API, así que **cada oficial mueve su propio punto** (1 toque). El **Propietario y los Administradores pueden mover cualquier punto** para corregir. Si un oficial se desconecta, su punto queda atenuado; con **🧹 Quitar mi punto** desaparece del mapa de todos. Botón **🧊 Vista 3D** para pasar a vista plana.
 
 ## 🌍 Radio para todo el mundo (internet)
 
@@ -178,7 +168,7 @@ Debe terminar con: `✅ PRUEBA OK`.
 
 ## 🤖 Bot de Discord (CAD ↔ ER:LC)
 
-El bot publica en tu Discord las **llamadas, unidades y BOLOs del CAD al instante**, muestra el **estado en vivo del servidor de ER:LC** (jugadores), recibe las **llamadas de emergencia del juego** y permite **ejecutar comandos dentro del juego** con `/juego`.
+El bot publica en tu Discord las **llamadas, unidades y BOLOs del CAD al instante**, muestra el **estado en vivo del servidor de ER:LC** (jugadores), recibe las **llamadas de emergencia del juego**, permite **ejecutar comandos dentro del juego** con `/juego` y **busca personas en los registros del CAD** con `/dni 30123456` (licencia, órdenes activas, multas pendientes y vehículos).
 
 Guía completa paso a paso: **[bot/README.md](bot/README.md)**. Resumen:
 
@@ -243,7 +233,7 @@ Firmar el `.exe` con un certificado elimina el aviso para siempre: **EV** (~300�
 | `server/package.json` | Paquete independiente del servidor (para la nube) |
 | `server/Dockerfile` | Imagen Docker del servidor (para VPS) |
 | `bot/index.js` | Bot de Discord: comandos, estado en vivo y avisos |
-| `bot/lib/cad.js` | Detección de novedades del CAD (llamadas, unidades, BOLOs) |
+| `bot/lib/cad.js` | Detección de novedades del CAD + búsqueda por DNI |
 | `bot/lib/erlc.js` | API de ER:LC (estado, jugadores, comandos) + firmas Ed25519 |
 | `bot/lib/server.js` | Servidor HTTP del bot (enlace CAD + webhooks del juego) |
 | `bot/config.js` | Claves del bot (privado, no se sube a GitHub) |

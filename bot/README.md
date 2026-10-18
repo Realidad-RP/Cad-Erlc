@@ -14,6 +14,7 @@ El bot une las tres piezas de tu comunidad:
 |---|---|
 | 📟 **Avisos del CAD** | Cuando creás una llamada, despachás unidades o cerrás un caso, aparece en Discord al instante |
 | 🚨 **BOLOs** | Publica BOLOs nuevos y los marca resueltos |
+| 🪪 **Buscar por DNI** | En Discord: `/dni 30123456` → muestra la ficha de esa persona (licencia, órdenes activas, multas pendientes y vehículos) usando los **📇 Registros** del CAD |
 | 🎮 **Estado en vivo** | Muestra cuántos jugadores hay en el servidor de ER:LC (y un mensaje que se actualiza solo) |
 | 📡 **Avisos del juego** | Recibe las **llamadas de emergencia** del juego y los comandos con `;` en tiempo real (webhooks) |
 | 💬 **Comandos** | `/estado` · `/jugadores` · `/cad` · `/juego` (ejecuta comandos dentro del juego, solo admins) |
@@ -74,7 +75,7 @@ Si todo está bien vas a ver:
 ```
 [Bot] Servidor HTTP activo en el puerto 8790 (salud: /health)
 [Bot] Conectado como CAD ERLC#1234 · 1 servidor(es) de Discord
-[Bot] Comandos listos: /estado /jugadores /cad /juego
+[Bot] Comandos listos: /estado /jugadores /cad /dni /juego
 ```
 
 Para probar sin Discord ni internet: `npm run test-bot` → debe terminar en `✅ PRUEBA BOT OK`.
@@ -116,11 +117,14 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 
 ## Comandos de Discord
 
+> 💡 Para que **/dni** encuentre a alguien, la persona tiene que estar cargada en la pestaña **📇 Registros** del CAD con su **DNI**, y el CAD tiene que estar enlazado con el bot (Parte 5).
+
 | Comando | Qué hace |
 |---|---|
 | `/estado` | Nombre del servidor, jugadores, clave de ingreso, verificación |
 | `/jugadores` | Lista de conectados agrupados por equipo |
 | `/cad` | Resumen del despacho: llamadas abiertas, unidades y BOLOs |
+| `/dni numero` | Busca una persona en los **📇 Registros del CAD** por su DNI (licencia, órdenes activas, multas pendientes y vehículos) |
 | `/juego comando` | Ejecuta un comando dentro del juego (ej. `:h Buenos días`). Solo administradores; límite: 1 cada 5 s |
 
 ---

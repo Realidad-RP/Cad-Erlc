@@ -203,6 +203,65 @@ function buildCadSummary(snapshot) {
   return lines.join('\n').slice(0, 3900);
 }
 
+// ---- Búsqueda por DNI (para el comando /dni de Discord) ----
+
+// Normaliza un DNI: sin espacios ni puntos/guiones, en minúsculas.
+function normalizeDni(s) {
+  return String(s ?? '').trim().toLowerCase().replace(/[\s.\-]/g, '');
+}
+
+function sameName(a, b) {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+}
+
+// Personas del CAD cuyo DNI coincide con lo que se buscó.
+function findPersonsByDni(snapshot, query) {
+  const q = normalizeDni(query);
+  if (!snapshot || !q) return [];
+  return (snapshot.persons || []).filter((p) => normalizeDni(p.dni) === q);
+}
+
+// Respuesta lista para el embed de /dni: { title, color, lines }.
+function buildDniReply(snapshot, query) {
+  const matches = findPersonsByDni(snapshot, query);
+  if (!matches.length) return null;
+  const p = matches[0];
+
+  const warrants = (snapshot.warrants || []).filter((w) => w.status === 'activa' && sameName(w.person, p.name));
+  const fines = (snapshot.fines || []).filter((f) => f.status !== 'pagada' && sameName(f.person, p.name));
+  const vehicles = (snapshot.vehicles || []).filter((v) => sameName(v.owner, p.name));
+  const totalFines = fines.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+
+  const lic = p.licStatus || 'Válida';
+  const color = warrants.length || lic === 'Revocada' ? 0xef4444 : lic === 'Suspendida' ? 0xeab308 : 0x22c55e;
+
+  const lines = [
+    `🪪 **DNI:** ${p.dni || '—'}`,
+    `🎂 **Nacimiento:** ${p.dob || '—'}`,
+    `🚗 **Licencia:** ${p.license || '—'} · ${lic}`,
+  ];
+  if (p.notes) lines.push(`📝 **Notas:** ${p.notes}`);
+
+  if (warrants.length) {
+    lines.push('', `⚖️ **ÓRDENES ACTIVAS: ${warrants.length}** ⚠️`);
+    for (const w of warrants.slice(0, 4)) lines.push(`> ${w.wkind || 'Orden'}: ${w.reason || ''}`);
+  } else {
+    lines.push('', '⚖️ Sin órdenes activas');
+  }
+
+  lines.push(fines.length
+    ? `🧾 Multas pendientes: **${fines.length}** (total ${totalFines})`
+    : '🧾 Sin multas pendientes');
+
+  if (vehicles.length) {
+    lines.push('🚓 Vehículos a su nombre: ' +
+      vehicles.slice(0, 5).map((v) => v.plate + (v.status === 'Robado' ? ' (⚠️ ROBADO)' : '')).join(', '));
+  }
+  if (matches.length > 1) lines.push('', `ℹ️ Hay ${matches.length - 1} persona(s) más con ese mismo DNI.`);
+
+  return { title: `👤 ${p.name}`, color, lines };
+}
+
 module.exports = {
   CALL_TYPES,
   CALL_STATUSES,
@@ -211,4 +270,7 @@ module.exports = {
   diff,
   createCadMirror,
   buildCadSummary,
+  normalizeDni,
+  findPersonsByDni,
+  buildDniReply,
 };

@@ -7,7 +7,7 @@ const assert = require('assert');
 const crypto = require('crypto');
 
 const { verifyErlcSignature, signForTest } = require('./lib/erlc');
-const { createCadMirror, buildCadSummary } = require('./lib/cad');
+const { createCadMirror, buildCadSummary, findPersonsByDni, buildDniReply } = require('./lib/cad');
 const { createBotServer } = require('./lib/server');
 
 let passed = 0;
@@ -74,6 +74,28 @@ function ok(cond, label) {
 
   const summary = buildCadSummary(snap5);
   ok(typeof summary === 'string' && summary.includes('Llamadas abiertas: 0') && summary.includes('L-12'), 'resumen /cad generado');
+
+  // ---- 2b. Búsqueda por DNI (comando /dni) ----
+  console.log('2b. Búsqueda por DNI (comando /dni)');
+  const snapDni = {
+    calls: [], units: [], bolos: [],
+    persons: [
+      { id: 'PER-1', name: 'Juan Pérez', dni: '30123456', dob: '1998-03-15', license: '4471122', licStatus: 'Válida' },
+      { id: 'PER-2', name: 'Marta Gómez', dni: '28999000', licStatus: 'Revocada' },
+    ],
+    vehicles: [{ id: 'VEH-1', plate: 'ABC 123', owner: 'Juan Pérez', status: 'Robado' }],
+    fines: [{ id: 'MUL-1', person: 'Juan Pérez', amount: 500, status: 'pendiente' }],
+    warrants: [{ id: 'ORD-1', person: 'Juan Pérez', wkind: 'Arresto', reason: 'Robo', status: 'activa' }],
+  };
+  ok(findPersonsByDni(snapDni, '30.123.456').length === 1, 'encuentra el DNI aunque se escriba con puntos');
+  ok(findPersonsByDni(snapDni, ' 30123456 ')[0].name === 'Juan Pérez', 'encuentra con espacios alrededor');
+  ok(findPersonsByDni(snapDni, '111').length === 0, 'DNI inexistente → sin resultados');
+
+  const dniReply = buildDniReply(snapDni, '30123456');
+  ok(dniReply && dniReply.title.includes('Juan Pérez'), 'respuesta /dni con el nombre');
+  ok(dniReply.lines.some((l) => /ÓRDENES ACTIVAS/.test(l)) && dniReply.lines.some((l) => /Arresto/.test(l)), 'incluye órdenes activas');
+  ok(dniReply.lines.some((l) => /Multas pendientes: \*\*1\*\*/.test(l)) && dniReply.lines.some((l) => /ABC 123/.test(l)), 'incluye multas y vehículos');
+  ok(buildDniReply(snapDni, '000000') === null, 'DNI no registrado → null');
 
   // ---- 3. Servidor HTTP (enlace CAD + webhooks) ----
   console.log('3. Servidor HTTP (enlace CAD + webhook)');

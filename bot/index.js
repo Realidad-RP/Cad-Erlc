@@ -8,6 +8,7 @@
 //   /estado     → estado del servidor de ER:LC (jugadores, clave, verificación)
 //   /jugadores  → lista de conectados agrupados por equipo
 //   /cad        → resumen del despacho (llamadas abiertas, unidades, BOLOs)
+//   /dni        → buscar una persona en los registros del CAD por su DNI
 //   /juego      → ejecutar un comando dentro del juego (solo administradores)
 //
 // Guía completa: bot/README.md
@@ -25,7 +26,7 @@ const {
   PermissionFlagsBits,
 } = require('discord.js');
 
-const { createCadMirror, buildCadSummary } = require('./lib/cad');
+const { createCadMirror, buildCadSummary, buildDniReply } = require('./lib/cad');
 const { createBotServer } = require('./lib/server');
 const { getServerStatus, getPlayers, runCommand } = require('./lib/erlc');
 
@@ -262,6 +263,13 @@ const commands = [
   new SlashCommandBuilder().setName('jugadores').setDescription('Jugadores conectados al juego, por equipo').toJSON(),
   new SlashCommandBuilder().setName('cad').setDescription('Resumen del despacho: llamadas abiertas, unidades y BOLOs').toJSON(),
   new SlashCommandBuilder()
+    .setName('dni')
+    .setDescription('Buscar una persona en los registros del CAD por su DNI')
+    .addStringOption((o) =>
+      o.setName('numero').setDescription('DNI del personaje (ej. 30123456)').setRequired(true)
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName('juego')
     .setDescription('Ejecutar un comando dentro del juego (solo administradores)')
     .addStringOption((o) =>
@@ -336,6 +344,27 @@ async function handleCommand(interaction) {
     return interaction.reply(summary);
   }
 
+  if (name === 'dni') {
+    const snapshot = mirror.get();
+    if (!snapshot) {
+      return interaction.reply(
+        '📡 El CAD todavía no envió datos.\nEn la app: panel **"Enlace con el bot"** → dirección `http://localhost:8790` (o la IP donde corra el bot) → la misma clave del bot → **Guardar y probar**.'
+      );
+    }
+    const numero = interaction.options.getString('numero', true);
+    const reply = buildDniReply(snapshot, numero);
+    if (!reply) {
+      return interaction.reply(`❌ No hay ninguna persona con el DNI **${numero}** en los registros del CAD.`);
+    }
+    const embed = new EmbedBuilder()
+      .setColor(reply.color)
+      .setTitle(reply.title)
+      .setDescription(reply.lines.join('\n').slice(0, 3900))
+      .setFooter({ text: 'CAD · registros' })
+      .setTimestamp(new Date());
+    return interaction.reply({ embeds: [embed] });
+  }
+
   if (name === 'juego') {
     if (!cfg.erlcServerKey) return interaction.reply({ content: '⚠️ El bot no tiene configurada la server-key de ER:LC.', flags: MessageFlags.Ephemeral });
     const since = Date.now() - lastCommandAt;
@@ -374,7 +403,7 @@ client.on(Events.ClientReady, async (c) => {
   console.log(`[Bot] Conectado como ${c.user.tag} · ${c.guilds.cache.size} servidor(es) de Discord`);
   try {
     await registerCommands(c);
-    console.log('[Bot] Comandos listos: /estado /jugadores /cad /juego');
+    console.log('[Bot] Comandos listos: /estado /jugadores /cad /dni /juego');
   } catch (err) {
     console.warn('[Bot] No se pudieron registrar los comandos:', err.message);
   }

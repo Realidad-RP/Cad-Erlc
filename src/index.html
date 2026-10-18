@@ -149,6 +149,7 @@
       </div>
       <button id="link-save" class="btn btn-primary full">Guardar y probar</button>
       <div id="link-status" class="muted small"></div>
+      <div class="muted small">En Discord, el bot también responde <b>/dni 30123456</b>: busca a esa persona en los registros del CAD.</div>
     </section>
 
     <section class="panel">
@@ -165,7 +166,6 @@
   <main class="main">
     <nav class="tabs">
       <button class="tab active" data-tab="despacho">🚨 Despacho</button>
-      <button class="tab hidden" id="tab-btn-mapa" data-tab="mapa">🗺️ Mapa</button>
       <button class="tab" data-tab="unidades">🚓 Unidades</button>
       <button class="tab" data-tab="roster">👥 Roster</button>
       <button class="tab" data-tab="bolos">🔎 BOLOs</button>
@@ -208,59 +208,6 @@
           <thead><tr><th>Indicativo</th><th>Departamento</th><th>Operador</th><th>Estado</th><th>Llamada</th><th></th></tr></thead>
           <tbody id="units-tbody"></tbody>
         </table>
-      </div>
-    </section>
-
-    <!-- Mapa de unidades -->
-    <section id="tab-mapa" class="tab-content">
-      <div class="panel">
-        <h2>Mapa de unidades en vivo</h2>
-        <p class="muted">Se ven solo los puntos con su placa (indicativo), en vivo para todos los conectados. Tocá el mapa para mover tu punto o arrastralo.</p>
-        <div class="mapa-bar">
-          <input id="mapa-callsign" maxlength="12" placeholder="Tu indicativo (ej. L-12)" />
-          <select id="mapa-dept"></select>
-          <button id="mapa-save" class="btn btn-primary" type="button">📍 Colocar mi unidad</button>
-          <button id="mapa-remove" class="btn btn-danger" type="button">🧹 Quitar mi punto</button>
-          <button id="mapa-3d" class="btn" type="button">🧊 Vista 3D: ON</button>
-          <span class="muted" id="mapa-count">📍 0 unidades en el mapa</span>
-        </div>
-        <div class="mapa-stage" id="mapa-stage">
-          <div class="mapa-tilt" id="mapa-tilt">
-            <svg class="mapa-fondo" viewBox="0 0 1000 640" preserveAspectRatio="none" aria-hidden="true">
-              <rect x="0" y="0" width="1000" height="640" fill="#0c1526"/>
-              <path d="M0,0 H150 C170,120 130,260 160,380 C180,470 150,560 170,640 H0 Z" fill="#0e1f3a"/>
-              <path d="M150,0 C170,120 130,260 160,380 C180,470 150,560 170,640" fill="none" stroke="#1c3a63" stroke-width="3"/>
-              <path d="M560,0 C540,90 610,180 590,270 C575,340 640,420 620,520 C610,580 640,610 650,640" fill="none" stroke="#12304f" stroke-width="16" stroke-linecap="round"/>
-              <g stroke="#16283f" stroke-width="3">
-                <path d="M210,60 H980"/><path d="M190,150 H980"/><path d="M200,250 H980"/><path d="M220,350 H980"/>
-                <path d="M230,450 H980"/><path d="M240,550 H980"/>
-                <path d="M250,20 V620"/><path d="M350,20 V620"/><path d="M450,20 V620"/><path d="M550,20 V620"/>
-                <path d="M650,20 V620"/><path d="M750,20 V620"/><path d="M850,20 V620"/><path d="M950,20 V620"/>
-              </g>
-              <path d="M170,640 C330,470 640,300 1000,150" fill="none" stroke="#1f3350" stroke-width="14"/>
-              <path d="M170,640 C330,470 640,300 1000,150" fill="none" stroke="#3f5f8f" stroke-width="2" stroke-dasharray="14 12"/>
-              <rect x="690" y="360" width="150" height="130" rx="18" fill="#0d2419" stroke="#173a26" stroke-width="2"/>
-              <path d="M470,555 L640,555" stroke="#243a55" stroke-width="26" stroke-linecap="round"/>
-              <path d="M520,540 L590,540" stroke="#334d6e" stroke-width="6" stroke-linecap="round"/>
-              <g fill="#2e4f79" font-size="19" font-weight="700" font-family="Consolas, monospace">
-                <text x="300" y="300">DOWNTOWN</text>
-                <text x="750" y="120">COLINAS</text>
-                <text x="230" y="520">PUERTO</text>
-                <text x="560" y="500">AEROPUERTO</text>
-                <text x="700" y="430">PARQUE CENTRAL</text>
-              </g>
-            </svg>
-            <div class="mapa-dots" id="mapa-dots"></div>
-          </div>
-        </div>
-        <div class="mapa-legend">
-          <span style="--dc:#3b82f6"><i></i>LCPD</span>
-          <span style="--dc:#eab308"><i></i>CHP</span>
-          <span style="--dc:#ef4444"><i></i>LCFD</span>
-          <span style="--dc:#a855f7"><i></i>DOT</span>
-          <span style="--dc:#10b981"><i></i>Central</span>
-          <span class="muted">Pasá el mouse por un punto para ver el nombre del oficial</span>
-        </div>
       </div>
     </section>
 
@@ -312,9 +259,9 @@
       <div class="panel">
         <div class="panel-head">
           <h2>🔎 Buscador de registros</h2>
-          <span class="muted small">Escribí un nombre, licencia o placa</span>
+          <span class="muted small">Escribí un nombre, DNI, licencia o placa</span>
         </div>
-        <input id="rec-search" placeholder="Ej: Juan Pérez · ABC 123 · Lic. 4471122" autocomplete="off" />
+        <input id="rec-search" placeholder="Ej: Juan Pérez · DNI 30123456 · ABC 123" autocomplete="off" />
         <div id="rec-results" class="rec-results"></div>
       </div>
 

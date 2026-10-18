@@ -430,6 +430,7 @@ input[type="range"] { padding: 0; border: none; background: transparent; }
 .rec-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
 .rec-line { font-size: 13px; padding: 2px 0; }
 .rec-inline-select { width: auto; padding: 2px 6px; font-size: 12.5px; }
+.rec-inline-input { width: 110px; padding: 2px 6px; font-size: 12.5px; }
 .rec-narrative { white-space: pre-wrap; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13.5px; line-height: 1.5; }
 textarea {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
@@ -455,50 +456,3 @@ textarea:focus { border-color: var(--accent); }
 .panic-title { font-size: 25px; font-weight: 800; color: #fecaca; margin-bottom: 10px; }
 .panic-body { font-size: 16px; margin-bottom: 6px; line-height: 1.5; }
 .panic-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
-
-/* ============================================================
-   21. Mapa de unidades (estilo 3D)
-   ============================================================ */
-.mapa-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 14px; }
-.mapa-bar input { max-width: 190px; }
-.mapa-bar select { max-width: 230px; }
-#mapa-count { margin-left: auto; font-size: 12px; }
-.mapa-stage { position: relative; width: 100%; max-width: 1100px; height: 540px; margin: 0 auto 12px; }
-.mapa-tilt {
-  position: absolute; inset: 0; transform-origin: 50% 50%;
-  transform: perspective(1200px) rotateX(var(--tilt-mapa, 38deg));
-  will-change: transform;
-}
-.mapa-fondo {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  border-radius: 14px; background: #0c1526;
-  box-shadow: inset 0 30px 80px -40px #000, 0 0 0 1px #1c2c45;
-}
-.mapa-dots { position: absolute; inset: 0; }
-.mapa-dot { position: absolute; }
-.mapa-dot .mapa-punto {
-  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 999px;
-  box-sizing: border-box;
-  background: radial-gradient(circle at 35% 30%, #ffffffcc, var(--dc) 55%, #00000055);
-  border: 2px solid #0b1424;
-  box-shadow: 0 0 12px var(--dc), 0 2px 6px #000c;
-  cursor: grab;
-}
-.mapa-dot.mine .mapa-punto {
-  width: 18px; height: 18px; left: -9px; top: -9px;
-  box-shadow: 0 0 0 3px #ffffff33, 0 0 16px var(--dc), 0 2px 6px #000c;
-}
-.mapa-dot.off { opacity: .45; filter: saturate(.4); }
-.mapa-dot.dragging .mapa-punto { cursor: grabbing; transform: scale(1.25); }
-.mapa-dot .mapa-placa {
-  position: absolute; left: 0; bottom: 9px;
-  transform: translateX(-50%) rotateX(calc(var(--tilt-mapa, 38deg) * -1));
-  transform-origin: 50% 100%;
-  font-size: 11px; font-weight: 700; letter-spacing: .4px; padding: 2px 7px; border-radius: 7px;
-  background: #0b1424ee; border: 1px solid var(--dc); color: #e6edf7; white-space: nowrap;
-  box-shadow: 0 4px 10px #000a; pointer-events: none;
-}
-.mapa-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: #9fb0c7; }
-.mapa-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.mapa-legend i { width: 10px; height: 10px; border-radius: 999px; background: var(--dc); box-shadow: 0 0 8px var(--dc); display: inline-block; }
-@media (max-width: 900px) { .mapa-stage { height: 420px; } }
