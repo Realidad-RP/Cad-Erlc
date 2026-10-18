@@ -1351,6 +1351,8 @@ function onRadioEvent(event, payload) {
 
     case 'ptt':
       setPttIndicator(payload);
+      if (payload) radioPttOpenSound();
+      else radioPttCloseSound();
       renderMembers(membersWithSelf());
       break;
 
@@ -1936,8 +1938,85 @@ function wireAudioTab() {
 // 18. Botón de pánico 🆘 y llamadas al 911 📞
 // ============================================================
 
+// ---------- Sonidos de radio (push-to-talk y pánico) ----------
+// Se generan con Web Audio: no hace falta ningún archivo de audio.
+
+// Ráfaga cortita de ruido: el "clic" de abrir/cerrar el squelch de la radio
+function radioNoiseBurst(ctx, when, dur, vol, hp) {
+  const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = hp || 500;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(vol || 0.12, ctx.currentTime + when);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + dur);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(ctx.currentTime + when);
+  src.stop(ctx.currentTime + when + dur + 0.02);
+}
+
+// Beep cortito de radio
+function radioTone(ctx, when, freq, dur, vol, type) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'triangle';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime + when);
+  gain.gain.exponentialRampToValueAtTime(vol || 0.12, ctx.currentTime + when + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + dur);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime + when);
+  osc.stop(ctx.currentTime + when + dur + 0.05);
+}
+
+// Clic al abrir el micrófono (push-to-talk)
+function radioPttOpenSound() {
+  try {
+    const ctx = new AudioContext();
+    radioNoiseBurst(ctx, 0, 0.06, 0.15, 500);
+    radioTone(ctx, 0.005, 230, 0.05, 0.07);
+    setTimeout(() => { try { ctx.close(); } catch {} }, 400);
+  } catch {}
+}
+
+// "Roger beep" al cerrar el micrófono
+function radioPttCloseSound() {
+  try {
+    const ctx = new AudioContext();
+    radioNoiseBurst(ctx, 0, 0.025, 0.05, 900);
+    radioTone(ctx, 0.005, 1150, 0.1, 0.11);
+    setTimeout(() => { try { ctx.close(); } catch {} }, 400);
+  } catch {}
+}
+
+// Intro de radio del pánico: clic + doble beep (después entra la sirena)
+function radioPanicIntroSound() {
+  try {
+    const ctx = new AudioContext();
+    radioNoiseBurst(ctx, 0, 0.07, 0.17, 450);
+    radioTone(ctx, 0.01, 760, 0.11, 0.15);
+    radioTone(ctx, 0.17, 1140, 0.13, 0.15);
+    setTimeout(() => { try { ctx.close(); } catch {} }, 1000);
+  } catch {}
+}
+
 let panicCtx = null;
 let panicTimer = null;
+let panicIntroTimer = null;
+
+// El pánico suena como una radio: clic + beeps y recién después la sirena
+function panicAlertSound() {
+  radioPanicIntroSound();
+  panicIntroTimer = setTimeout(() => { panicIntroTimer = null; panicSoundStart(); }, 380);
+}
 
 function panicSoundStart() {
   panicSoundStop();
@@ -1966,6 +2045,7 @@ function panicSoundStart() {
 }
 
 function panicSoundStop() {
+  if (panicIntroTimer) { clearTimeout(panicIntroTimer); panicIntroTimer = null; }
   if (panicTimer) { clearInterval(panicTimer); panicTimer = null; }
   if (panicCtx) { try { panicCtx.close(); } catch {} panicCtx = null; }
 }
@@ -2004,7 +2084,7 @@ function showPanicAlert(p) {
   $('#panic-when').textContent = '⏰ ' + new Date(p.ts || Date.now()).toLocaleTimeString('es-ES');
   $('#panic-clear').classList.toggle('hidden', !self);
   overlay.classList.remove('hidden');
-  panicSoundStart();
+  panicAlertSound();
   createPanicCall(p);
   addLog('🆘 ' + p.name + ' (' + d.short + ') ¡PIDIÓ AYUDA!' + (p.note ? ' — ' + p.note : ''));
   renderLog();
