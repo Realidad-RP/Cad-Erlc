@@ -492,12 +492,65 @@
   }
 
   /* ============================================================
+     8) PANEL DE CIUDADANO (modal con acceso por Discord)
+     ============================================================ */
+  function setupPanelModal() {
+    const triggers = $$('[data-open-panel]');
+    if (!triggers.length || $('#panelModal')) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'panel-modal';
+    modal.id = 'panelModal';
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="panel-backdrop" data-close-panel></div>
+      <div class="panel-card" role="dialog" aria-modal="true" aria-label="Panel de Ciudadano">
+        <button class="panel-x" data-close-panel aria-label="Cerrar">✕</button>
+        <span class="panel-tag">Próximamente</span>
+        <h3>🆔 Panel de Ciudadano</h3>
+        <p>Ahí vas a ver <b>tu DNI</b>, tu dinero, tus multas, tus carros, tus viviendas, tus objetos y tus armas.</p>
+        <p class="panel-req"><b>Requisito:</b> entrar con tu <b>Discord del servidor</b>. Es tu llave para desbloquear las funciones de la ciudad.</p>
+        <button class="btn btn-primary panel-login" id="panelLogin">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Iniciar sesión con Discord
+        </button>
+        <p class="panel-note" id="panelNote">Estamos conectando el bot con el CAD. ¡Falta poquito!</p>
+        <a class="btn btn-ghost panel-dc" id="panelDc">💬 Entrar al Discord</a>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const dc = $('#panelDc', modal);
+    if (CFG.discord) {
+      dc.setAttribute('href', CFG.discord);
+      dc.setAttribute('target', '_blank');
+      dc.setAttribute('rel', 'noopener');
+    } else {
+      dc.style.display = 'none';
+    }
+
+    const abrir = () => { modal.hidden = false; document.body.style.overflow = 'hidden'; };
+    const cerrarModal = () => { modal.hidden = true; document.body.style.overflow = ''; };
+
+    triggers.forEach((t) => t.addEventListener('click', (e) => { e.preventDefault(); abrir(); }));
+    $$('[data-close-panel]', modal).forEach((x) => x.addEventListener('click', cerrarModal));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) cerrarModal(); });
+
+    const login = $('#panelLogin', modal);
+    const nota = $('#panelNote', modal);
+    login.addEventListener('click', () => {
+      nota.textContent = '⚙️ Todavía no está listo: estamos conectando el bot con el CAD. Muy pronto vas a poder entrar con tu Discord.';
+      nota.classList.add('on');
+    });
+  }
+
+  /* ============================================================
      ARRANQUE
      ============================================================ */
   document.addEventListener('DOMContentLoaded', () => {
     applyConfig();
     setupHeader();
     setupDrawer();
+    setupPanelModal();
     renderTeam();
     renderReviewLists();
     renderRatingPanel();

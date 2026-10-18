@@ -19,11 +19,19 @@
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
   </button>
 
-  <aside class="side-drawer" id="sideDrawer" aria-label="Categorías de la página">
+  <aside class="side-drawer" id="sideDrawer" aria-label="Menú principal">
     <div class="drawer-head">
-      <span class="brand-name">LA REALIDAD <b>RP</b><small>Categorías</small></span>
+      <a class="drawer-brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Menú</small></span>
+      </a>
       <button class="drawer-close" id="btnDrawerClose" aria-label="Cerrar">✕</button>
     </div>
+
+    <a class="drawer-panel" data-open-panel>
+      <span class="ico">🆔</span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord · Próximamente</small></span>
+    </a>
 
     <div class="drawer-label">Página</div>
     <nav class="drawer-list">
