@@ -1351,8 +1351,7 @@ function onRadioEvent(event, payload) {
 
     case 'ptt':
       setPttIndicator(payload);
-      if (payload) radioPttOpenSound();
-      else radioPttCloseSound();
+      playPttSound(); // clic de radio al abrir y al cerrar el micrófono
       renderMembers(membersWithSelf());
       break;
 
@@ -1929,6 +1928,32 @@ function wireAudioTab() {
   $('#audio-ptt-mode').addEventListener('change', () => applyPttMode($('#audio-ptt-mode').value));
   $('#audio-volume').addEventListener('input', () => applyVolume(parseInt($('#audio-volume').value, 10)));
 
+  // ---- Volumen de los sonidos de la app (clic de radio y pánico) ----
+  const syncSoundSliders = () => {
+    $('#sound-radio-volume').value = Math.round(soundVolume('radioVolume') * 100);
+    $('#sound-panic-volume').value = Math.round(soundVolume('panicVolume') * 100);
+    $('#sound-radio-val').textContent = Math.round(soundVolume('radioVolume') * 100) + '%';
+    $('#sound-panic-val').textContent = Math.round(soundVolume('panicVolume') * 100) + '%';
+  };
+  try { soundPrefs = Object.assign(soundPrefs, JSON.parse(localStorage.getItem(SOUND_PREFS_KEY) || '{}')); } catch {}
+  syncSoundSliders();
+
+  $('#sound-radio-volume').addEventListener('input', () => {
+    soundPrefs.radioVolume = parseInt($('#sound-radio-volume').value, 10) / 100;
+    saveSoundPrefs();
+    syncSoundSliders();
+  });
+  $('#sound-panic-volume').addEventListener('input', () => {
+    soundPrefs.panicVolume = parseInt($('#sound-panic-volume').value, 10) / 100;
+    saveSoundPrefs();
+    syncSoundSliders();
+  });
+  $('#sound-radio-test').addEventListener('click', () => playPttSound());
+  $('#sound-panic-test').addEventListener('click', () => {
+    panicSoundStart();
+    setTimeout(panicSoundStop, 2600); // suena un ratito y se corta solo
+  });
+
   if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
     navigator.mediaDevices.addEventListener('devicechange', populateAudioDevices);
   }
@@ -1938,116 +1963,47 @@ function wireAudioTab() {
 // 18. Botón de pánico 🆘 y llamadas al 911 📞
 // ============================================================
 
-// ---------- Sonidos de radio (push-to-talk y pánico) ----------
-// Se generan con Web Audio: no hace falta ningún archivo de audio.
+// ---------- Sonidos de la app (push-to-talk y pánico) ----------
+// Los archivos viven en "assets". El volumen se configura en la pestaña 🎧 Audio.
 
-// Ráfaga cortita de ruido: el "clic" de abrir/cerrar el squelch de la radio
-function radioNoiseBurst(ctx, when, dur, vol, hp) {
-  const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.value = hp || 500;
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(vol || 0.12, ctx.currentTime + when);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + dur);
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(ctx.destination);
-  src.start(ctx.currentTime + when);
-  src.stop(ctx.currentTime + when + dur + 0.02);
+const SOUND_PREFS_KEY = 'cad-erlc-sound-prefs';
+let soundPrefs = { radioVolume: 1, panicVolume: 1 };
+let panicAudio = null;
+
+function saveSoundPrefs() {
+  try { localStorage.setItem(SOUND_PREFS_KEY, JSON.stringify(soundPrefs)); } catch {}
 }
 
-// Beep cortito de radio
-function radioTone(ctx, when, freq, dur, vol, type) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type || 'triangle';
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.0001, ctx.currentTime + when);
-  gain.gain.exponentialRampToValueAtTime(vol || 0.12, ctx.currentTime + when + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + dur);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime + when);
-  osc.stop(ctx.currentTime + when + dur + 0.05);
+function soundVolume(kind) {
+  const v = Number(soundPrefs[kind]);
+  return isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
 }
 
-// Clic al abrir el micrófono (push-to-talk)
-function radioPttOpenSound() {
+// Clic de radio del push-to-talk (suena al abrir y al cerrar el micrófono)
+function playPttSound() {
   try {
-    const ctx = new AudioContext();
-    radioNoiseBurst(ctx, 0, 0.06, 0.15, 500);
-    radioTone(ctx, 0.005, 230, 0.05, 0.07);
-    setTimeout(() => { try { ctx.close(); } catch {} }, 400);
+    const a = new Audio('assets/team-radio-sound-f1.mp3');
+    a.volume = soundVolume('radioVolume');
+    a.play().catch(() => {});
   } catch {}
 }
 
-// "Roger beep" al cerrar el micrófono
-function radioPttCloseSound() {
-  try {
-    const ctx = new AudioContext();
-    radioNoiseBurst(ctx, 0, 0.025, 0.05, 900);
-    radioTone(ctx, 0.005, 1150, 0.1, 0.11);
-    setTimeout(() => { try { ctx.close(); } catch {} }, 400);
-  } catch {}
-}
-
-// Intro de radio del pánico: clic + doble beep (después entra la sirena)
-function radioPanicIntroSound() {
-  try {
-    const ctx = new AudioContext();
-    radioNoiseBurst(ctx, 0, 0.07, 0.17, 450);
-    radioTone(ctx, 0.01, 760, 0.11, 0.15);
-    radioTone(ctx, 0.17, 1140, 0.13, 0.15);
-    setTimeout(() => { try { ctx.close(); } catch {} }, 1000);
-  } catch {}
-}
-
-let panicCtx = null;
-let panicTimer = null;
-let panicIntroTimer = null;
-
-// El pánico suena como una radio: clic + beeps y recién después la sirena
-function panicAlertSound() {
-  radioPanicIntroSound();
-  panicIntroTimer = setTimeout(() => { panicIntroTimer = null; panicSoundStart(); }, 380);
-}
-
+// Sonido del pánico: suena assets/panic-button.mp3 en bucle hasta el "todo controlado"
 function panicSoundStart() {
   panicSoundStop();
   try {
-    panicCtx = new AudioContext();
-    const ctx = panicCtx;
-    let high = false;
-    const beep = () => {
-      if (!panicCtx) return;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = high ? 950 : 680;
-      high = !high;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.16, ctx.currentTime + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.44);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    };
-    beep();
-    panicTimer = setInterval(beep, 520);
+    panicAudio = new Audio('assets/panic-button.mp3');
+    panicAudio.loop = true;
+    panicAudio.volume = soundVolume('panicVolume');
+    panicAudio.play().catch(() => {});
   } catch {}
 }
 
 function panicSoundStop() {
-  if (panicIntroTimer) { clearTimeout(panicIntroTimer); panicIntroTimer = null; }
-  if (panicTimer) { clearInterval(panicTimer); panicTimer = null; }
-  if (panicCtx) { try { panicCtx.close(); } catch {} panicCtx = null; }
+  if (panicAudio) {
+    try { panicAudio.pause(); } catch {}
+    panicAudio = null;
+  }
 }
 
 function createPanicCall(p) {
@@ -2084,7 +2040,7 @@ function showPanicAlert(p) {
   $('#panic-when').textContent = '⏰ ' + new Date(p.ts || Date.now()).toLocaleTimeString('es-ES');
   $('#panic-clear').classList.toggle('hidden', !self);
   overlay.classList.remove('hidden');
-  panicAlertSound();
+  panicSoundStart();
   createPanicCall(p);
   addLog('🆘 ' + p.name + ' (' + d.short + ') ¡PIDIÓ AYUDA!' + (p.note ? ' — ' + p.note : ''));
   renderLog();

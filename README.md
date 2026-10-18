@@ -13,7 +13,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 📞 **Central 911 civil**: una página web para que los civiles llamen al 911 y la llamada caiga solita en Despacho (con tipo, nombre y ubicación).
 - 🟢 **Servidor ER:LC en vivo**: quiénes están en el juego, con su equipo e indicativo, actualizado solo; y mensajes al juego desde el CAD (requiere el pack ERLC API).
 - 📜 **Historial** automático de todo lo que pasa.
-- 📻 **Radio de voz** estilo TeamSpeak: canales organizados en **secciones plegables estilo categorías de Discord**, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego). Al abrir el micrófono suena el **clic de radio** y al cerrarlo un **roger beep**, como una radio real.
+- 📻 **Radio de voz** estilo TeamSpeak: canales organizados en **secciones plegables estilo categorías de Discord**, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego). Al abrir y cerrar el micrófono suena un **clic de radio** estilo TeamSpeak (volumen configurable en 🎧 Audio).
 - 🎧 **Pestaña Audio**: elegí con qué micrófono hablás y por dónde escuchás la radio (parlantes/auriculares), probá tu micrófono con medidor en vivo, escuchate a vos mismo y cambiá la tecla PTT y el volumen.
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
@@ -64,6 +64,7 @@ En la pestaña **🎧 Audio** de la app se configura todo el sonido:
 - **Salida de audio**: elegí por dónde escuchás la radio (parlantes, auriculares, etc.). El cambio se aplica **al instante** a las voces de tus compañeros. El botón **🔔 Probar sonido** reproduce un tono por el dispositivo elegido para confirmar que se escucha.
 - **Entrada de audio**: elegí tu micrófono. El botón **🎤 Probar micrófono** lo abre con un **medidor en vivo**: si la barra se mueve y dice "✅ Se está escuchando tu micrófono", está todo bien. Con la casilla **"Escucharme por los parlantes"** te escuchás a vos mismo (usá auriculares para evitar acople).
 - **Tecla del micrófono (PTT)**: tecla (**V**, **B**, **N**, **M**, **X**, **C**), modo (mantener/alternar) y volumen de la radio. Está sincronizada con la barra lateral del radio.
+- **Sonidos de la app**: volumen del **clic de radio** (push-to-talk) y del **sonido de pánico**, cada uno con su botón **▶ Probar** para escucharlo y ajustarlo a gusto.
 - La prueba abre tu micrófono **solo mientras está activa** (se cierra al detenerla o al salir de la pestaña). Para hablar en la radio sigue funcionando la tecla PTT de siempre.
 
 ## 📇 Registros (personas, vehículos, multas, órdenes y reportes)
@@ -89,7 +90,7 @@ En la barra lateral, panel **🚨 Emergencia**:
 
 La **tecla de pánico** (por defecto **F8**, se cambia en el mismo panel) funciona **aunque tengas el CAD minimizado o estés jugando ER:LC a pantalla completa**: el ícono del CAD destella en la barra de tareas para confirmarte que la alerta salió.
 
-El pánico suena como una radio: **clic + doble beep y después la sirena** 🚨.
+El pánico suena con un **sonido de botón de pánico** en bucle hasta que se corte (volumen configurable en 🎧 Audio).
 
 A **todos** los conectados al radio les salta al instante una **alerta roja a pantalla completa con sirena** con tu nombre, tu departamento y tu ubicación, **y se crea la llamada en Despacho automáticamente** 📟. Cuando estés a salvo, tocá **✅ TODO CONTROLADO** para avisar que ya pasó (solo vos —o un administrador— pueden cancelarla). Si alguien se conecta después y la alerta sigue activa, también la ve. Hay un límite anti-spam de 15 segundos entre alertas.
 

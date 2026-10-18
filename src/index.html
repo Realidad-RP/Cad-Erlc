@@ -411,6 +411,23 @@
         </div>
         <div class="muted small" id="audio-ptt-note"></div>
       </div>
+
+      <div class="panel">
+        <h2>🔊 Sonidos de la app</h2>
+        <div class="field-row">
+          <div class="field"><label>Volumen del clic de radio (hablar) — <span id="sound-radio-val">100%</span></label>
+            <input type="range" id="sound-radio-volume" min="0" max="100" value="100" />
+          </div>
+          <div class="field"><label>Volumen del sonido de pánico — <span id="sound-panic-val">100%</span></label>
+            <input type="range" id="sound-panic-volume" min="0" max="100" value="100" />
+          </div>
+        </div>
+        <div class="field-row">
+          <button id="sound-radio-test" class="btn full" type="button">▶ Probar clic de radio</button>
+          <button id="sound-panic-test" class="btn full" type="button">▶ Probar pánico</button>
+        </div>
+        <div class="muted small">El clic suena cuando abrís y cerrás el micrófono (push-to-talk); el sonido de pánico, cuando llega una alerta 🚨.</div>
+      </div>
     </section>
   </main>
 </div>
