@@ -1,0 +1,8 @@
+# Dependencias instaladas (no se suben, se reinstalan con npm install)
+node_modules/
+
+# Ejecutables compilados (no se suben)
+dist/
+
+# Archivos de registro temporales
+*.log

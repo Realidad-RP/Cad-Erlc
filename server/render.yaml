@@ -1,0 +1,23 @@
+# Despliegue automático en Render.com (plan gratuito)
+# 1) Subí este proyecto a GitHub.
+# 2) En Render: New + -> Blueprint -> elegí tu repositorio.
+# 3) Render leerá este archivo y creará el servidor de radio.
+# 4) Copiá la URL wss://... que te dé y pegala en la app (campo "Servidor").
+#
+# Para TURN (redes estrictas), completá las variables TURN_* en el panel de Render.
+
+services:
+  - type: web
+    name: cad-erlc-radio
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false

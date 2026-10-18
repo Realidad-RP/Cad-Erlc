@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>CAD ER:LC</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-logo">🚔</span> CAD <span class="brand-sub">ER:LC</span></div>
+  <div class="topbar-right">
+    <span id="radio-status" class="pill pill-off">Radio: desconectado</span>
+    <span id="clock" class="muted"></span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ==================== BARRA LATERAL: RADIO ==================== -->
+  <aside class="sidebar">
+    <section class="panel">
+      <h2>📻 Radio de voz</h2>
+      <div class="field">
+        <label>Servidor (ws:// o wss://)</label>
+        <input id="radio-server" value="ws://localhost:8787" spellcheck="false"
+               placeholder="ws://IP:8787  ·  wss://tu-app.onrender.com" />
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Tu nombre</label><input id="radio-name" placeholder="Ej: A. García" /></div>
+        <div class="field"><label>Departamento</label><select id="radio-dept"></select></div>
+      </div>
+      <button id="radio-connect" class="btn btn-primary full">Conectar</button>
+      <div id="radio-error" class="radio-error hidden"></div>
+      <hr class="sep" />
+      <button id="host-toggle" class="btn full">🖥️ Alojar radio en esta PC</button>
+      <div id="host-info" class="host-info hidden"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Canales</h2>
+      <div id="channel-list" class="channel-list"></div>
+      <button id="radio-leave" class="btn full hidden">🚪 Salir del canal</button>
+    </section>
+
+    <section class="panel">
+      <h2>En el canal</h2>
+      <ul id="member-list" class="member-list"><li class="muted">Sin conexión</li></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Push-to-talk</h2>
+      <div id="ptt-indicator" class="ptt-indicator">🎙 Micrófono cerrado</div>
+      <button id="ptt-button" class="ptt-button">🎙️ Mantener para hablar</button>
+      <div class="field-row">
+        <div class="field"><label>Tecla</label>
+          <select id="ptt-key">
+            <option value="V" selected>V</option>
+            <option value="B">B</option>
+            <option value="N">N</option>
+            <option value="M">M</option>
+            <option value="X">X</option>
+            <option value="C">C</option>
+          </select>
+        </div>
+        <div class="field"><label>Modo</label>
+          <select id="ptt-mode">
+            <option value="hold" selected>Mantener</option>
+            <option value="toggle">Alternar</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Volumen de entrada</label>
+        <input type="range" id="radio-volume" min="0" max="100" value="100" />
+      </div>
+      <div id="ptt-note" class="muted small"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Registro de radio</h2>
+      <div id="radio-chat" class="radio-chat"></div>
+      <div class="chat-input">
+        <input id="radio-chat-input" placeholder="Mensaje de radio…" />
+        <button id="radio-chat-send" class="btn">➤</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ==================== PANEL PRINCIPAL ==================== -->
+  <main class="main">
+    <nav class="tabs">
+      <button class="tab active" data-tab="despacho">🚨 Despacho</button>
+      <button class="tab" data-tab="unidades">🚓 Unidades</button>
+      <button class="tab" data-tab="roster">👥 Roster</button>
+      <button class="tab" data-tab="bolos">🔎 BOLOs</button>
+      <button class="tab" data-tab="historial">📜 Historial</button>
+    </nav>
+
+    <!-- Despacho -->
+    <section id="tab-despacho" class="tab-content active">
+      <div class="panel">
+        <h2>Nueva llamada</h2>
+        <form id="call-form" class="form-grid">
+          <div class="field"><label>Tipo</label><select id="call-type"></select></div>
+          <div class="field"><label>Prioridad</label><select id="call-priority"></select></div>
+          <div class="field wide"><label>Ubicación</label><input id="call-location" required placeholder="Ej: Ruta 7 frente a la gasolinera" /></div>
+          <div class="field wide"><label>Descripción</label><input id="call-desc" placeholder="Ej: Vehículo sospechoso, ocupantes armados" /></div>
+          <div class="field"><label>Reportado por</label><input id="call-caller" placeholder="Ciudadano / 911 / Oficial" /></div>
+          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Crear llamada</button></div>
+        </form>
+      </div>
+      <div id="calls-list" class="cards"></div>
+    </section>
+
+    <!-- Unidades -->
+    <section id="tab-unidades" class="tab-content">
+      <div class="panel">
+        <h2>Registrar unidad</h2>
+        <form id="unit-form" class="form-grid">
+          <div class="field"><label>Indicativo</label><input id="unit-name" required placeholder="Ej: L-12" /></div>
+          <div class="field"><label>Departamento</label><select id="unit-dept"></select></div>
+          <div class="field"><label>Operador</label><input id="unit-operator" placeholder="Nombre del oficial" /></div>
+          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Registrar</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h2>Unidades activas</h2>
+        <table class="table">
+          <thead><tr><th>Indicativo</th><th>Departamento</th><th>Operador</th><th>Estado</th><th>Llamada</th><th></th></tr></thead>
+          <tbody id="units-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Roster -->
+    <section id="tab-roster" class="tab-content">
+      <div class="panel">
+        <h2>Agregar al roster</h2>
+        <form id="roster-form" class="form-grid">
+          <div class="field"><label>Nombre</label><input id="roster-name" required placeholder="Ej: Juan Pérez" /></div>
+          <div class="field"><label>Rango</label>
+            <select id="roster-rank">
+              <option>Chief</option><option>Deputy Chief</option><option>Captain</option>
+              <option>Lieutenant</option><option>Sergeant</option><option>Officer / Deputy</option>
+              <option>Firefighter</option><option>Paramedic</option><option>Cadete</option>
+            </select>
+          </div>
+          <div class="field"><label>Departamento</label><select id="roster-dept"></select></div>
+          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Agregar</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h2>Personal</h2>
+        <table class="table">
+          <thead><tr><th>Nombre</th><th>Rango</th><th>Departamento</th><th></th></tr></thead>
+          <tbody id="roster-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BOLOs -->
+    <section id="tab-bolos" class="tab-content">
+      <div class="panel">
+        <h2>Nuevo BOLO</h2>
+        <form id="bolo-form" class="form-grid">
+          <div class="field"><label>Tipo</label>
+            <select id="bolo-type"><option>Persona</option><option>Vehículo</option></select>
+          </div>
+          <div class="field"><label>Placa / Identificación</label><input id="bolo-plate" placeholder="Ej: ABC 123" /></div>
+          <div class="field wide"><label>Descripción</label><input id="bolo-desc" required placeholder="Ej: Hombre, sudadera negra, 1.80 m" /></div>
+          <div class="field wide"><label>Motivo</label><input id="bolo-reason" placeholder="Ej: Robo con arma en tienda" /></div>
+          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Publicar BOLO</button></div>
+        </form>
+      </div>
+      <div id="bolos-list" class="cards"></div>
+    </section>
+
+    <!-- Historial -->
+    <section id="tab-historial" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Bitácora</h2>
+          <button id="log-clear" class="btn btn-small btn-danger">Borrar historial</button>
+        </div>
+        <div id="log-list" class="log-list"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="audio-container" hidden></div>
+
+<script src="radio.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
