@@ -108,6 +108,16 @@ Vas a ver, actualizado solo cada 10 segundos: el **nombre del servidor**, cuánt
 
 > **¿Quién puede usar la pestaña?** Solo aparece para **Propietario, Administrador y Supervisor** (conectados al radio). **Mandar mensajes al juego** solo pueden el **Propietario y los Administradores** — los Supervisores pueden mirar, pero no ejecutar comandos. Para el resto de los miembros la pestaña ni aparece.
 
+## 🗺️ Mapa de unidades en vivo (pestaña Mapa)
+
+Un mapa estilo 3D (inclinado) donde se ven **solo los puntos de las unidades con su placa** (indicativo), sincronizado al instante entre todos los conectados:
+
+1. Conectate al radio → pestaña **🗺️ Mapa**.
+2. Escribí tu **indicativo** (ej. L-12), elegí tu departamento → **📍 Colocar mi unidad**.
+3. Tocá el mapa o **arrastrá tu punto** para moverte. El color del punto es de tu departamento.
+
+Notas: ER:LC no entrega las posiciones reales por su API, así que **cada oficial mueve su propio punto** (1 toque). El **Propietario y los Administradores pueden mover cualquier punto** para corregir. Si un oficial se desconecta, su punto queda atenuado; con **🧹 Quitar mi punto** desaparece del mapa de todos. Botón **🧊 Vista 3D** para pasar a vista plana.
+
 ## 🌍 Radio para todo el mundo (internet)
 
 El servidor de radio **solo presenta a las personas** (señalización). La voz viaja directo de PC a PC. Por eso, para gente de otros países hay que poner el servidor en internet:

@@ -1204,11 +1204,14 @@ function onRadioEvent(event, payload) {
       $('#radio-connect').classList.add('btn-danger');
       saveRadioPrefs();
       flash('Conectado al servidor de radio');
+      updateMapaVisibility();
+      setTimeout(mapaReanunciar, 1500); // restaura mi punto si el servidor se reinició
       break;
 
     case 'disconnected':
       setRadioStatus(false);
       updateErlcVisibility();
+      updateMapaVisibility();
       $('#radio-connect').textContent = 'Conectar';
       $('#radio-connect').classList.add('btn-primary');
       $('#radio-connect').classList.remove('btn-danger');
@@ -1297,6 +1300,23 @@ function onRadioEvent(event, payload) {
 
     case 'civil-call':
       receiveCivilCall(payload);
+      break;
+
+    case 'unit-pos':
+      mapaAplicar(payload);
+      renderMapa();
+      break;
+
+    case 'unit-pos-remove': {
+      const key = String((payload && payload.callsign) || '').toUpperCase();
+      if (key) { mapa.positions.delete(key); renderMapa(); }
+      break;
+    }
+
+    case 'unit-positions':
+      mapa.positions.clear();
+      (Array.isArray(payload) ? payload : []).forEach(mapaAplicar);
+      renderMapa();
       break;
 
     case 'ptt':
@@ -2231,7 +2251,270 @@ function wireErlc() {
 }
 
 // ============================================================
-// 20. Arranque
+// 20. Mapa de unidades (estilo 3D, solo puntos + placas)
+// ============================================================
+// La API de ER:LC no entrega posiciones reales de los jugadores.
+// Cada oficial coloca su punto desde su CAD (1 toque / arrastre)
+// y se sincroniza al instante por el servidor de radio.
+
+const MAPA_MIA_KEY = 'cad-mapa-mi-unidad';
+const MAPA_TILT_DEG = 38;          // inclinación 3D (debe coincidir con el CSS)
+const MAPA_PERSPECTIVE = 1200;     // perspectiva en px (igual que el CSS)
+const mapa = {
+  positions: new Map(),            // CLAVE(indicativo) -> { callsign, dept, owner, x, y, ts }
+  tilt: true,
+  drag: null,
+  lastDragEnd: 0,
+  lastSendAt: 0,
+  sendTimer: null,
+};
+
+function mapaLeerMia() {
+  try {
+    const v = JSON.parse(localStorage.getItem(MAPA_MIA_KEY) || 'null');
+    return v && typeof v === 'object' ? v : null;
+  } catch { return null; }
+}
+
+function mapaGuardarMia(v) {
+  try {
+    if (v) localStorage.setItem(MAPA_MIA_KEY, JSON.stringify(v));
+    else localStorage.removeItem(MAPA_MIA_KEY);
+  } catch {}
+}
+
+function updateMapaVisibility() {
+  const btn = $('#tab-btn-mapa');
+  if (!btn) return;
+  const canView = Radio.state.connected;
+  btn.classList.toggle('hidden', !canView);
+  if (!canView) {
+    // Si estaba en la pestaña, volver a Despacho
+    const sec = $('#tab-mapa');
+    if (sec && sec.classList.contains('active')) {
+      const home = document.querySelector('.tab[data-tab="despacho"]');
+      if (home) home.click();
+    }
+    mapa.positions.clear();
+    mapa.drag = null;
+    renderMapa();
+  }
+}
+
+function mapaPuedeMoverTodo() {
+  return ['Propietario', 'Administrador'].includes(Radio.state.role);
+}
+
+function mapaEsMia(rec) {
+  return !!rec && rec.owner === Radio.state.name;
+}
+
+function ajustarTiltMapa() {
+  const el = $('#mapa-tilt');
+  if (!el) return;
+  el.style.setProperty('--tilt-mapa', (mapa.tilt ? MAPA_TILT_DEG : 0) + 'deg');
+  const btn = $('#mapa-3d');
+  if (btn) btn.textContent = mapa.tilt ? '🧊 Vista 3D: ON' : '🗺️ Vista 3D: OFF';
+}
+
+// Convierte un click/arrastre (coordenadas de pantalla) a 0..1 del mapa,
+// compensando la inclinación 3D (rotateX + perspectiva).
+function mapaPuntoACoord(clientX, clientY) {
+  const stage = $('#mapa-stage');
+  if (!stage) return null;
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return null; // pestaña oculta: sin geometría
+  const sx = clientX - (r.left + r.width / 2);
+  const sy = clientY - (r.top + r.height / 2);
+  if (!mapa.tilt) {
+    return { x: (sx + r.width / 2) / r.width, y: (sy + r.height / 2) / r.height };
+  }
+  const th = (MAPA_TILT_DEG * Math.PI) / 180;
+  const P = MAPA_PERSPECTIVE;
+  const py = (sy * P) / (P * Math.cos(th) + sy * Math.sin(th));
+  const f = P / (P - py * Math.sin(th));
+  const px = sx / f;
+  return { x: (px + r.width / 2) / r.width, y: (py + r.height / 2) / r.height };
+}
+
+function mapaDeptColor(dept) {
+  const d = DEPARTMENTS[dept];
+  return d ? d.color : '#94a3b8';
+}
+
+function renderMapa() {
+  const box = $('#mapa-dots');
+  if (!box) return;
+  const online = new Set((Radio.state.userlist || []).map((u) => u.name));
+  const parts = [];
+  for (const rec of mapa.positions.values()) {
+    const mine = mapaEsMia(rec);
+    const off = !online.has(rec.owner);
+    const color = mapaDeptColor(rec.dept);
+    parts.push(
+      `<div class="mapa-dot${mine ? ' mine' : ''}${off ? ' off' : ''}" data-callsign="${esc(rec.callsign)}" data-owner="${esc(rec.owner)}" title="${esc(rec.owner)}" style="left:${(rec.x * 100).toFixed(2)}%;top:${(rec.y * 100).toFixed(2)}%;--dc:${color}">` +
+        `<span class="mapa-placa">${esc(rec.callsign)}</span>` +
+        `<span class="mapa-punto"></span>` +
+      `</div>`
+    );
+  }
+  box.innerHTML = parts.join('');
+  const info = $('#mapa-count');
+  if (info) info.textContent = '📍 ' + mapa.positions.size + (mapa.positions.size === 1 ? ' unidad en el mapa' : ' unidades en el mapa');
+}
+
+function mapaEnviarPos(callsign, dept, x, y) {
+  const salir = () => {
+    mapa.lastSendAt = Date.now();
+    if (window.Radio && Radio.sendUnitPos) Radio.sendUnitPos(callsign, dept, x, y);
+  };
+  const espera = 130 - (Date.now() - mapa.lastSendAt);
+  if (espera <= 0) salir();
+  else { clearTimeout(mapa.sendTimer); mapa.sendTimer = setTimeout(salir, espera); }
+}
+
+function mapaMover(callsign, dept, x, y) {
+  const key = String(callsign).toUpperCase();
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  x = Math.min(0.995, Math.max(0.005, x));
+  y = Math.min(0.995, Math.max(0.005, y));
+  const prev = mapa.positions.get(key);
+  const owner = prev ? prev.owner : Radio.state.name;
+  mapa.positions.set(key, { callsign: key, dept, owner, x, y, ts: Date.now() });
+  renderMapa();
+  mapaEnviarPos(key, dept, x, y);
+  const mia = mapaLeerMia();
+  if (mia && mia.callsign && String(mia.callsign).toUpperCase() === key) {
+    mapaGuardarMia({ callsign: key, dept, x, y });
+  }
+}
+
+function mapaColocarMia() {
+  if (!Radio.state.connected) { flash('Conectate al radio para usar el mapa.'); return; }
+  const input = $('#mapa-callsign');
+  const callsign = (input.value || '').trim().toUpperCase().slice(0, 12);
+  if (!callsign) { flash('Escribí tu indicativo (ej. L-12).'); input.focus(); return; }
+  const dept = $('#mapa-dept').value || 'LCPD';
+  const rec = mapa.positions.get(callsign);
+  if (rec && rec.owner !== Radio.state.name && !mapaPuedeMoverTodo()) {
+    flash('❌ El indicativo ' + callsign + ' ya está en el mapa (lo usa ' + rec.owner + ').');
+    return;
+  }
+  let mia = mapaLeerMia();
+  if (mia && String(mia.callsign || '').toUpperCase() !== callsign) mia = null;
+  const x = mia && Number.isFinite(mia.x) ? mia.x : 0.5;
+  const y = mia && Number.isFinite(mia.y) ? mia.y : 0.55;
+  mapaGuardarMia({ callsign, dept, x, y });
+  mapaMover(callsign, dept, x, y);
+  flash('✅ ' + callsign + ' está en el mapa. Tocá el mapa o arrastrá tu punto para moverte.');
+}
+
+function mapaQuitarMia() {
+  const mia = mapaLeerMia();
+  if (!mia || !mia.callsign) { flash('Primero colocá tu unidad en el mapa.'); return; }
+  mapa.positions.delete(String(mia.callsign).toUpperCase());
+  renderMapa();
+  if (window.Radio && Radio.sendUnitPosRemove) Radio.sendUnitPosRemove(mia.callsign);
+  mapaGuardarMia({ callsign: mia.callsign, dept: mia.dept }); // queda listo para volver a colocarlo
+  flash('Punto quitado del mapa.');
+}
+
+function mapaReanunciar() {
+  if (!Radio.state.connected) return;
+  const mia = mapaLeerMia();
+  if (!mia || !mia.callsign || !Number.isFinite(mia.x) || !Number.isFinite(mia.y)) return;
+  if (window.Radio && Radio.sendUnitPos) Radio.sendUnitPos(mia.callsign, mia.dept, mia.x, mia.y);
+}
+
+function mapaAplicar(rec) {
+  if (!rec || !rec.callsign) return;
+  const x = Number(rec.x), y = Number(rec.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const key = String(rec.callsign).toUpperCase().slice(0, 16);
+  mapa.positions.set(key, {
+    callsign: key,
+    dept: typeof rec.dept === 'string' && rec.dept ? rec.dept : 'LCPD',
+    owner: String(rec.owner || '¿?'),
+    x, y,
+    ts: Number(rec.ts) || Date.now(),
+  });
+}
+
+function wireMapa() {
+  const sel = $('#mapa-dept');
+  if (sel) {
+    sel.innerHTML = Object.entries(DEPARTMENTS)
+      .map(([k, d]) => `<option value="${k}">${esc(d.name)}</option>`)
+      .join('');
+  }
+  const mia = mapaLeerMia();
+  if (mia && mia.callsign) {
+    $('#mapa-callsign').value = mia.callsign;
+    if (mia.dept && DEPARTMENTS[mia.dept]) sel.value = mia.dept;
+  } else if (Radio.state.department && DEPARTMENTS[Radio.state.department]) {
+    sel.value = Radio.state.department;
+  }
+
+  ajustarTiltMapa();
+
+  $('#mapa-3d').addEventListener('click', () => {
+    mapa.tilt = !mapa.tilt;
+    ajustarTiltMapa();
+  });
+
+  $('#mapa-save').addEventListener('click', mapaColocarMia);
+  $('#mapa-remove').addEventListener('click', mapaQuitarMia);
+
+  // Click en zona vacía: mover mi unidad ahí
+  $('#mapa-stage').addEventListener('click', (e) => {
+    if (e.target.closest('.mapa-dot')) return;
+    if (Date.now() - mapa.lastDragEnd < 250) return; // acaba de terminar un arrastre
+    const pos = mapaPuntoACoord(e.clientX, e.clientY);
+    if (!pos) return;
+    const mine = mapaLeerMia();
+    if (!mine || !mine.callsign) {
+      flash('Primero escribí tu indicativo y tocá "📍 Colocar mi unidad".');
+      $('#mapa-callsign').focus();
+      return;
+    }
+    mapaMover(mine.callsign, mine.dept, pos.x, pos.y);
+  });
+
+  // Arrastrar un punto (el propio, o cualquiera si sos Propietario/Admin)
+  $('#mapa-dots').addEventListener('pointerdown', (e) => {
+    const dot = e.target.closest('.mapa-dot');
+    if (!dot) return;
+    const rec = mapa.positions.get(String(dot.dataset.callsign || '').toUpperCase());
+    if (!rec) return;
+    if (!mapaEsMia(rec) && !mapaPuedeMoverTodo()) {
+      flash('🔒 Ese punto es de ' + rec.owner + '. Solo un Admin puede moverlo.');
+      return;
+    }
+    mapa.drag = { callsign: rec.callsign, dept: rec.dept };
+    dot.classList.add('dragging');
+    try { dot.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+  });
+
+  $('#mapa-stage').addEventListener('pointermove', (e) => {
+    if (!mapa.drag) return;
+    const pos = mapaPuntoACoord(e.clientX, e.clientY);
+    if (!pos) return;
+    mapaMover(mapa.drag.callsign, mapa.drag.dept, pos.x, pos.y);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (!mapa.drag) return;
+    mapa.drag = null;
+    mapa.lastDragEnd = Date.now();
+    document.querySelectorAll('.mapa-dot.dragging').forEach((d) => d.classList.remove('dragging'));
+  });
+
+  updateMapaVisibility();
+}
+
+// ============================================================
+// 21. Arranque
 // ============================================================
 
 function init() {
@@ -2249,6 +2532,7 @@ function init() {
   wireRegistros();
   wirePanic();
   wireErlc();
+  wireMapa();
   wireHosting();
   setupPtt();
   populateAudioDevices();

@@ -314,6 +314,18 @@
       case 'civil-call':
         emit('civil-call', msg.call);
         break;
+
+      case 'unit-pos':
+        emit('unit-pos', msg);
+        break;
+
+      case 'unit-pos-remove':
+        emit('unit-pos-remove', msg);
+        break;
+
+      case 'unit-positions':
+        emit('unit-positions', Array.isArray(msg.list) ? msg.list : []);
+        break;
     }
   }
 
@@ -572,6 +584,17 @@
     send({ type: 'panic-clear' });
   }
 
+  // ---------------- Mapa de unidades ----------------
+  function sendUnitPos(callsign, dept, x, y) {
+    if (!state.connected) return;
+    send({ type: 'unit-pos-set', callsign: String(callsign || '').slice(0, 16), dept, x, y });
+  }
+
+  function sendUnitPosRemove(callsign) {
+    if (!state.connected) return;
+    send({ type: 'unit-pos-remove', callsign: String(callsign || '').slice(0, 16) });
+  }
+
   async function isGlobalPttCapable() {
     if (window.cadNative && window.cadNative.pttCapable) {
       try { return await window.cadNative.pttCapable(); } catch { return false; }
@@ -646,6 +669,8 @@
     sendChat,
     sendPanic,
     clearPanic,
+    sendUnitPos,
+    sendUnitPosRemove,
     isGlobalPttCapable,
     DEFAULT_CHANNELS,
   };

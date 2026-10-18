@@ -148,6 +148,42 @@ const { createRadioServer } = require('./radio-server');
   }).then((r) => r.status).catch(() => 0);
   const civilAntiSpam = civilSpam === 429;
 
+  // 15) Mapa de unidades: Ana coloca su punto y llega a todos
+  ana.ws.send(JSON.stringify({ type: 'unit-pos-set', callsign: 'L-01', dept: 'LCPD', x: 0.2, y: 0.3 }));
+  await wait(200);
+  const mapaColocado = ana.messages.some((m) => m.type === 'unit-pos' && m.callsign === 'L-01' && Math.abs(m.x - 0.2) < 0.001)
+    && beto.messages.some((m) => m.type === 'unit-pos' && m.callsign === 'L-01');
+
+  // 16) Beto coloca SU punto (B-02)
+  beto.ws.send(JSON.stringify({ type: 'unit-pos-set', callsign: 'B-02', dept: 'LCFD', x: 0.4, y: 0.5 }));
+  await wait(200);
+  const mapaPropio = ana.messages.some((m) => m.type === 'unit-pos' && m.callsign === 'B-02' && m.owner === 'Beto');
+
+  // 17) Beto (Supervisor, no admin) NO puede mover el punto de otra persona
+  beto.ws.send(JSON.stringify({ type: 'unit-pos-set', callsign: 'L-01', dept: 'LCPD', x: 0.9, y: 0.9 }));
+  await wait(200);
+  const mapaBloqueado = !!findError(beto, /indicativo/i)
+    && !ana.messages.some((m) => m.type === 'unit-pos' && m.callsign === 'L-01' && m.x === 0.9);
+
+  // 18) El Propietario (Ana) SÍ puede corregir el punto de Beto (el dueño no cambia)
+  ana.ws.send(JSON.stringify({ type: 'unit-pos-set', callsign: 'B-02', dept: 'LCFD', x: 0.7, y: 0.7 }));
+  await wait(200);
+  const mapaAdminCorrige = beto.messages.some((m) => m.type === 'unit-pos' && m.callsign === 'B-02' && Math.abs(m.x - 0.7) < 0.001 && m.owner === 'Beto');
+
+  // 19) Quien se conecta después recibe el mapa completo (2 puntos)
+  const dora = await mk('Dora', 'CHP');
+  await wait(250);
+  const mapaSnapshot = dora.messages.some((m) => m.type === 'unit-positions' && Array.isArray(m.list) && m.list.length === 2);
+
+  // 20) Beto no puede borrar el punto de Ana; Ana sí el suyo
+  beto.ws.send(JSON.stringify({ type: 'unit-pos-remove', callsign: 'L-01' }));
+  await wait(200);
+  const mapaQuitarBloqueado = !ana.messages.some((m) => m.type === 'unit-pos-remove');
+  ana.ws.send(JSON.stringify({ type: 'unit-pos-remove', callsign: 'L-01' }));
+  await wait(200);
+  const mapaQuitado = beto.messages.some((m) => m.type === 'unit-pos-remove' && m.callsign === 'L-01');
+  dora.ws.close();
+
   const anaWelcome = ana.messages.find((m) => m.type === 'welcome');
   const anaJoined = ana.messages.find((m) => m.type === 'joined');
   const rosterOk = ana.messages.some((m) => m.type === 'roster' && m.members && m.members.length === 2);
@@ -182,6 +218,13 @@ const { createRadioServer } = require('./radio-server');
     civilPagina,
     civilLlega,
     civilAntiSpam,
+    mapaColocado,
+    mapaPropio,
+    mapaBloqueado,
+    mapaAdminCorrige,
+    mapaSnapshot,
+    mapaQuitarBloqueado,
+    mapaQuitado,
   };
 
   console.log('Comprobaciones:', checks);

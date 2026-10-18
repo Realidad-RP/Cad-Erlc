@@ -141,6 +141,7 @@ function buildServer(wss, httpServer, port, iceServers) {
   let nextId = 1;
   const clients = new Map(); // id -> { id, ws, name, department, role, channel, talking }
   let activePanic = null; // última alerta 🆘 sin "todo controlado" (para quien se conecte después)
+  const unitPositions = new Map(); // mapa: CLAVE(indicativo) -> { callsign, dept, owner, x, y, ts }
 
   // ---- HTTP: salud, página del 911 para civiles y recepción de llamadas ----
   const civilLastByIp = new Map(); // anti-spam por IP
@@ -301,7 +302,7 @@ function buildServer(wss, httpServer, port, iceServers) {
   };
 
   const isStaff = (c) => STAFF_ROLES.includes(c.role);
-  const isAdmin = (c) => c.role === 'Administrador';
+  const isAdmin = (c) => c.role === 'Administrador' || c.role === 'Propietario';
 
   const findChannel = (name) =>
     channelDefs.find((d) => d.name.toLowerCase() === String(name || '').toLowerCase());
@@ -388,6 +389,7 @@ function buildServer(wss, httpServer, port, iceServers) {
           });
           if (client.isOwner) sendOwnerStatus(client);
           if (activePanic) send(ws, { type: 'panic', ...activePanic });
+          if (unitPositions.size) send(ws, { type: 'unit-positions', list: [...unitPositions.values()] });
           broadcastUserlist();
           break;
         }
@@ -685,6 +687,44 @@ function buildServer(wss, httpServer, port, iceServers) {
           activePanic = null;
           for (const c of clients.values()) send(c.ws, { type: 'panic-clear', name: client.name, ts: Date.now() });
           console.log(`[Radio] ✅ Pánico controlado por ${client.name}`);
+          break;
+        }
+
+        // ---------------- Mapa de unidades ----------------
+        case 'unit-pos-set': {
+          const now = Date.now();
+          if (client.lastPosAt && now - client.lastPosAt < 60) break; // anti-spam de arrastre
+          client.lastPosAt = now;
+          const callsign = String(msg.callsign || '').trim().slice(0, 16);
+          if (!callsign) break;
+          const x = Number(msg.x), y = Number(msg.y);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) break;
+          const key = callsign.toUpperCase();
+          const prev = unitPositions.get(key);
+          if (prev && prev.owner !== client.name && !isAdmin(client)) {
+            send(ws, { type: 'error', message: 'Ese indicativo ya está en el mapa y es de otra persona.' });
+            break;
+          }
+          const rec = {
+            callsign: key,
+            dept: DEPARTMENTS.includes(msg.dept) ? msg.dept : client.department,
+            owner: prev ? prev.owner : client.name,
+            x: Math.min(1, Math.max(0, x)),
+            y: Math.min(1, Math.max(0, y)),
+            ts: now,
+          };
+          unitPositions.set(key, rec);
+          for (const c of clients.values()) send(c.ws, { type: 'unit-pos', ...rec });
+          break;
+        }
+
+        case 'unit-pos-remove': {
+          const key = String(msg.callsign || '').trim().toUpperCase().slice(0, 16);
+          const rec = unitPositions.get(key);
+          if (!rec) break;
+          if (rec.owner !== client.name && !isAdmin(client)) break;
+          unitPositions.delete(key);
+          for (const c of clients.values()) send(c.ws, { type: 'unit-pos-remove', callsign: key });
           break;
         }
       }
