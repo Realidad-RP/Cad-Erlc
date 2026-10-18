@@ -33,6 +33,27 @@ html, body {
 ::-webkit-scrollbar-thumb:hover { background: #375072; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ---------- Marca de agua: escudo del ayuntamiento ---------- */
+/* El escudo aparece grande y muy sutil sobre la interfaz (transparencia) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('./assets/logo.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(62vh, 62vw) auto;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 2147483000;
+  animation: wmIn 1.4s ease both;
+}
+@keyframes wmIn { from { opacity: 0; } to { opacity: 0.06; } }
+
+/* Suave aparición de la interfaz al abrir (con la pantalla de bienvenida) */
+body { animation: uiFade .6s ease both; }
+@keyframes uiFade { from { opacity: 0; } to { opacity: 1; } }
+
 /* ---------- Barra superior ---------- */
 .topbar {
   height: 50px;

@@ -12,7 +12,38 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
+let splashWindow = null; // pantalla de bienvenida con el escudo
 let radioServer = null; // el servidor de radio, cuando esta PC lo aloja
+
+// Tiempo mínimo que se muestra la pantalla de bienvenida (ms)
+const SPLASH_MIN_MS = 2500;
+let appStartedAt = 0;
+
+// ---------------- Pantalla de bienvenida ----------------
+function createSplash() {
+  appStartedAt = Date.now();
+  splashWindow = new BrowserWindow({
+    width: 500,
+    height: 400,
+    frame: false,
+    resizable: false,
+    movable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#0b1015',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splashWindow.loadFile(path.join(__dirname, 'src', 'splash.html'));
+  splashWindow.on('closed', () => { splashWindow = null; });
+}
+
+function closeSplashSoon() {
+  const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - appStartedAt));
+  setTimeout(() => {
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  }, wait);
+}
 
 // ---------------- Ventana principal ----------------
 function createWindow() {
@@ -22,6 +53,7 @@ function createWindow() {
     minWidth: 1120,
     minHeight: 680,
     title: 'CAD | AYUNTAMIENTO | Los Angeles',
+    icon: path.join(__dirname, 'src', 'assets', 'logo.png'),
     backgroundColor: '#0b1015',
     autoHideMenuBar: true,
     webPreferences: {
@@ -32,6 +64,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  // Cuando la interfaz termina de cargar, cerramos la pantalla de bienvenida
+  mainWindow.webContents.once('did-finish-load', () => closeSplashSoon());
 
   // Mostrar errores de la interfaz en la consola (útil para depurar)
   mainWindow.webContents.on('console-message', (...args) => {
@@ -220,6 +255,7 @@ app.whenReady().then(() => {
   setupPermissions();
   setupGlobalPTT();
   setupRadioServerIPC();
+  createSplash();
   createWindow();
 
   app.on('activate', () => {

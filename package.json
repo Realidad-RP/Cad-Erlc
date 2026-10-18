@@ -23,6 +23,7 @@
     "appId": "es.caderlc.app",
     "productName": "CAD AYUNTAMIENTO Los Angeles",
     "win": {
+      "icon": "build/icon.png",
       "target": [
         "nsis",
         "portable"
