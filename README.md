@@ -47,6 +47,7 @@ El servidor de radio **solo presenta a las personas** (señalización). La voz v
    *(Alternativa manual: New + → Web Service → Root Directory: `server` → Build: `npm install` → Start: `npm start`.)*
 3. Cuando termine, copiá la dirección que te da Render, tipo `wss://cad-erlc-radio.onrender.com`.
 4. En la app: pegá esa dirección en **Servidor**, poné tu nombre y **Conectar**. Todos tus compañeros usan la misma dirección. ✅
+   *(En esta copia la dirección ya viene rellenada por defecto.)*
 
 Notas:
 
