@@ -675,6 +675,7 @@ body::after {
 /* ---------- Equipo ---------- */
 .team-card { text-align: center; padding: 28px 22px; }
 .team-photo {
+  position: relative;
   width: 92px; height: 92px;
   margin: 0 auto 16px;
   border-radius: 50%;
@@ -688,7 +689,10 @@ body::after {
   background: linear-gradient(135deg, var(--accent), var(--gold));
   box-shadow: 0 10px 26px rgba(0, 0, 0, .35);
 }
-.team-photo img { width: 100%; height: 100%; object-fit: cover; }
+.team-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+a.team-photo:hover img { transform: scale(1.08); }
+.team-photo img.avatar-full { object-fit: contain; padding: 7px; }
+.team-photo .ini { font-size: 30px; font-weight: 800; }
 .team-card h3 { font-size: 20px; }
 .team-role {
   display: inline-block;
@@ -932,4 +936,104 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-wid
   .footer-grid { grid-template-columns: 1fr; gap: 30px; }
   .foot-bottom { flex-direction: column; align-items: flex-start; }
   .brand-name small { display: none; }
+}
+
+/* ============================================================
+   BARRA LATERAL DE CATEGORÍAS (menú izquierdo)
+   ============================================================ */
+.menu-fab {
+  position: fixed;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 96;
+  width: 54px; height: 54px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  background: linear-gradient(160deg, var(--panel-2), var(--panel));
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: border-color .2s ease, color .2s ease, transform .2s ease;
+}
+.menu-fab:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-50%) scale(1.06); }
+.menu-fab svg { width: 24px; height: 24px; }
+
+.drawer-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(4, 7, 12, .62);
+  opacity: 0; visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+.drawer-overlay.open { opacity: 1; visibility: visible; }
+
+.side-drawer {
+  position: fixed; left: 0; top: 0; bottom: 0; z-index: 95;
+  width: min(320px, 86vw);
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transform: translateX(-104%);
+  visibility: hidden;
+  transition: transform .28s ease, visibility .28s ease;
+  overflow-y: auto;
+}
+.side-drawer.open { transform: none; visibility: visible; }
+
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-head .brand-name { font-size: 15px; }
+.drawer-close {
+  width: 38px; height: 38px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+  color: var(--muted);
+  transition: color .18s ease, border-color .18s ease;
+}
+.drawer-close:hover { color: var(--text); border-color: var(--accent); }
+
+.drawer-label {
+  padding: 16px 20px 6px;
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted);
+}
+
+.drawer-list { display: flex; flex-direction: column; gap: 2px; padding: 0 10px 8px; }
+.drawer-list a {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 15.5px; font-weight: 500;
+  transition: background .16s ease, color .16s ease;
+}
+.drawer-list a:hover { background: rgba(255, 255, 255, .05); color: var(--text); }
+.drawer-list a.active { background: rgba(46, 197, 189, .12); color: var(--text); }
+.drawer-list a .ico {
+  width: 30px; height: 30px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, .04);
+  font-size: 15px;
+}
+.drawer-list a.hot { color: var(--text); }
+.drawer-list a.hot .ico { background: rgba(211, 105, 92, .16); border-color: rgba(211, 105, 92, .45); }
+
+.drawer-foot {
+  margin-top: auto;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted); font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+  .menu-fab { left: 12px; width: 48px; height: 48px; }
+  .menu-fab svg { width: 21px; height: 21px; }
 }

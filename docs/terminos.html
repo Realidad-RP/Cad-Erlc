@@ -14,6 +14,42 @@
 </head>
 <body>
 
+  <!-- ===================== MENÚ LATERAL DE CATEGORÍAS ===================== -->
+  <button class="menu-fab" id="btnDrawer" aria-label="Abrir categorías">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+  </button>
+
+  <aside class="side-drawer" id="sideDrawer" aria-label="Categorías de la página">
+    <div class="drawer-head">
+      <span class="brand-name">LA REALIDAD <b>RP</b><small>Categorías</small></span>
+      <button class="drawer-close" id="btnDrawerClose" aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="drawer-label">Página</div>
+    <nav class="drawer-list">
+      <a href="index.html" data-page="index.html"><span class="ico">🏠</span> Inicio</a>
+      <a href="index.html#como-jugar"><span class="ico">🚀</span> Cómo unirse</a>
+      <a href="index.html#servidores"><span class="ico">🖥️</span> Servidores</a>
+      <a href="resenas.html" data-page="resenas.html"><span class="ico">⭐</span> Reseñas</a>
+      <a href="normativa.html" data-page="normativa.html"><span class="ico">📜</span> Normativa</a>
+    </nav>
+
+    <div class="drawer-label">Central 911</div>
+    <nav class="drawer-list">
+      <a class="hot" data-link="c911"><span class="ico">🆘</span> Llamar al 911</a>
+    </nav>
+
+    <div class="drawer-label">Comunidad</div>
+    <nav class="drawer-list">
+      <a data-link="cad"><span class="ico">📥</span> CAD-RLD</a>
+      <a data-link="discord"><span class="ico">💬</span> Discord</a>
+    </nav>
+
+    <div class="drawer-foot">La Realidad RP · Los Angeles (ER:LC) 🌆</div>
+  </aside>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html">

@@ -27,7 +27,8 @@
       tiktok:    CFG.tiktok || '',
       youtube:   CFG.youtube || '',
       correo:    CFG.correo ? 'mailto:' + CFG.correo : '',
-      cad:       CFG.cadDescarga || ''
+      cad:       CFG.cadDescarga || '',
+      c911:      CFG.central911 || ''
     };
 
     $$('[data-link]').forEach((el) => {
@@ -315,8 +316,54 @@
   }
 
   /* ============================================================
-     6) EQUIPO FUNDADOR (desde config.js)
+     6) EQUIPO FUNDADOR (desde config.js, con avatares de Roblox)
      ============================================================ */
+  const ROBLOX_CACHE_KEY = 'lr_roblox_v1';
+
+  const Roblox = {
+    data: {},
+    load() {
+      try { this.data = JSON.parse(localStorage.getItem(ROBLOX_CACHE_KEY)) || {}; }
+      catch (e) { this.data = {}; }
+    },
+    get(id) {
+      const c = this.data[id];
+      if (!c) return null;
+      if (Date.now() - (c.t || 0) > 7 * 86400000) return null; // la caché dura 7 días
+      return c;
+    },
+    set(id, info) {
+      this.data[id] = Object.assign({ t: Date.now() }, info);
+      try { localStorage.setItem(ROBLOX_CACHE_KEY, JSON.stringify(this.data)); } catch (e) {}
+    }
+  };
+
+  function inicialesDe(nombre) {
+    const ini = String(nombre || '').trim().split(/\s+/).slice(0, 2)
+      .map((w) => w.charAt(0).toUpperCase()).join('');
+    return ini || '?';
+  }
+
+  // Los datos se piden a roproxy.com: el mismo Roblox, pero con CORS
+  // habilitado para que el navegador pueda consultarlo desde la web.
+  async function fetchRoblox(id) {
+    const info = {};
+    const tipo = CFG.avatarCompleto ? 'avatar' : 'avatar-headshot';
+    try {
+      const r = await fetch('https://thumbnails.roproxy.com/v1/users/' + tipo +
+        '?userIds=' + encodeURIComponent(id) + '&size=420x420&format=Png&isCircular=false');
+      const j = await r.json();
+      const d = j && j.data && j.data[0];
+      if (d && d.imageUrl) info.avatarUrl = d.imageUrl;
+    } catch (e) { /* sin internet o proxy caído: se usan las iniciales */ }
+    try {
+      const r = await fetch('https://users.roproxy.com/v1/users/' + encodeURIComponent(id));
+      const u = await r.json();
+      if (u && (u.displayName || u.name)) info.name = u.displayName || u.name;
+    } catch (e) { /* seguimos con lo que haya */ }
+    return info;
+  }
+
   function renderTeam() {
     const box = $('#equipoGrid');
     if (!box) return;
@@ -324,29 +371,124 @@
     const team = CFG.equipo || [];
     if (!team.length) { box.innerHTML = ''; return; }
 
-    box.innerHTML = team.map((m) => {
-      const iniciales = String(m.nombre || '?')
-        .split(/\s+/).slice(0, 2)
-        .map((w) => w.charAt(0).toUpperCase()).join('');
+    Roblox.load();
 
-      const foto = m.foto
-        ? '<img src="' + esc(m.foto) + '" alt="' + esc(m.nombre) + '">'
-        : esc(iniciales);
+    box.innerHTML = team.map((m) => {
+      const id = String(m.robloxId || '').trim();
+      const cache = id ? Roblox.get(id) : null;
+      const nombre = m.nombre || (cache && cache.name) || m.roblox || (id ? 'Cargando…' : 'Por asignar');
+      const avatar = m.foto || m.avatarUrl || (cache && cache.avatarUrl) || '';
+      const claseCompleto = CFG.avatarCompleto && !m.foto ? ' class="avatar-full"' : '';
+
+      const foto = avatar
+        ? '<img src="' + esc(avatar) + '" alt="Avatar de ' + esc(nombre) + '"' + claseCompleto + '>'
+        : '<span class="ini">' + esc(inicialesDe(m.nombre || nombre)) + '</span>';
+
+      const cajaFoto = id
+        ? '<a class="team-photo" href="https://www.roblox.com/users/' + esc(id) +
+          '/profile" target="_blank" rel="noopener" title="Ver perfil de Roblox">' + foto + '</a>'
+        : '<span class="team-photo">' + foto + '</span>';
 
       const social = [
-        m.discord ? '<a href="' + esc(m.discord) + '" target="_blank" rel="noopener" aria-label="Discord de ' + esc(m.nombre) + '"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>' : '',
-        m.instagram ? '<a href="' + esc(m.instagram) + '" target="_blank" rel="noopener" aria-label="Instagram de ' + esc(m.nombre) + '"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>' : ''
+        m.discord ? '<a href="' + esc(m.discord) + '" target="_blank" rel="noopener" aria-label="Discord de ' + esc(nombre) + '"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>' : '',
+        m.instagram ? '<a href="' + esc(m.instagram) + '" target="_blank" rel="noopener" aria-label="Instagram de ' + esc(nombre) + '"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>' : ''
       ].join('');
 
       return '' +
         '<article class="card team-card">' +
-          '<span class="team-photo">' + foto + '</span>' +
-          '<h3>' + esc(m.nombre) + '</h3>' +
+          cajaFoto +
+          '<h3>' + esc(nombre) + '</h3>' +
           '<span class="team-role">' + esc(m.rol) + '</span>' +
           '<p>' + esc(m.desc) + '</p>' +
           (social ? '<div class="team-social">' + social + '</div>' : '') +
         '</article>';
     }).join('');
+
+    // Traer de Roblox el avatar y el nombre (si todavía no están en caché)
+    team.forEach((m, i) => {
+      const id = String(m.robloxId || '').trim();
+      if (!id) return;
+
+      const card = box.children[i];
+      if (!card) return;
+
+      const cache = Roblox.get(id);
+      if (cache && cache.avatarUrl && cache.name) return;
+
+      fetchRoblox(id).then((info) => {
+        if (!info.avatarUrl && !info.name) return;
+        Roblox.set(id, info);
+
+        const img = card.querySelector('.team-photo img');
+        if (info.avatarUrl && !m.foto && img && info.avatarUrl !== img.getAttribute('src')) {
+          img.src = info.avatarUrl;
+        } else if (info.avatarUrl && !m.foto && !img) {
+          const caja = card.querySelector('.team-photo');
+          if (caja) {
+            caja.innerHTML = '<img src="' + esc(info.avatarUrl) + '" alt="Avatar de Roblox"' +
+              (CFG.avatarCompleto ? ' class="avatar-full"' : '') + '>';
+            conRespaldoIniciales(card);
+          }
+        }
+        if (!m.nombre && info.name) {
+          const h = card.querySelector('h3');
+          if (h) h.textContent = info.name;
+        }
+      }).catch(() => {});
+    });
+
+    $$('.team-photo img', box).forEach((img) => conRespaldoIniciales(img.closest('.team-card')));
+  }
+
+  // Si el avatar no carga (sin internet, Roblox caído…), mostramos las iniciales
+  function conRespaldoIniciales(card) {
+    if (!card) return;
+    const img = card.querySelector('.team-photo img');
+    if (!img || img.dataset.respaldo === '1') return;
+    img.dataset.respaldo = '1';
+    img.addEventListener('error', () => {
+      const h = card.querySelector('h3');
+      const span = document.createElement('span');
+      span.className = 'ini';
+      span.textContent = inicialesDe(h ? h.textContent : '?');
+      img.replaceWith(span);
+    });
+  }
+
+  /* ============================================================
+     7) MENÚ LATERAL DE CATEGORÍAS (botón izquierdo)
+     ============================================================ */
+  function setupDrawer() {
+    const fab = $('#btnDrawer');
+    const drawer = $('#sideDrawer');
+    const overlay = $('#drawerOverlay');
+    const cerrar = $('#btnDrawerClose');
+    if (!fab || !drawer || !overlay) return;
+
+    const abrir = () => {
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    };
+    const shut = () => {
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    };
+    const alternar = () => (drawer.classList.contains('open') ? shut() : abrir());
+
+    fab.addEventListener('click', alternar);
+    if (cerrar) cerrar.addEventListener('click', shut);
+    overlay.addEventListener('click', shut);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') shut(); });
+    $$('a', drawer).forEach((a) => a.addEventListener('click', shut));
+
+    // Resaltar la categoría de la página actual
+    const aqui = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    $$('a[data-page]', drawer).forEach((a) => {
+      const p = (a.getAttribute('data-page') || '').toLowerCase();
+      if (p && p === aqui) a.classList.add('active');
+    });
   }
 
   /* ============================================================
@@ -355,6 +497,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     applyConfig();
     setupHeader();
+    setupDrawer();
     renderTeam();
     renderReviewLists();
     renderRatingPanel();

@@ -29,6 +29,9 @@ window.LR_CONFIG = {
   // Dejá "" para ocultar el botón.
   cadDescarga: "https://github.com/Realidad-RP/Cad-Erlc/releases/download/v0.1.0/CAD-RLD-0.1.0.exe",
 
+  // Página para llamar al 911 (civiles) — la sirve el servidor de radio
+  central911: "https://cad-erlc-radio.onrender.com/911",
+
   /* ---------- Números de la portada ----------
      Poné los números reales de tu comunidad.
      Si dejás miembros en 0, se muestra "—".                          */
