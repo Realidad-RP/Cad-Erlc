@@ -189,6 +189,27 @@ input[type="range"] { padding: 0; border: none; background: transparent; }
 .channel-icon { color: var(--muted); }
 .channel-count { margin-left: auto; font-size: 11px; color: var(--ok); }
 
+/* ---------- Filas de canal con acciones (invitar / eliminar) ---------- */
+.channel-row { display: flex; align-items: center; gap: 4px; }
+.channel-row .channel { flex: 1; min-width: 0; }
+.channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel.special .channel-name { color: var(--text); }
+.channel-actions { display: flex; gap: 2px; }
+.ch-act {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 13px; padding: 2px 5px; border-radius: 6px; cursor: pointer;
+}
+.ch-act:hover { background: #223043; color: #fff; }
+
+/* ---------- Formularios de canales (crear / invitar) ---------- */
+.channel-form {
+  margin-top: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2);
+}
+.invite-list { max-height: 130px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.invite-user { display: flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+.invite-user input { accent-color: var(--accent); }
+
 .member-list { list-style: none; margin: 0; padding: 0; }
 .member-list li {
   display: flex;

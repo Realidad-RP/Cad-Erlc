@@ -6,3 +6,6 @@ dist/
 
 # Archivos de registro temporales
 *.log
+
+# Canales guardados por el servidor local (se regeneran solos)
+server/channels.json

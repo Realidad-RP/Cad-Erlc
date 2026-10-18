@@ -17,7 +17,21 @@
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
   ];
 
-  const DEFAULT_CHANNELS = ['Despacho', 'Policía', 'Bomberos/EMS', 'Táctico 1', 'Táctico 2'];
+  // Canales de ejemplo (se muestran cuando no hay conexión; el servidor envía los reales)
+  const DEFAULT_CHANNELS = [
+    { name: 'Despacho Central',     department: null,       private: false },
+    { name: 'Policía (LCPD)',       department: 'LCPD',     private: false },
+    { name: 'Highway Patrol (CHP)', department: 'CHP',      private: false },
+    { name: 'Bomberos/EMS (LCFD)',  department: 'LCFD',     private: false },
+    { name: 'Transporte (DOT)',     department: 'DOT',      private: false },
+    { name: 'Central 9-1-1',        department: 'DISPATCH', private: false },
+    { name: 'Táctico 1',            department: null,       private: false },
+    { name: 'Táctico 2',            department: null,       private: false },
+  ];
+
+  // Caché de canales: si el servidor se reinicia y olvida los canales creados,
+  // la primera app que se conecte se los devuelve automáticamente.
+  const CHANNEL_CACHE_KEY = 'cad-erlc-channels-cache';
 
   const state = {
     ws: null,
@@ -25,10 +39,12 @@
     myId: null,
     name: '',
     department: 'DISPATCH',
+    role: 'Miembro',
     serverUrl: '',
-    channels: [...DEFAULT_CHANNELS],
+    channels: DEFAULT_CHANNELS.map((c) => ({ ...c })),
     channel: null,
     members: new Map(), // id -> { id, name, department, talking }
+    userlist: [],       // todos los conectados al servidor (para invitar)
     peers: new Map(),   // id -> { pc, pendingCandidates, audio, initiated }
     iceServers: [...DEFAULT_ICE_SERVERS],
     localStream: null,
@@ -50,13 +66,44 @@
     emit('roster', others);
   }
 
+  // ---------------- Caché de canales ----------------
+  function readChannelCache() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(CHANNEL_CACHE_KEY) || 'null');
+      return Array.isArray(arr) && arr.length ? arr : null;
+    } catch { return null; }
+  }
+
+  function writeChannelCache(list) {
+    try {
+      const prev = readChannelCache() || [];
+      const prevByName = new Map(prev.map((c) => [c.name, c]));
+      const simple = list.map((c) => {
+        const old = prevByName.get(c.name);
+        const members = Array.isArray(c.memberNames)
+          ? c.memberNames
+          : (old && Array.isArray(old.members) ? old.members : []);
+        return { name: c.name, department: c.department || null, private: !!c.private, members };
+      });
+      localStorage.setItem(CHANNEL_CACHE_KEY, JSON.stringify(simple));
+    } catch {}
+  }
+
+  function channelKeyOf(list) {
+    return (list || [])
+      .map((c) => `${c.name}|${c.department || ''}|${c.private ? 'P' : 'A'}`)
+      .sort()
+      .join('\n');
+  }
+
   // ---------------- Conexión al servidor ----------------
-  function connect(url, name, department) {
+  function connect(url, name, department, role) {
     return new Promise((resolve) => {
       disconnect(true); // por si había una conexión anterior
       state.serverUrl = url;
       state.name = name;
       state.department = department;
+      state.role = role || 'Miembro';
 
       let ws;
       try {
@@ -79,7 +126,7 @@
       ws.onopen = () => {
         clearTimeout(timeout);
         state.connected = true;
-        send({ type: 'hello', name, department });
+        send({ type: 'hello', name, department, role: state.role });
         emit('connected', { url });
         resolve(true);
       };
@@ -101,6 +148,7 @@
         state.myId = null;
         state.channel = null;
         state.members.clear();
+        state.userlist = [];
         closeAllPeers();
         emit('disconnected');
         if (!wasConnected) resolve(false);
@@ -122,6 +170,7 @@
     state.myId = null;
     state.channel = null;
     state.members.clear();
+    state.userlist = [];
     closeAllPeers();
     if (!silent) emit('disconnected');
   }
@@ -137,6 +186,13 @@
           state.iceServers = msg.iceServers;
         }
         emit('channels', state.channels);
+        // Si el servidor acaba de arrancar (sin canales guardados), los restauramos
+        if (msg.channelsFresh) {
+          const cached = readChannelCache();
+          if (cached && channelKeyOf(cached) !== channelKeyOf(msg.channels || [])) {
+            send({ type: 'channels-restore', channels: cached });
+          }
+        }
         break;
 
       case 'joined': {
@@ -175,6 +231,30 @@
         emitRoster();
         break;
       }
+
+      case 'userlist':
+        state.userlist = Array.isArray(msg.users) ? msg.users : [];
+        emit('userlist', state.userlist);
+        break;
+
+      case 'channels':
+        state.channels = msg.channels || [];
+        writeChannelCache(state.channels);
+        emit('channels', state.channels);
+        break;
+
+      case 'kicked':
+        // Nos sacaron del canal (por ejemplo, lo eliminó un supervisor)
+        state.channel = null;
+        closeAllPeers();
+        state.members.clear();
+        emitRoster();
+        emit('kicked', msg.reason || 'Te sacaron del canal.');
+        break;
+
+      case 'error':
+        emit('error', msg.message || 'Error del servidor de radio.');
+        break;
 
       case 'signal': {
         handleSignal(msg.from, msg.data).catch((err) =>
@@ -388,6 +468,22 @@
     return false;
   }
 
+  // ---------------- Crear / gestionar canales ----------------
+  function createChannel({ name, department, private: isPrivate, members }) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'channel-create', name, department: department || null, private: !!isPrivate, members: members || [] });
+  }
+
+  function deleteChannel(name) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'channel-delete', channel: name });
+  }
+
+  function inviteToChannel(name, members) {
+    if (!state.connected) { emit('error', 'Primero conéctate al servidor de radio.'); return; }
+    send({ type: 'channel-invite', channel: name, members });
+  }
+
   // ---------------- API pública ----------------
   window.Radio = {
     state,
@@ -396,6 +492,9 @@
     disconnect,
     joinChannel,
     leaveChannel,
+    createChannel,
+    deleteChannel,
+    inviteToChannel,
     pttDown,
     pttUp,
     setSettings,

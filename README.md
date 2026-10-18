@@ -9,7 +9,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 👥 **Roster** de personal con rango y departamento.
 - 🔎 **BOLOs** de personas y vehículos.
 - 📜 **Historial** automático de todo lo que pasa.
-- 📻 **Radio de voz** estilo TeamSpeak: canales, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
+- 📻 **Radio de voz** estilo TeamSpeak: canales por sección, canales privados con invitación, roles, quién está hablando y push-to-talk con tecla global (funciona incluso dentro del juego).
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
 
@@ -27,13 +27,25 @@ npm start
 1. **El anfitrión** abre el CAD → panel "Radio de voz" → botón **"Alojar radio en esta PC"**.
    La app mostrará una dirección como: `ws://192.168.1.50:8787`
 2. **Cada compañero** abre su CAD, escribe esa dirección en "Servidor", pone su nombre y pulsa **Conectar**.
-3. Todos entran al mismo canal (ej. *Despacho*) y **mantienen pulsada la tecla V para hablar**. 🎙️
+3. Todos entran a un canal (ej. *Despacho Central*) y **mantienen pulsada la tecla V para hablar**. 🎙️
 
 Notas:
 
 - La primera vez, Windows pedirá permitir el acceso de red: **Permitir** (redes privadas).
 - El push-to-talk funciona incluso con ER:LC a pantalla completa.
 - En "Push-to-talk" se puede cambiar la tecla (V, B, N, M, X, C) y el modo (Mantener / Alternar).
+
+## 📡 Canales, secciones y roles
+
+- Cada sección tiene su **canal exclusivo**: **LCPD**, **CHP** (Highway Patrol), **LCFD** (Bomberos/EMS), **DOT** y **Central 9-1-1**. Solo entra quien pertenece a esa sección.
+- Con **➕ Crear canal** se pueden crear más canales:
+  - **De tu sección**: solo entra tu departamento (ej. canales extra de bomberos).
+  - **🔒 Privados**: solo entran las personas que invites (botón **＋** en el canal).
+- **Roles** (se eligen en el panel del radio; se aplican al conectar):
+  - **Miembro**: crea canales de su sección y privados.
+  - **Supervisor / Administrador**: crean canales generales y de cualquier sección; pueden invitar y eliminar en cualquier canal.
+  - El creador de un canal también puede invitar/eliminar el suyo.
+- Los canales creados **se guardan solos**: si el servidor en la nube se reinicia y los olvida, la primera app que se conecte los restaura automáticamente.
 
 ## 🌍 Radio para todo el mundo (internet)
 
@@ -109,7 +121,7 @@ Los archivos quedan en la carpeta **dist/** (instalador + versión **portátil**
 | `preload.js` | Puente seguro entre la interfaz y el sistema |
 | `src/index.html` | Interfaz |
 | `src/styles.css` | Estilos (tema oscuro) |
-| `src/app.js` | Despacho, unidades, roster, BOLOs, historial |
+| `src/app.js` | Despacho, unidades, roster, BOLOs, historial, canales y roles |
 | `src/radio.js` | Radio de voz (WebRTC) |
 | `server/radio-server.js` | Servidor de radio (HTTP + señalización) |
 | `server/signaling.js` | Servidor suelto para PC/VPS/nube |

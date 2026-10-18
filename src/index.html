@@ -30,6 +30,11 @@
         <div class="field"><label>Tu nombre</label><input id="radio-name" placeholder="Ej: A. García" /></div>
         <div class="field"><label>Departamento</label><select id="radio-dept"></select></div>
       </div>
+      <div class="field">
+        <label>Rol en el radio</label>
+        <select id="radio-role"></select>
+      </div>
+      <div class="muted small">Los Supervisores y Administradores pueden crear canales generales y de cualquier sección. El rol se aplica al conectar.</div>
       <button id="radio-connect" class="btn btn-primary full">Conectar</button>
       <div id="radio-error" class="radio-error hidden"></div>
       <hr class="sep" />
@@ -40,7 +45,46 @@
     <section class="panel">
       <h2>Canales</h2>
       <div id="channel-list" class="channel-list"></div>
-      <button id="radio-leave" class="btn full hidden">🚪 Salir del canal</button>
+      <div class="field-row">
+        <button id="channel-new" class="btn full">➕ Crear canal</button>
+        <button id="radio-leave" class="btn full hidden">🚪 Salir del canal</button>
+      </div>
+      <div class="muted small">🔒 = privado (con invitación) · con etiqueta = solo esa sección</div>
+
+      <!-- Formulario para crear canales -->
+      <div id="channel-form" class="channel-form hidden">
+        <div class="field"><label>Nombre del canal</label>
+          <input id="channel-name" placeholder="Ej: Unidad K9 · Aéreo" maxlength="32" />
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Visibilidad</label>
+            <select id="channel-vis">
+              <option value="dept" selected>Solo mi departamento</option>
+              <option value="private">🔒 Privado (invitación)</option>
+              <option value="general">General (todos)</option>
+            </select>
+          </div>
+          <div class="field"><label>Departamento</label><select id="channel-dept"></select></div>
+        </div>
+        <div id="channel-invite-wrap" class="hidden">
+          <div class="muted small">Invita ahora (también podrás invitar después con ＋ en la lista):</div>
+          <div id="channel-invite-list" class="invite-list"></div>
+        </div>
+        <div class="field-row">
+          <button id="channel-create-ok" class="btn btn-primary full">Crear canal</button>
+          <button id="channel-create-cancel" class="btn full">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Caja para invitar a un canal privado ya creado -->
+      <div id="channel-invite-box" class="channel-form hidden">
+        <div class="muted small">Invitar a <strong id="channel-invite-name"></strong>:</div>
+        <div id="channel-invite-users" class="invite-list"></div>
+        <div class="field-row">
+          <button id="channel-invite-ok" class="btn btn-primary full">Invitar</button>
+          <button id="channel-invite-cancel" class="btn full">Cerrar</button>
+        </div>
+      </div>
     </section>
 
     <section class="panel">

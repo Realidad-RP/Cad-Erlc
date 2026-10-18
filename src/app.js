@@ -10,9 +10,9 @@
 
 const DEPARTMENTS = {
   LCPD:     { short: 'LCPD',    name: 'LCPD · Policía',      color: '#3b82f6' },
-  LCSO:     { short: 'LCSO',    name: 'LCSO · Sheriff',      color: '#d97706' },
+  CHP:      { short: 'CHP',     name: 'CHP · Highway Patrol', color: '#eab308' },
   LCFD:     { short: 'LCFD',    name: 'LCFD · Bomberos/EMS', color: '#ef4444' },
-  DOT:      { short: 'DOT',     name: 'DOT · Transporte',    color: '#f59e0b' },
+  DOT:      { short: 'DOT',     name: 'DOT · Transporte',    color: '#a855f7' },
   DISPATCH: { short: 'Central', name: 'Central de Despacho', color: '#10b981' },
 };
 
@@ -86,6 +86,9 @@ function fmtTime(ts) {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   });
 }
+
+// Roles del radio (el servidor valida los permisos de cada uno)
+const ROLES = ['Miembro', 'Supervisor', 'Administrador'];
 
 function deptInfo(key) {
   return DEPARTMENTS[key] || { short: key || '—', name: key || 'Sin departamento', color: '#64748b' };
@@ -430,6 +433,10 @@ function populateSelects() {
   $('#unit-dept').innerHTML = deptOptions('LCPD');
   $('#roster-dept').innerHTML = deptOptions('LCPD');
   $('#radio-dept').innerHTML = deptOptions('DISPATCH');
+  $('#channel-dept').innerHTML = deptOptions('LCPD');
+  $('#radio-role').innerHTML = ROLES
+    .map((r) => `<option value="${r}">${esc(r)}</option>`)
+    .join('');
 }
 
 function wireForms() {
@@ -560,6 +567,7 @@ function saveRadioPrefs() {
     server: $('#radio-server').value.trim(),
     name: $('#radio-name').value.trim(),
     dept: $('#radio-dept').value,
+    role: $('#radio-role').value,
     pttKey: $('#ptt-key').value,
     pttMode: $('#ptt-mode').value,
   };
@@ -572,6 +580,7 @@ function loadRadioPrefs() {
   if (prefs.server) $('#radio-server').value = prefs.server;
   if (prefs.name) $('#radio-name').value = prefs.name;
   if (prefs.dept) $('#radio-dept').value = prefs.dept;
+  if (prefs.role) $('#radio-role').value = prefs.role;
   if (prefs.pttKey) $('#ptt-key').value = prefs.pttKey;
   if (prefs.pttMode) $('#ptt-mode').value = prefs.pttMode;
 }
@@ -597,14 +606,70 @@ function setPttIndicator(on) {
   $('#ptt-button').classList.toggle('transmitting', !!on);
 }
 
+function canJoinChannel(ch) {
+  const staff = Radio.state.role === 'Administrador' || Radio.state.role === 'Supervisor';
+  if (ch.department && ch.department !== Radio.state.department && !staff) {
+    return { ok: false, why: `Canal exclusivo de ${deptInfo(ch.department).short}. No perteneces a ese departamento.` };
+  }
+  if (ch.private && !ch.iAmMember && !staff) {
+    return { ok: false, why: 'Canal privado: necesitas una invitación.' };
+  }
+  return { ok: true };
+}
+
 function renderChannels(channels, current) {
-  $('#channel-list').innerHTML = channels.map((ch) => {
-    const inChannel = ch === current && Radio.state.channel;
-    const count = inChannel ? Radio.state.members.size + 1 : '';
-    return `<button class="channel ${inChannel ? 'active' : ''}" data-channel="${esc(ch)}">
-      <span class="channel-icon">#</span>${esc(ch)}<span class="channel-count">${count}</span>
-    </button>`;
+  $('#channel-list').innerHTML = (channels || []).map((ch) => {
+    const name = ch.name || ch;
+    const inChannel = name === current && Radio.state.channel;
+    const count = inChannel
+      ? Radio.state.members.size + 1
+      : (ch.private && ch.memberCount ? `👥${ch.memberCount}` : '');
+    const badge = ch.department ? deptBadgeHtml(ch.department) : '';
+    const icon = ch.private ? '🔒' : '#';
+    const special = ch.private || ch.department ? ' special' : '';
+    const actions = ch.canManage
+      ? `<span class="channel-actions">
+           ${ch.private ? `<button class="ch-act" data-invite="${esc(name)}" title="Invitar personas">＋</button>` : ''}
+           <button class="ch-act" data-del="${esc(name)}" title="Eliminar canal">🗑</button>
+         </span>`
+      : '';
+    return `<div class="channel-row">
+      <button class="channel ${inChannel ? 'active' : ''}${special}" data-channel="${esc(name)}">
+        <span class="channel-icon">${icon}</span><span class="channel-name">${esc(name)}</span>${badge}<span class="channel-count">${count}</span>
+      </button>${actions}
+    </div>`;
   }).join('');
+}
+
+// Lista de conectados (con casillas) para invitar a canales privados
+function renderInvitePicker(containerSel, excludeNames) {
+  const box = $(containerSel);
+  const excluded = new Set([Radio.state.name, ...(excludeNames || [])]);
+  const users = (Radio.state.userlist || []).filter((u) => !excluded.has(u.name));
+  if (!users.length) {
+    box.innerHTML = '<div class="muted small">No hay otras personas conectadas ahora.</div>';
+    return;
+  }
+  box.innerHTML = users.map((u) => `<label class="invite-user">
+      <input type="checkbox" value="${esc(u.name)}" />
+      <span>${esc(u.name)}</span>${deptBadgeHtml(u.department)}
+    </label>`).join('');
+}
+
+function pickedNames(containerSel) {
+  return [...document.querySelectorAll(`${containerSel} input[type="checkbox"]:checked`)]
+    .map((i) => i.value);
+}
+
+// Si llega o se va gente mientras hay una lista de invitación abierta, la refrescamos
+function refreshInvitePickers() {
+  if (!$('#channel-invite-box').classList.contains('hidden')) {
+    const ch = (Radio.state.channels || []).find((c) => c.name === $('#channel-invite-name').textContent);
+    renderInvitePicker('#channel-invite-users', ch ? ch.memberNames : []);
+  }
+  if (!$('#channel-form').classList.contains('hidden') && $('#channel-vis').value === 'private') {
+    renderInvitePicker('#channel-invite-list', []);
+  }
 }
 
 function membersWithSelf() {
@@ -687,6 +752,17 @@ function onRadioEvent(event, payload) {
       renderMembers(membersWithSelf());
       break;
 
+    case 'userlist':
+      refreshInvitePickers();
+      break;
+
+    case 'kicked':
+      showRadioError(payload);
+      renderChannels(Radio.state.channels, null);
+      renderMembers([]);
+      $('#radio-leave').classList.add('hidden');
+      break;
+
     case 'chat':
       appendRadioChat(payload);
       break;
@@ -716,12 +792,13 @@ function wireRadio() {
     const url = $('#radio-server').value.trim() || 'ws://localhost:8787';
     const name = $('#radio-name').value.trim();
     const dept = $('#radio-dept').value;
+    const role = $('#radio-role').value;
     if (!name) { showRadioError('Escribe tu nombre para el radio.'); return; }
 
     const btn = $('#radio-connect');
     btn.disabled = true;
     btn.textContent = 'Conectando…';
-    const ok = await Radio.connect(url, name, dept);
+    const ok = await Radio.connect(url, name, dept, role);
     btn.disabled = false;
     if (!ok) {
       btn.textContent = 'Conectar';
@@ -731,14 +808,103 @@ function wireRadio() {
   });
 
   // ---- Canales ----
+  let inviteChannel = null;
+
+  const openInviteBox = (name) => {
+    const ch = (Radio.state.channels || []).find((c) => c.name === name);
+    inviteChannel = ch || null;
+    $('#channel-form').classList.add('hidden');
+    $('#channel-invite-box').classList.remove('hidden');
+    $('#channel-invite-name').textContent = name;
+    renderInvitePicker('#channel-invite-users', ch ? ch.memberNames : []);
+  };
+
   $('#channel-list').addEventListener('click', async (e) => {
+    const act = e.target.closest('.ch-act');
+    if (act) {
+      if (!Radio.state.connected) { showRadioError('Primero conéctate al servidor de radio.'); return; }
+      if (act.dataset.invite) { openInviteBox(act.dataset.invite); return; }
+      if (act.dataset.del) {
+        const name = act.dataset.del;
+        if (confirm(`¿Eliminar el canal "${name}"?`)) Radio.deleteChannel(name);
+        return;
+      }
+    }
     const btn = e.target.closest('.channel');
     if (!btn) return;
     if (!Radio.state.connected) { showRadioError('Primero conéctate al servidor de radio.'); return; }
-    await Radio.joinChannel(btn.dataset.channel);
+    const name = btn.dataset.channel;
+    const ch = (Radio.state.channels || []).find((c) => c.name === name);
+    if (ch) {
+      const check = canJoinChannel(ch);
+      if (!check.ok) { showRadioError(check.why); return; }
+    }
+    await Radio.joinChannel(name);
   });
 
   $('#radio-leave').addEventListener('click', () => Radio.leaveChannel());
+
+  // ---- Crear canal ----
+  const openCreateForm = () => {
+    if (!Radio.state.connected) { showRadioError('Primero conéctate al servidor de radio.'); return; }
+    $('#channel-invite-box').classList.add('hidden');
+    const form = $('#channel-form');
+    form.classList.remove('hidden');
+    $('#channel-name').value = '';
+
+    const staff = Radio.state.role === 'Administrador' || Radio.state.role === 'Supervisor';
+    const vis = $('#channel-vis');
+    vis.querySelector('option[value="general"]').disabled = !staff;
+    if (!staff && vis.value === 'general') vis.value = 'dept';
+
+    const deptSel = $('#channel-dept');
+    deptSel.value = Radio.state.department;
+    deptSel.disabled = !staff || vis.value === 'private';
+
+    $('#channel-invite-wrap').classList.toggle('hidden', vis.value !== 'private');
+    if (vis.value === 'private') renderInvitePicker('#channel-invite-list', []);
+
+    $('#channel-name').focus();
+  };
+
+  $('#channel-new').addEventListener('click', openCreateForm);
+  $('#channel-create-cancel').addEventListener('click', () => $('#channel-form').classList.add('hidden'));
+
+  $('#channel-vis').addEventListener('change', () => {
+    const vis = $('#channel-vis').value;
+    const staff = Radio.state.role === 'Administrador' || Radio.state.role === 'Supervisor';
+    $('#channel-dept').disabled = !staff || vis === 'private';
+    $('#channel-invite-wrap').classList.toggle('hidden', vis !== 'private');
+    if (vis === 'private') renderInvitePicker('#channel-invite-list', []);
+  });
+
+  $('#channel-create-ok').addEventListener('click', () => {
+    const name = $('#channel-name').value.trim();
+    if (name.length < 2) { showRadioError('Escribe un nombre de canal (mínimo 2 letras).'); return; }
+    const vis = $('#channel-vis').value;
+    const department = vis === 'dept' ? $('#channel-dept').value : null;
+    const isPrivate = vis === 'private';
+    const members = isPrivate ? pickedNames('#channel-invite-list') : [];
+    Radio.createChannel({ name, department, private: isPrivate, members });
+    $('#channel-form').classList.add('hidden');
+    flash('Creando canal…');
+  });
+
+  // ---- Invitar a un canal privado ----
+  $('#channel-invite-cancel').addEventListener('click', () => {
+    $('#channel-invite-box').classList.add('hidden');
+    inviteChannel = null;
+  });
+
+  $('#channel-invite-ok').addEventListener('click', () => {
+    if (!inviteChannel) return;
+    const names = pickedNames('#channel-invite-users');
+    if (!names.length) { showRadioError('Marca al menos una persona para invitar.'); return; }
+    Radio.inviteToChannel(inviteChannel.name, names);
+    $('#channel-invite-box').classList.add('hidden');
+    flash('Invitados: ' + names.join(', '));
+    inviteChannel = null;
+  });
 
   // ---- Botón de PTT en pantalla (ratón/táctil) ----
   const pttBtn = $('#ptt-button');
@@ -749,6 +915,7 @@ function wireRadio() {
   pttBtn.addEventListener('touchend', () => Radio.pttUp());
 
   // ---- Ajustes de PTT ----
+  $('#radio-role').addEventListener('change', saveRadioPrefs);
   $('#ptt-key').addEventListener('change', () => { Radio.setSettings({ pttKey: $('#ptt-key').value }); saveRadioPrefs(); });
   $('#ptt-mode').addEventListener('change', () => { Radio.setSettings({ pttMode: $('#ptt-mode').value }); saveRadioPrefs(); });
   $('#radio-volume').addEventListener('input', () => Radio.setVolume(parseInt($('#radio-volume').value, 10) / 100));
