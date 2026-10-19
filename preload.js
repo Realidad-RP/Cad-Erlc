@@ -22,4 +22,10 @@ contextBridge.exposeInMainWorld('cadNative', {
 
   // ---- API oficial de ER:LC (servidor en vivo) ----
   erlcRequest: (payload) => ipcRenderer.invoke('erlc-request', payload),
+
+  // ---- Radio flotante sobre el juego (overlay) ----
+  overlayToggle: () => ipcRenderer.invoke('overlay-toggle'),
+  overlaySend: (state) => ipcRenderer.send('overlay-state', state),
+  overlayHide: () => ipcRenderer.send('overlay-hide'),
+  onOverlayState: (cb) => ipcRenderer.on('overlay-state', (_e, state) => cb(state)),
 });

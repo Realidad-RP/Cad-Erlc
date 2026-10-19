@@ -6,7 +6,7 @@
 //  - La tecla global de push-to-talk (funciona aunque estés dentro de ER:LC)
 //  - El servidor de radio integrado (opcional, para alojar el radio)
 
-const { app, BrowserWindow, session, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, screen } = require('electron');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -67,6 +67,11 @@ function createWindow() {
 
   // Cuando la interfaz termina de cargar, cerramos la pantalla de bienvenida
   mainWindow.webContents.once('did-finish-load', () => closeSplashSoon());
+
+  // Si cierran el CAD, la radio flotante también se cierra
+  mainWindow.on('closed', () => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.close();
+  });
 
   // Mostrar errores de la interfaz en la consola (útil para depurar)
   mainWindow.webContents.on('console-message', (...args) => {
@@ -338,6 +343,79 @@ function setupGlobalPanic() {
   apply();
 }
 
+// ---------------- Radio flotante sobre el juego (overlay) ----------------
+// Es una ventanita siempre-encima que muestra el estado de la radio mientras
+// jugás ER:LC (como el overlay de Sonoran Radio). La maneja la interfaz.
+let overlayWindow = null;
+let lastOverlayState = null;
+
+function createOverlayWindow() {
+  const { workArea } = screen.getPrimaryDisplay();
+  const width = 320;
+  const height = 158;
+  overlayWindow = new BrowserWindow({
+    width,
+    height,
+    x: workArea.x + workArea.width - width - 24,
+    y: workArea.y + 24,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    title: 'Radio de voz',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  overlayWindow.loadFile(path.join(__dirname, 'src', 'overlay.html'));
+  overlayWindow.webContents.once('did-finish-load', () => {
+    if (lastOverlayState && overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('overlay-state', lastOverlayState);
+    }
+  });
+  overlayWindow.on('closed', () => { overlayWindow = null; });
+  return overlayWindow;
+}
+
+function setupOverlayIPC() {
+  ipcMain.on('overlay-state', (_e, state) => {
+    lastOverlayState = state || null;
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('overlay-state', lastOverlayState);
+    }
+  });
+
+  ipcMain.handle('overlay-toggle', () => {
+    if (!overlayWindow || overlayWindow.isDestroyed()) {
+      createOverlayWindow();
+      return { ok: true, visible: true };
+    }
+    if (overlayWindow.isVisible()) {
+      overlayWindow.hide();
+      return { ok: true, visible: false };
+    }
+    overlayWindow.showInactive();
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    return { ok: true, visible: true };
+  });
+
+  ipcMain.on('overlay-hide', () => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
+  });
+
+  ipcMain.on('overlay-open-cad', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); }
+  });
+}
+
 // ---------------- Ciclo de vida de la app ----------------
 app.whenReady().then(() => {
   setupPermissions();
@@ -345,6 +423,7 @@ app.whenReady().then(() => {
   setupGlobalPanic();
   setupRadioServerIPC();
   setupErlcIPC();
+  setupOverlayIPC();
   createSplash();
   createWindow();
 

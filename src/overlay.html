@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Radio de voz</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: transparent; overflow: hidden;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    user-select: none; cursor: default;
+  }
+  .radio {
+    height: 100%; box-sizing: border-box;
+    background: linear-gradient(180deg, #12213c 0%, #0b1526 100%);
+    border: 1px solid #2a4a7a; border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+    color: #e8effc; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .top { display: flex; align-items: center; gap: 6px; padding: 7px 10px 4px; -webkit-app-region: drag; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex: none; }
+  .dot.on { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
+  .brand { flex: 1; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #8ea4c8; }
+  .x {
+    -webkit-app-region: no-drag; width: 18px; height: 18px; padding: 0;
+    background: #12213c; color: #8ea4c8; border: 1px solid #2a4a7a; border-radius: 6px;
+    font-size: 11px; line-height: 15px; cursor: pointer;
+  }
+  .x:hover { color: #fff; border-color: #3b82f6; }
+  .chan { padding: 0 12px; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 3px; margin: 6px 12px 0; background: #1c2c4c; border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: #22c55e; transition: width .15s; }
+  .bar.ptt i { width: 100%; background: #ef4444; }
+  .who {
+    flex: 1; display: flex; align-items: center; gap: 8px; min-height: 32px;
+    margin: 6px 10px; padding: 5px 10px; border-radius: 10px;
+    background: #0a1322; border: 1px solid #1c2c4c; overflow: hidden;
+  }
+  .who.talking { border-color: #22c55e; box-shadow: inset 0 0 10px rgba(34, 197, 94, .22); }
+  .who.ptt { border-color: #ef4444; box-shadow: inset 0 0 10px rgba(239, 68, 68, .28); }
+  .who .icon { font-size: 15px; flex: none; }
+  .who .txt { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who .sub { margin-left: auto; font-size: 10px; color: #8ea4c8; white-space: nowrap; }
+  .bottom { display: flex; justify-content: space-between; padding: 0 12px 8px; font-size: 10px; color: #8ea4c8; }
+</style>
+</head>
+<body>
+  <div class="radio">
+    <div class="top">
+      <span class="dot" id="dot"></span>
+      <span class="brand">Radio de voz</span>
+      <button class="x" id="hide" title="Ocultar (podés abrirla de nuevo desde el CAD)">✕</button>
+    </div>
+    <div class="chan" id="chan">Desconectado</div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="who" id="who">
+      <span class="icon" id="icon">📻</span>
+      <span class="txt" id="who-txt">Sin conexión</span>
+      <span class="sub" id="who-sub"></span>
+    </div>
+    <div class="bottom">
+      <span id="count">👥 0</span>
+      <span id="hint">PTT: V</span>
+    </div>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  $('hide').addEventListener('click', () => {
+    if (window.cadNative && window.cadNative.overlayHide) window.cadNative.overlayHide();
+  });
+
+  function render(s) {
+    const st = s || {};
+    $('dot').classList.toggle('on', !!st.connected);
+    $('chan').textContent = st.channel || (st.connected ? 'Sin canal' : 'Desconectado');
+    $('count').textContent = '👥 ' + (st.count || 0);
+    $('hint').textContent = 'PTT: ' + (st.pttKey || 'V');
+
+    const who = $('who');
+    const bar = $('bar');
+    who.classList.toggle('ptt', !!st.ptt);
+    who.classList.toggle('talking', !st.ptt && !!st.talker);
+
+    if (st.ptt) {
+      $('icon').textContent = '🔴';
+      $('who-txt').textContent = 'TRANSMITIENDO';
+      $('who-sub').textContent = st.name || '';
+      bar.classList.add('ptt');
+    } else if (st.talker) {
+      $('icon').textContent = '🔊';
+      $('who-txt').textContent = st.talker;
+      $('who-sub').textContent = 'hablando';
+      bar.classList.remove('ptt');
+    } else {
+      $('icon').textContent = '📻';
+      $('who-txt').textContent = !st.connected ? 'Sin conexión' : (st.channel ? 'En línea' : 'Entrá a un canal');
+      $('who-sub').textContent = st.connected ? (st.role || '') : '';
+      bar.classList.remove('ptt');
+    }
+  }
+
+  if (window.cadNative && window.cadNative.onOverlayState) {
+    window.cadNative.onOverlayState(render);
+  }
+</script>
+</body>
+</html>

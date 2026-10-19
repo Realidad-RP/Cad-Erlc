@@ -1166,6 +1166,7 @@ function wireTabs() {
       });
       if (btn.dataset.tab === 'audio') populateAudioDevices();
       else stopMicTest(); // si estabas probando el micrófono, se cierra al salir de la pestaña
+      mapOpen(btn.dataset.tab === 'mapa');
     });
   });
 }
@@ -1575,6 +1576,54 @@ function onRadioEvent(event, payload) {
       showRadioError(payload);
       break;
   }
+
+  // La radio flotante (overlay) se mantiene al día con cada evento
+  overlaySync();
+}
+
+// ============================================================
+// 14b. Radio flotante sobre el juego (overlay)
+// ============================================================
+// Manda el estado de la radio a la ventanita siempre-encima. Se llama con
+// cada evento de la radio; si nada cambió, no manda nada.
+let overlayLastKey = '';
+
+function overlaySync() {
+  if (!window.cadNative || !window.cadNative.overlaySend) return;
+  const st = Radio.state;
+  const members = [...st.members.values()];
+  const talker = members.find((m) => m.talking && m.id !== st.myId);
+  const data = {
+    connected: !!st.connected,
+    channel: st.channel || '',
+    name: st.name || '',
+    role: st.role || '',
+    ptt: !!st.pttActive,
+    talker: talker ? talker.name : '',
+    count: members.filter((m) => m.id !== st.myId).length,
+    pttKey: ($('#ptt-key') && $('#ptt-key').value) || 'V',
+  };
+  const key = JSON.stringify(data);
+  if (key === overlayLastKey) return;
+  overlayLastKey = key;
+  window.cadNative.overlaySend(data);
+}
+
+function wireOverlay() {
+  const btn = $('#overlay-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!window.cadNative || !window.cadNative.overlayToggle) {
+      flash('⚠️ Esta versión de la app no incluye la radio flotante. Actualizá el .exe.');
+      return;
+    }
+    const r = await window.cadNative.overlayToggle();
+    if (r && r.ok) {
+      btn.classList.toggle('btn-primary', !!r.visible);
+      flash(r.visible ? '🖥️ Radio flotante activada (queda encima del juego)' : '🖥️ Radio flotante oculta');
+      overlaySync();
+    }
+  });
 }
 
 function wireRadio() {
@@ -1789,6 +1838,7 @@ function applyPttKey(key) {
   Radio.setSettings({ pttKey: key });
   updatePttNotes();
   saveRadioPrefs();
+  overlaySync();
 }
 
 function applyPttMode(mode) {
@@ -2404,13 +2454,20 @@ function updateErlcVisibility() {
   if (!btn) return;
   const canView = erlcCanView();
   btn.classList.toggle('hidden', !canView);
+
+  // La pestaña del mapa usa la misma clave y los mismos permisos.
+  const mapBtn = $('#tab-btn-mapa');
+  if (mapBtn) mapBtn.classList.toggle('hidden', !canView);
+
   if (!canView) {
     // Si estaba en la pestaña, volver a Despacho
     const sec = $('#tab-erlc');
-    if (sec && sec.classList.contains('active')) {
+    const mapSec = $('#tab-mapa');
+    if ((sec && sec.classList.contains('active')) || (mapSec && mapSec.classList.contains('active'))) {
       const home = document.querySelector('.tab[data-tab="despacho"]');
       if (home) home.click();
     }
+    if (typeof mapOpen === 'function') mapOpen(false);
     if (erlc.connected) erlcDisconnect();
   } else if (!erlcCanCommand()) {
     $('#erlc-cmd-panel').classList.add('hidden');
@@ -2454,50 +2511,77 @@ function renderErlcPlayers() {
   }).join('') || '<tr><td colspan="4" class="muted">Nadie conectado al juego ahora mismo.</td></tr>';
 }
 
+// Un solo sondeo alimenta la pestaña ER:LC y el Mapa (así no gastamos de más
+// el límite de la API). /v2/server trae jugadores con ubicación real
+// (X/Z + calle + código postal) y las llamadas de emergencia del juego.
+let erlcCooldownUntil = 0;
+
+function erlcSchedule() {
+  if (erlc.timer) { clearInterval(erlc.timer); erlc.timer = null; }
+  if (!erlc.connected && !mapState.open) return;
+  const every = mapState.open ? 5000 : 10000;
+  erlc.timer = setInterval(() => { erlcRefresh(); }, every);
+  erlcRefresh();
+}
+
+function erlcStopPolling() {
+  if (erlc.timer) { clearInterval(erlc.timer); erlc.timer = null; }
+}
+
 async function erlcRefresh() {
   if (!erlc.key) return;
+  if (Date.now() < erlcCooldownUntil) return;
   if (!window.cadNative || !window.cadNative.erlcRequest) {
     erlcSetStatus('⚠️ Esta versión de la app no incluye la integración. Actualizá el .exe.', false);
     return;
   }
 
-  const [srv, ply] = await Promise.all([
-    window.cadNative.erlcRequest({ serverKey: erlc.key, path: '/v1/server' }),
-    window.cadNative.erlcRequest({ serverKey: erlc.key, path: '/v1/server/players' }),
-  ]);
+  const r = await window.cadNative.erlcRequest({
+    serverKey: erlc.key,
+    path: '/v2/server?Players=true&EmergencyCalls=true',
+  });
 
-  if (!srv.ok && !ply.ok) {
-    const st = srv.status || ply.status;
-    if (st === 401 || st === 403) {
-      erlcSetStatus('❌ Server-key inválida. Copiala de nuevo desde el juego (Settings → API key).', false);
-    } else if (st === 429) {
-      erlcSetStatus('⏳ La API pidió esperar unos segundos…', false);
-    } else {
-      erlcSetStatus('❌ No se pudo conectar: ' + (srv.error || ply.error || ('HTTP ' + st)), false);
+  if (!r.ok) {
+    const st = r.status;
+    if (st === 429) {
+      const wait = r.retryAfter || 15;
+      erlcCooldownUntil = Date.now() + wait * 1000;
+      if (erlc.connected) erlcSetStatus('⏳ La API pidió esperar ' + wait + ' s…', false);
+      if (mapState.open) mapSetInfo('⏳ Límite de la API: esperando ' + wait + ' s…');
+      return;
     }
+    if (erlc.connected) {
+      if (st === 401 || st === 403) {
+        erlcSetStatus('❌ Server-key inválida. Copiala de nuevo desde el juego (Settings → API key).', false);
+      } else {
+        erlcSetStatus('❌ No se pudo conectar: ' + (r.error || ('HTTP ' + st)), false);
+      }
+    }
+    if (mapState.open) mapSetInfo('⚠️ Sin datos: ' + (r.error || ('HTTP ' + st)));
     return;
   }
 
-  if (srv.ok && srv.data) erlc.server = srv.data;
-  if (Array.isArray(ply.data)) erlc.players = ply.data;
+  const d = r.data || {};
+  erlc.server = d;
+  erlc.players = Array.isArray(d.Players) ? d.Players : [];
+  mapState.calls = Array.isArray(d.EmergencyCalls) ? d.EmergencyCalls : [];
 
-  const d = erlc.server || {};
-  const name = d.Name || d.name || 'Servidor ER:LC';
-  $('#erlc-server-name').textContent = '🟢 ' + name;
-  erlcSetStatus('✅ Conectado. Se actualiza solo cada 10 segundos.', true);
-  renderErlcPlayers();
+  if (erlc.connected) {
+    const name = d.Name || d.name || 'Servidor ER:LC';
+    $('#erlc-server-name').textContent = '🟢 ' + name;
+    erlcSetStatus('✅ Conectado. Se actualiza solo cada ' + (mapState.open ? 5 : 10) + ' segundos.', true);
+    renderErlcPlayers();
 
-  const parts = ['🕒 Actualizado: ' + new Date().toLocaleTimeString('es-ES')];
-  if (d.CurrentPlayers != null) parts.push('🎮 ' + d.CurrentPlayers + '/' + (d.MaxPlayers ?? '?') + ' jugadores');
-  if (d.JoinKey) parts.push('🔑 Clave de ingreso: ' + d.JoinKey);
-  $('#erlc-updated').textContent = parts.join(' · ');
+    const parts = ['🕒 Actualizado: ' + new Date().toLocaleTimeString('es-ES')];
+    if (d.CurrentPlayers != null) parts.push('🎮 ' + d.CurrentPlayers + '/' + (d.MaxPlayers ?? '?') + ' jugadores');
+    if (d.JoinKey) parts.push('🔑 Clave de ingreso: ' + d.JoinKey);
+    $('#erlc-updated').textContent = parts.join(' · ');
 
-  $('#erlc-live').classList.remove('hidden');
-  $('#erlc-cmd-panel').classList.toggle('hidden', !erlcCanCommand());
-}
+    $('#erlc-live').classList.remove('hidden');
+    $('#erlc-cmd-panel').classList.toggle('hidden', !erlcCanCommand());
+  }
 
-function erlcStopPolling() {
-  if (erlc.timer) { clearInterval(erlc.timer); erlc.timer = null; }
+  if (mapState.open) mapRender();
 }
 
 function erlcConnect() {
@@ -2514,14 +2598,12 @@ function erlcConnect() {
   $('#erlc-connect').classList.add('hidden');
   $('#erlc-disconnect').classList.remove('hidden');
   erlcSetStatus('⏳ Conectando con la API de ER:LC…');
-  erlcRefresh();
-  erlcStopPolling();
-  erlc.timer = setInterval(() => { erlcRefresh(); }, 10000);
+  erlcSchedule();
 }
 
 function erlcDisconnect() {
   erlc.connected = false;
-  erlcStopPolling();
+  erlcSchedule();
   $('#erlc-connect').classList.remove('hidden');
   $('#erlc-disconnect').classList.add('hidden');
   $('#erlc-live').classList.add('hidden');
@@ -2578,6 +2660,280 @@ function wireErlc() {
   if (tabBtn) tabBtn.addEventListener('click', () => { if (erlc.connected) erlcRefresh(); });
 
   updateErlcVisibility();
+}
+
+// ============================================================
+// 19c. 🗺️ Mapa en vivo (posiciones reales del juego)
+// ============================================================
+// La API usa el centro del mapa como origen (0,0): X a la derecha y Z hacia
+// abajo. El mapa oficial mide 5355x5355; en la app usamos una copia de 4096.
+
+const MAP_IMG_W = 3200;       // tamaño de src/assets/mapa.jpg
+const MAP_IMG_H = 3940;
+const MAP_SCALE = 4096 / 5355; // mundo -> px del mapa oficial reducido a 4096
+const MAP_CROP_X = 400;        // recorte aplicado a ese mapa de referencia
+const MAP_CROP_Y = 120;
+const MAP_WORLD_SIZE = 5355;  // tamaño del mapa oficial en unidades del juego
+const MAP_CENTER = MAP_WORLD_SIZE / 2;
+
+const mapState = {
+  open: false,
+  mode: 'plano',
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  follow: null,
+  showCiv: false,
+  selected: null,
+  calls: [],
+  didFit: false,
+};
+
+function mapWorldToPx(x, z) {
+  return {
+    x: (MAP_CENTER + Number(x || 0)) * MAP_SCALE - MAP_CROP_X,
+    y: (MAP_CENTER + Number(z || 0)) * MAP_SCALE - MAP_CROP_Y,
+  };
+}
+
+function mapSetInfo(text) {
+  const el = $('#map-info');
+  if (el) el.textContent = text;
+}
+
+function mapApplyTransform() {
+  const plane = $('#map-plane');
+  if (!plane) return;
+  plane.style.transform = `translate(${mapState.panX}px, ${mapState.panY}px) scale(${mapState.zoom})`;
+}
+
+function mapFit() {
+  const vp = $('#map-viewport');
+  if (!vp) return;
+  const vw = vp.clientWidth || 900;
+  const vh = vp.clientHeight || 500;
+  mapState.zoom = Math.min(vw / MAP_IMG_W, vh / MAP_IMG_H) * 0.98;
+  mapState.panX = (vw - MAP_IMG_W * mapState.zoom) / 2;
+  mapState.panY = (vh - MAP_IMG_H * mapState.zoom) / 2;
+  mapApplyTransform();
+}
+
+function mapCenterOn(px, py) {
+  const vp = $('#map-viewport');
+  if (!vp) return;
+  mapState.panX = vp.clientWidth / 2 - px * mapState.zoom;
+  mapState.panY = vp.clientHeight / 2 - py * mapState.zoom;
+  mapApplyTransform();
+}
+
+function mapZoomAt(cx, cy, factor) {
+  const z0 = mapState.zoom;
+  const z1 = Math.min(3, Math.max(0.08, z0 * factor));
+  const k = z1 / z0;
+  mapState.panX = cx - (cx - mapState.panX) * k;
+  mapState.panY = cy - (cy - mapState.panY) * k;
+  mapState.zoom = z1;
+  mapApplyTransform();
+}
+
+function mapShowSelected(p) {
+  const box = $('#map-selected');
+  if (!box || !p) return;
+  const L = p.Location || {};
+  const color = erlcTeamColor(String(p.Team || ''));
+  const street = [L.BuildingNumber, L.StreetName].filter(Boolean).join(' ') || '—';
+  const postal = L.PostalCode ? ' · CP ' + L.PostalCode : '';
+  const following = mapState.follow === p.Player;
+  box.innerHTML = `
+    <div class="ms-head">
+      <strong>${esc(erlcPlayerName(p))}</strong>
+      <span class="pill" style="color:${color};background:${color}1c">${esc(String(p.Team || '—'))}</span>
+      <button class="btn btn-small" id="map-sel-close" type="button">✕</button>
+    </div>
+    <div class="muted small">📍 ${esc(street)}${esc(postal)}</div>
+    <div class="muted small">${p.Callsign ? '🚓 Indicativo ' + esc(String(p.Callsign)) + ' · ' : ''}⭐ ${Number(p.WantedStars || 0)} buscado(s)</div>
+    <div class="ms-actions">
+      <button class="btn btn-small ${following ? 'btn-ok' : 'btn-primary'}" id="map-sel-follow" type="button">${following ? '🎥 Siguiendo…' : '🎥 Seguir (cámara)'}</button>
+    </div>`;
+  box.classList.remove('hidden');
+}
+
+function mapStopFollow(silent) {
+  mapState.follow = null;
+  mapState.selected = null;
+  const btn = $('#map-follow-stop');
+  if (btn) btn.classList.add('hidden');
+  const box = $('#map-selected');
+  if (box) box.classList.add('hidden');
+  if (!silent) mapRender();
+}
+
+function mapRender() {
+  if (!mapState.open) return;
+  const markers = $('#map-markers');
+  if (!markers) return;
+
+  const players = (erlc.players || []).filter((p) => p && p.Location && p.Location.LocationX != null);
+  const others = players.filter((p) => !/civil/i.test(String(p.Team || '')));
+  const shown = mapState.showCiv ? players : others;
+  const calls = mapState.calls || [];
+
+  let html = '';
+  for (const c of calls) {
+    if (!Array.isArray(c.Position) || c.Position.length < 2) continue;
+    const pt = mapWorldToPx(c.Position[0], c.Position[1]);
+    html += `<div class="map-marker map-call" data-map-call="${esc(String(c.CallNumber ?? ''))}" style="left:${pt.x}px;top:${pt.y}px">
+      <span class="mm-pin">🚨</span><span class="mm-label">#${esc(String(c.CallNumber ?? '?'))}</span>
+    </div>`;
+  }
+  for (const p of shown) {
+    const L = p.Location;
+    const pt = mapWorldToPx(L.LocationX, L.LocationZ);
+    const color = erlcTeamColor(String(p.Team || ''));
+    const label = p.Callsign ? String(p.Callsign) : erlcPlayerName(p);
+    const sel = mapState.selected === p.Player || mapState.follow === p.Player;
+    html += `<div class="map-marker${sel ? ' selected' : ''}" data-map-player="${esc(String(p.Player))}" style="left:${pt.x}px;top:${pt.y}px">
+      <span class="mm-dot" style="background:${color};box-shadow:0 0 8px ${color}"></span>
+      <span class="mm-label">${esc(label)}</span>
+    </div>`;
+  }
+  markers.innerHTML = html;
+
+  mapSetInfo(`👮 ${shown.length} en servicio · 👥 ${players.length} en el juego · 🚨 ${calls.length} llamadas · 🕒 ${new Date().toLocaleTimeString('es-ES')}`);
+
+  // Modo "cámara": recentrar en la unidad que se está siguiendo.
+  if (mapState.follow) {
+    const p = players.find((x) => x.Player === mapState.follow);
+    if (p) {
+      const pt = mapWorldToPx(p.Location.LocationX, p.Location.LocationZ);
+      mapCenterOn(pt.x, pt.y);
+      mapShowSelected(p);
+    } else {
+      mapStopFollow(true);
+      mapSetInfo('⚠️ La unidad que seguías salió del servidor.');
+    }
+  }
+}
+
+function mapOpen(on) {
+  mapState.open = !!on;
+  if (on) {
+    if (!erlc.key) {
+      mapSetInfo('⚠️ Falta la server-key: cargala en la pestaña ER:LC.');
+    }
+    if (!mapState.didFit) { mapFit(); mapState.didFit = true; }
+    mapRender();
+  }
+  erlcSchedule();
+}
+
+function wireMapa() {
+  const vp = $('#map-viewport');
+  if (!vp) return;
+
+  // El plano tiene el tamaño real de la imagen para ubicar los marcadores.
+  const plane = $('#map-plane');
+  if (plane) { plane.style.width = MAP_IMG_W + 'px'; plane.style.height = MAP_IMG_H + 'px'; }
+
+  // Vista plana / 3D
+  document.querySelectorAll('[data-map-mode]').forEach((b) => {
+    b.addEventListener('click', () => {
+      mapState.mode = b.dataset.mapMode;
+      document.querySelectorAll('[data-map-mode]').forEach((x) => x.classList.toggle('active', x === b));
+      vp.classList.toggle('mode-3d', mapState.mode === '3d');
+      mapFit();
+    });
+  });
+
+  // Mostrar/ocultar civiles
+  const civBtn = $('#map-civ-btn');
+  if (civBtn) {
+    civBtn.addEventListener('click', () => {
+      mapState.showCiv = !mapState.showCiv;
+      civBtn.classList.toggle('active', mapState.showCiv);
+      mapRender();
+    });
+  }
+
+  // Zoom
+  if ($('#map-zoom-in')) $('#map-zoom-in').addEventListener('click', () => mapZoomAt(vp.clientWidth / 2, vp.clientHeight / 2, 1.3));
+  if ($('#map-zoom-out')) $('#map-zoom-out').addEventListener('click', () => mapZoomAt(vp.clientWidth / 2, vp.clientHeight / 2, 1 / 1.3));
+  if ($('#map-center')) $('#map-center').addEventListener('click', mapFit);
+
+  // Rueda del mouse: zoom hacia el cursor
+  vp.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    mapZoomAt(e.clientX - rect.left, e.clientY - rect.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  }, { passive: false });
+
+  // Arrastrar para mover el mapa
+  let dragging = false, sx = 0, sy = 0, px0 = 0, py0 = 0;
+  vp.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.map-marker') || e.target.closest('#map-selected')) return;
+    dragging = true; sx = e.clientX; sy = e.clientY; px0 = mapState.panX; py0 = mapState.panY;
+    vp.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    mapState.panX = px0 + (e.clientX - sx);
+    mapState.panY = py0 + (e.clientY - sy);
+    mapApplyTransform();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; vp.classList.remove('dragging'); });
+
+  // Clic en unidades y llamadas
+  const markersEl = $('#map-markers');
+  if (markersEl) {
+    markersEl.addEventListener('click', (e) => {
+      const m = e.target.closest('[data-map-player]');
+      if (m) {
+        const p = (erlc.players || []).find((x) => String(x.Player) === m.dataset.mapPlayer);
+        if (p) {
+          mapState.selected = p.Player;
+          mapShowSelected(p);
+          mapRender();
+        }
+        return;
+      }
+      const c = e.target.closest('[data-map-call]');
+      if (c) {
+        const call = (mapState.calls || []).find((x) => String(x.CallNumber) === c.dataset.mapCall);
+        const box = $('#map-selected');
+        if (call && box) {
+          box.innerHTML = `
+            <div class="ms-head"><strong>🚨 Llamada #${esc(String(call.CallNumber ?? '?'))}</strong>
+            <button class="btn btn-small" id="map-sel-close" type="button">✕</button></div>
+            <div class="muted small">${esc(String(call.Description || 'Sin detalles'))}</div>
+            <div class="muted small">📍 ${esc(String(call.PositionDescriptor || '—'))} · Equipo: ${esc(String(call.Team || '—'))}</div>`;
+          box.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  // Botones de la tarjeta (se re-renderiza, por eso va delegado)
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'map-sel-close') {
+      const box = $('#map-selected');
+      if (box) box.classList.add('hidden');
+      mapState.selected = null;
+      mapRender();
+      return;
+    }
+    if (e.target.id === 'map-sel-follow') {
+      if (mapState.follow) { mapStopFollow(); return; }
+      const p = (erlc.players || []).find((x) => String(x.Player) === mapState.selected);
+      if (!p) return;
+      mapState.follow = p.Player;
+      const stop = $('#map-follow-stop');
+      if (stop) { stop.classList.remove('hidden'); stop.textContent = '🎥 ' + (p.Callsign || erlcPlayerName(p)) + ' ✕'; }
+      mapRender();
+      flash('🎥 Siguiendo a ' + (p.Callsign || erlcPlayerName(p)) + ' en el mapa');
+    }
+  });
+
+  if ($('#map-follow-stop')) $('#map-follow-stop').addEventListener('click', () => mapStopFollow());
 }
 
 // ============================================================
@@ -2658,11 +3014,13 @@ function init() {
   loadRadioPrefs();
   Radio.setSettings({ pttKey: $('#ptt-key').value, pttMode: $('#ptt-mode').value });
   wireRadio();
+  wireOverlay();
   wireAudioTab();
   wireRegistros();
   wireDataSections();
   wirePanic();
   wireErlc();
+  wireMapa();
   wireHosting();
   setupPtt();
   populateAudioDevices();

@@ -45,6 +45,8 @@
       <button id="host-toggle" class="btn full">🖥️ Alojar en esta PC</button>
       <div id="host-info" class="host-info hidden"></div>
       <div id="radio-civil-url" class="muted small"></div>
+      <button id="overlay-toggle" class="btn full" style="margin-top:6px"
+              title="Ventanita siempre encima del juego con el estado de la radio">🖥️ Radio flotante en el juego</button>
     </section>
 
     <section class="panel">
@@ -185,6 +187,7 @@
   <main class="main">
     <nav class="tabs">
       <button class="tab active" data-tab="despacho">🚨 Despacho <span class="tab-count hidden" data-count="despacho"></span></button>
+      <button class="tab hidden" id="tab-btn-mapa" data-tab="mapa">🗺️ Mapa</button>
       <button class="tab" data-tab="unidades">🚓 Unidades <span class="tab-count hidden" data-count="unidades"></span></button>
       <button class="tab" data-tab="roster">👥 Roster</button>
       <button class="tab" data-tab="bolos">🔎 BOLOs <span class="tab-count hidden" data-count="bolos"></span></button>
@@ -214,6 +217,38 @@
         </form>
       </div>
       <div id="calls-list" class="sections"></div>
+    </section>
+
+    <!-- Mapa en vivo -->
+    <section id="tab-mapa" class="tab-content">
+      <div class="map-panel">
+        <div class="panel-head">
+          <h2>🗺️ Mapa en vivo</h2>
+          <div class="filters">
+            <button class="btn btn-small active" data-map-mode="plano" type="button">🗺️ Plano</button>
+            <button class="btn btn-small" data-map-mode="3d" type="button">⛰️ 3D</button>
+            <button class="btn btn-small" id="map-civ-btn" type="button">👥 Civiles</button>
+          </div>
+        </div>
+        <div class="map-toolbar">
+          <div id="map-info" class="muted small">Sin datos todavía…</div>
+          <div class="map-actions">
+            <button class="btn btn-small" id="map-zoom-out" type="button">－</button>
+            <button class="btn btn-small" id="map-zoom-in" type="button">＋</button>
+            <button class="btn btn-small" id="map-center" type="button">🎯 Centrar</button>
+            <button class="btn btn-small hidden" id="map-follow-stop" type="button">🎥 ✕</button>
+          </div>
+        </div>
+        <div class="map-viewport" id="map-viewport">
+          <div class="map-plane" id="map-plane">
+            <div class="map-tilt">
+              <img id="map-img" src="assets/mapa.jpg" alt="Mapa de Liberty County" draggable="false" />
+              <div id="map-markers"></div>
+            </div>
+          </div>
+          <div class="map-selected hidden" id="map-selected"></div>
+        </div>
+      </div>
     </section>
 
     <!-- Unidades -->
