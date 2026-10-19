@@ -98,6 +98,8 @@ async function sendEmbed(channelId, { color, title, lines }, tag = '[BOT]') {
       .setColor(color || 0x3b82f6)
       .setTitle(String(title).slice(0, 250))
       .setDescription(description || null)
+      .setFooter({ text: '🛡️ CAD La Realidad RP' })
+      .setThumbnail('https://realidad-rp.github.io/Cad-Erlc/assets/logo.png')
       .setTimestamp(new Date());
     await channel.send({ embeds: [embed] });
   } catch (err) {
@@ -149,7 +151,7 @@ function buildEventEmbed(data) {
   const embed = new EmbedBuilder()
     .setColor(msg.startsWith(';') ? 0x5865f2 : 0xed4245)
     .setTitle(msg.startsWith(';') ? '⌨️ Comando en el juego' : '🚨 Aviso de ER:LC')
-    .setFooter({ text: 'ER:LC · aviso automático' })
+    .setFooter({ text: '🛡️ CAD La Realidad RP · aviso automático de ER:LC' })
     .setTimestamp(new Date());
 
   const fields = [];
@@ -189,6 +191,7 @@ function statusEmbed(d) {
   const embed = new EmbedBuilder()
     .setColor(0x3b82f6)
     .setTitle(`🎮 ${d.Name || 'Servidor ER:LC'}`)
+    .setFooter({ text: '🛡️ CAD La Realidad RP · estado en vivo' })
     .setTimestamp(new Date())
     .addFields({ name: 'Jugadores', value: `**${d.CurrentPlayers ?? '?'} / ${d.MaxPlayers ?? '?'}**`, inline: true });
 

@@ -119,7 +119,7 @@ function deptInfo(key) {
 
 function deptBadgeHtml(key) {
   const d = deptInfo(key);
-  return `<span class="badge" style="color:${d.color};border-color:${d.color}55;background:${d.color}18">${esc(d.short)}</span>`;
+  return `<span class="badge" style="color:${d.color};border-color:${d.color}66;background:${d.color}30">${esc(d.short)}</span>`;
 }
 
 const ROLE_BADGES = {
@@ -131,7 +131,7 @@ const ROLE_BADGES = {
 function roleBadgeHtml(role) {
   const r = ROLE_BADGES[role];
   if (!r) return '';
-  return `<span class="badge" title="${esc(role)}" style="color:${r.color};border-color:${r.color}55;background:${r.color}18">${r.icon}</span>`;
+  return `<span class="badge" title="${esc(role)}" style="color:${r.color};border-color:${r.color}66;background:${r.color}30">${r.icon}</span>`;
 }
 
 let toastTimer = null;
