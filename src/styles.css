@@ -558,6 +558,4 @@ textarea:focus { border-color: var(--accent); }
 .filters .btn.active { opacity: 1; border-color: #3b82f6; color: #fff; background: #1d3a6b; }
 
 .radio-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-.radio-logo { width: 30px; height: 30px; flex: none; }
-.radio-brand-name { font-size: 11.5px; font-weight: 800; letter-spacing: 1.2px; color: var(--text); }
-.radio-brand-sub { font-size: 10.5px; color: var(--muted); letter-spacing: .3px; }
+.radio-logo { width: 26px; height: 26px; flex: none; }
