@@ -19,16 +19,22 @@
 
   <!-- ==================== BARRA LATERAL: RADIO ==================== -->
   <aside class="sidebar">
-    <section class="panel">
-      <h2>📻 Radio de voz</h2>
+    <section class="panel radio-panel">
+      <div class="radio-brand">
+        <img src="assets/radio.svg" alt="" class="radio-logo" />
+        <div class="radio-brand-text">
+          <div class="radio-brand-name">RADIO LA REALIDAD</div>
+          <div class="radio-brand-sub">Comunicación en vivo</div>
+        </div>
+      </div>
       <div class="field">
-        <label>Servidor (ws:// o wss://)</label>
+        <label>Servidor</label>
         <input id="radio-server" value="wss://cad-erlc-radio.onrender.com" spellcheck="false"
-               placeholder="ws://IP:8787  ·  wss://tu-app.onrender.com" />
+               placeholder="wss://tu-servidor" />
       </div>
       <div class="field-row">
-        <div class="field"><label>Tu nombre</label><input id="radio-name" placeholder="Ej: A. García" /></div>
-        <div class="field"><label>Departamento</label><select id="radio-dept"></select></div>
+        <div class="field"><label>Nombre</label><input id="radio-name" placeholder="Tu nombre" /></div>
+        <div class="field"><label>Depto.</label><select id="radio-dept"></select></div>
       </div>
       <div class="field">
         <label>👑 Propietario</label>
@@ -39,7 +45,7 @@
       <button id="radio-connect" class="btn btn-primary full">Conectar</button>
       <div id="radio-error" class="radio-error hidden"></div>
       <hr class="sep" />
-      <button id="host-toggle" class="btn full">🖥️ Alojar radio en esta PC</button>
+      <button id="host-toggle" class="btn full">🖥️ Alojar en esta PC</button>
       <div id="host-info" class="host-info hidden"></div>
       <div id="radio-civil-url" class="muted small"></div>
     </section>
@@ -51,14 +57,14 @@
         <button id="channel-new" class="btn full">➕ Crear canal</button>
         <button id="radio-leave" class="btn full hidden">🚪 Salir del canal</button>
       </div>
-      <div class="muted small">🔒 = privado (con invitación) · con etiqueta = solo esa sección</div>
+      <div class="muted small">🔒 privado · etiqueta = solo esa sección</div>
 
       <!-- Formulario para crear canales -->
       <div id="channel-form" class="channel-form hidden">
         <div class="field"><label>Nombre del canal</label>
           <input id="channel-name" placeholder="Ej: Unidad K9 · Aéreo" maxlength="32" />
         </div>
-        <div class="field"><label>Sección (categoría, estilo Discord)</label>
+        <div class="field"><label>Sección</label>
           <input id="channel-cat" list="channel-cat-list" placeholder="Ej: Departamentos · Operaciones · Privados" maxlength="24" />
           <datalist id="channel-cat-list"></datalist>
         </div>
@@ -95,7 +101,7 @@
 
     <section id="admin-panel" class="panel hidden">
       <h2>👑 Administración de roles</h2>
-      <div class="muted small">Asigná el rol de cada persona conectada (se aplica al instante):</div>
+      <div class="muted small">Rol de cada persona conectada:</div>
       <div id="admin-users" class="admin-users"></div>
     </section>
 
@@ -122,7 +128,7 @@
           </select>
         </div>
       </div>
-      <div class="muted small">Avisa a TODO el CAD al instante (alerta roja y sirena). La tecla funciona aunque tengas el CAD minimizado o estés en ER:LC.</div>
+      <div class="muted small">Alerta roja + sirena a todo el CAD. La tecla funciona minimizada o en ER:LC.</div>
     </section>
 
     <section class="panel">
@@ -165,26 +171,29 @@
     <section id="link-panel" class="panel hidden">
       <h2>🔗 Enlace con el bot (Discord)</h2>
       <div class="field">
-        <label>Dirección del bot</label>
+        <label>Dirección</label>
         <input id="link-url" placeholder="http://localhost:8790" spellcheck="false" />
       </div>
       <div class="field">
-        <label>Clave del enlace</label>
+        <label>Clave</label>
         <input id="link-key" type="password" placeholder="La misma clave que en el bot" />
       </div>
       <button id="link-save" class="btn btn-primary full">Guardar y probar</button>
       <div id="link-status" class="muted small"></div>
-      <div class="muted small">En Discord, el bot también responde <b>/dni 30123456</b>: busca a esa persona en los registros del CAD.</div>
+      <div class="muted small">El bot también responde <b>/dni 30123456</b>.</div>
     </section>
   </aside>
 
   <!-- ==================== PANEL PRINCIPAL ==================== -->
   <main class="main">
     <nav class="tabs">
-      <button class="tab active" data-tab="despacho">🚨 Despacho</button>
-      <button class="tab" data-tab="unidades">🚓 Unidades</button>
+      <button class="tab active" data-tab="despacho">🚨 Despacho <span class="tab-count hidden" data-count="despacho"></span></button>
+      <button class="tab" data-tab="unidades">🚓 Unidades <span class="tab-count hidden" data-count="unidades"></span></button>
       <button class="tab" data-tab="roster">👥 Roster</button>
-      <button class="tab" data-tab="bolos">🔎 BOLOs</button>
+      <button class="tab" data-tab="bolos">🔎 BOLOs <span class="tab-count hidden" data-count="bolos"></span></button>
+      <button class="tab" data-tab="vehiculos">🚗 Vehículos <span class="tab-count hidden" data-count="vehiculos"></span></button>
+      <button class="tab" data-tab="multas">🧾 Multas <span class="tab-count hidden" data-count="multas"></span></button>
+      <button class="tab" data-tab="ordenes">⚖️ Órdenes <span class="tab-count hidden" data-count="ordenes"></span></button>
       <button class="tab" data-tab="registros">📇 Registros</button>
       <button class="tab hidden" id="tab-btn-erlc" data-tab="erlc">🟢 ER:LC</button>
       <button class="tab" data-tab="historial">📜 Historial</button>
@@ -193,44 +202,46 @@
 
     <!-- Despacho -->
     <section id="tab-despacho" class="tab-content active">
+      <div id="stats-row" class="stats-row"></div>
       <div class="panel">
-        <h2>Nueva llamada</h2>
+        <div class="panel-head">
+          <h2>Nueva llamada</h2>
+          <button class="btn btn-primary btn-small" type="submit" form="call-form">➕ Crear llamada</button>
+        </div>
         <form id="call-form" class="form-grid">
           <div class="field"><label>Tipo</label><select id="call-type"></select></div>
           <div class="field"><label>Prioridad</label><select id="call-priority"></select></div>
-          <div class="field wide"><label>Ubicación</label><input id="call-location" required placeholder="Ej: Ruta 7 frente a la gasolinera" /></div>
-          <div class="field wide"><label>Descripción</label><input id="call-desc" placeholder="Ej: Vehículo sospechoso, ocupantes armados" /></div>
+          <div class="field wide"><label>Ubicación</label><input id="call-location" required placeholder="Ruta 7, gasolinera" /></div>
+          <div class="field wide"><label>Descripción</label><input id="call-desc" placeholder="Vehículo sospechoso, ocupantes armados" /></div>
           <div class="field"><label>Reportado por</label><input id="call-caller" placeholder="Ciudadano / 911 / Oficial" /></div>
-          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Crear llamada</button></div>
         </form>
       </div>
-      <div id="calls-list" class="cards"></div>
+      <div id="calls-list" class="sections"></div>
     </section>
 
     <!-- Unidades -->
     <section id="tab-unidades" class="tab-content">
       <div class="panel">
-        <h2>Registrar unidad</h2>
+        <div class="panel-head">
+          <h2>Registrar unidad</h2>
+          <button class="btn btn-primary btn-small" type="submit" form="unit-form">➕ Registrar</button>
+        </div>
         <form id="unit-form" class="form-grid">
           <div class="field"><label>Indicativo</label><input id="unit-name" required placeholder="Ej: L-12" /></div>
           <div class="field"><label>Departamento</label><select id="unit-dept"></select></div>
           <div class="field"><label>Operador</label><input id="unit-operator" placeholder="Nombre del oficial" /></div>
-          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Registrar</button></div>
         </form>
       </div>
-      <div class="panel">
-        <h2>Unidades activas</h2>
-        <table class="table">
-          <thead><tr><th>Indicativo</th><th>Departamento</th><th>Operador</th><th>Estado</th><th>Llamada</th><th></th></tr></thead>
-          <tbody id="units-tbody"></tbody>
-        </table>
-      </div>
+      <div id="units-sections" class="sections"></div>
     </section>
 
     <!-- Roster -->
     <section id="tab-roster" class="tab-content">
       <div class="panel">
-        <h2>Agregar al roster</h2>
+        <div class="panel-head">
+          <h2>Agregar al roster</h2>
+          <button class="btn btn-primary btn-small" type="submit" form="roster-form">➕ Agregar</button>
+        </div>
         <form id="roster-form" class="form-grid">
           <div class="field"><label>Nombre</label><input id="roster-name" required placeholder="Ej: Juan Pérez" /></div>
           <div class="field"><label>Rango</label>
@@ -241,43 +252,82 @@
             </select>
           </div>
           <div class="field"><label>Departamento</label><select id="roster-dept"></select></div>
-          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Agregar</button></div>
         </form>
       </div>
-      <div class="panel">
-        <h2>Personal</h2>
-        <table class="table">
-          <thead><tr><th>Nombre</th><th>Rango</th><th>Departamento</th><th></th></tr></thead>
-          <tbody id="roster-tbody"></tbody>
-        </table>
-      </div>
+      <div id="roster-sections" class="sections"></div>
     </section>
 
     <!-- BOLOs -->
     <section id="tab-bolos" class="tab-content">
       <div class="panel">
-        <h2>Nuevo BOLO</h2>
+        <div class="panel-head">
+          <h2>Nuevo BOLO</h2>
+          <button class="btn btn-primary btn-small" type="submit" form="bolo-form">➕ Publicar BOLO</button>
+        </div>
         <form id="bolo-form" class="form-grid">
           <div class="field"><label>Tipo</label>
             <select id="bolo-type"><option>Persona</option><option>Vehículo</option></select>
           </div>
           <div class="field"><label>Placa / Identificación</label><input id="bolo-plate" placeholder="Ej: ABC 123" /></div>
-          <div class="field wide"><label>Descripción</label><input id="bolo-desc" required placeholder="Ej: Hombre, sudadera negra, 1.80 m" /></div>
-          <div class="field wide"><label>Motivo</label><input id="bolo-reason" placeholder="Ej: Robo con arma en tienda" /></div>
-          <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Publicar BOLO</button></div>
+          <div class="field wide"><label>Descripción</label><input id="bolo-desc" required placeholder="Hombre, sudadera negra, 1.80 m" /></div>
+          <div class="field wide"><label>Motivo</label><input id="bolo-reason" placeholder="Robo con arma en tienda" /></div>
         </form>
       </div>
-      <div id="bolos-list" class="cards"></div>
+      <div id="bolos-list" class="sections"></div>
+    </section>
+
+    <!-- Vehículos -->
+    <section id="tab-vehiculos" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>🚗 Vehículos</h2>
+          <div class="filters">
+            <button class="btn btn-small active" data-veh-filter="todos" type="button">Todos</button>
+            <button class="btn btn-small" data-veh-filter="robados" type="button">⚠️ Robados</button>
+          </div>
+        </div>
+        <div id="vehiculos-list"></div>
+      </div>
+    </section>
+
+    <!-- Multas -->
+    <section id="tab-multas" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>🧾 Multas</h2>
+          <div class="filters">
+            <button class="btn btn-small active" data-fine-filter="todas" type="button">Todas</button>
+            <button class="btn btn-small" data-fine-filter="pendientes" type="button">Pendientes</button>
+            <button class="btn btn-small" data-fine-filter="pagadas" type="button">Pagadas</button>
+          </div>
+        </div>
+        <div id="multas-totales" class="stats-row mini"></div>
+        <div id="multas-list"></div>
+      </div>
+    </section>
+
+    <!-- Órdenes -->
+    <section id="tab-ordenes" class="tab-content">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>⚖️ Órdenes</h2>
+          <div class="filters">
+            <button class="btn btn-small active" data-warrant-filter="todas" type="button">Todas</button>
+            <button class="btn btn-small" data-warrant-filter="activas" type="button">Activas</button>
+            <button class="btn btn-small" data-warrant-filter="cumplidas" type="button">Cumplidas</button>
+          </div>
+        </div>
+        <div id="ordenes-list"></div>
+      </div>
     </section>
 
     <!-- Registros -->
     <section id="tab-registros" class="tab-content">
       <div class="panel">
         <div class="panel-head">
-          <h2>🔎 Buscador de registros</h2>
-          <span class="muted small">Escribí un nombre, DNI, licencia o placa</span>
+          <h2>🔎 Buscar</h2>
         </div>
-        <input id="rec-search" placeholder="Ej: Juan Pérez · DNI 30123456 · ABC 123" autocomplete="off" />
+        <input id="rec-search" placeholder="Nombre, DNI, licencia o placa" autocomplete="off" />
         <div id="rec-results" class="rec-results"></div>
       </div>
 
@@ -296,7 +346,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>Últimos registros</h2></div>
+        <div class="panel-head"><h2>Resumen</h2></div>
         <div id="rec-lists" class="rec-grid"></div>
       </div>
     </section>
@@ -306,17 +356,17 @@
       <div class="panel">
         <div class="panel-head">
           <h2>🟢 Servidor ER:LC en vivo</h2>
-          <span class="muted small">La clave se saca dentro del juego: Settings → API key (o erlc.link/sk)</span>
+          <span class="muted small">Settings → API key en el juego</span>
         </div>
         <div class="field-row">
           <div class="field" style="flex:1">
-            <label>Server-key (queda guardada solo en tu PC)</label>
+            <label>Server-key (solo en tu PC)</label>
             <input id="erlc-key" type="password" placeholder="Pegá acá tu server-key…" autocomplete="off" />
           </div>
           <button id="erlc-connect" class="btn btn-primary" type="button">🔌 Conectar</button>
           <button id="erlc-disconnect" class="btn hidden" type="button">Desconectar</button>
         </div>
-        <div id="erlc-status" class="muted small">Sin conectar. Pegá tu server-key y tocá Conectar.</div>
+        <div id="erlc-status" class="muted small">Sin conectar.</div>
       </div>
 
       <div id="erlc-live" class="panel hidden">
@@ -344,7 +394,7 @@
           </div>
           <button id="erlc-send" class="btn btn-primary" type="button">▶ Enviar</button>
         </div>
-        <div class="muted small">Se ejecuta como administrador del servidor (comandos del juego, empiezan con ":"). Ejemplos: <b>:h</b> aviso global · <b>:pm Nombre mensaje</b> mensaje privado.</div>
+        <div class="muted small">Comandos con ":" · <b>:h</b> aviso global · <b>:pm Nombre mensaje</b></div>
       </div>
     </section>
 
@@ -362,18 +412,18 @@
     <!-- Audio -->
     <section id="tab-audio" class="tab-content">
       <div class="panel">
-        <h2>🎧 Salida de audio — dónde escuchás la radio</h2>
+        <h2>🎧 Salida de audio</h2>
         <div class="field-row">
           <div class="field wide"><label>Parlantes / auriculares</label>
             <select id="audio-output"><option value="default">Predeterminado de Windows</option></select>
           </div>
           <div class="field field-btn"><button id="audio-output-test" class="btn" type="button">🔔 Probar sonido</button></div>
         </div>
-        <div class="muted small">El cambio se aplica al instante a la voz de tus compañeros. Si no escuchás la prueba 🔔, elegí otro dispositivo.</div>
+        <div class="muted small">Se aplica al instante. Si no escuchás 🔔, probá otro dispositivo.</div>
       </div>
 
       <div class="panel">
-        <h2>🎙️ Entrada de audio — tu micrófono</h2>
+        <h2>🎙️ Entrada de audio</h2>
         <div class="field-row">
           <div class="field wide"><label>Micrófono</label><select id="audio-input"></select></div>
           <div class="field field-btn"><button id="audio-input-test" class="btn btn-primary" type="button">🎤 Probar micrófono</button></div>
@@ -383,11 +433,11 @@
           <div id="mic-test-status" class="muted small">Esperando sonido…</div>
           <label class="invite-user"><input type="checkbox" id="audio-monitor" /> Escucharme por los parlantes (usá auriculares para evitar acople 🔁)</label>
         </div>
-        <div class="muted small">La prueba abre tu micrófono solo mientras esté activa. Para hablar en la radio seguí usando la tecla PTT de abajo.</div>
+        <div class="muted small">La prueba abre el micrófono solo mientras está activa.</div>
       </div>
 
       <div class="panel">
-        <h2>⌨️ Tecla de micrófono (push-to-talk)</h2>
+        <h2>⌨️ Push-to-talk</h2>
         <div class="field-row">
           <div class="field"><label>Tecla</label>
             <select id="audio-ptt-key">
@@ -426,7 +476,7 @@
           <button id="sound-radio-test" class="btn full" type="button">▶ Probar clic de radio</button>
           <button id="sound-panic-test" class="btn full" type="button">▶ Probar pánico</button>
         </div>
-        <div class="muted small">El clic suena cuando abrís y cerrás el micrófono (push-to-talk); el sonido de pánico, cuando llega una alerta 🚨.</div>
+        <div class="muted small">Clic = abrir/cerrar micrófono · Pánico = alerta 🚨.</div>
       </div>
     </section>
   </main>
@@ -453,7 +503,7 @@
   <div class="login-card">
     <img src="assets/logo.png" alt="Escudo" class="login-logo" />
     <div class="login-title">CAD <span>| AYUNTAMIENTO |</span> Los Angeles</div>
-    <div class="login-sub">Escribí la contraseña para entrar al MDT general</div>
+    <div class="login-sub">Contraseña del MDT</div>
     <div class="login-row">
       <input id="login-pass" type="password" placeholder="Contraseña" autocomplete="off" spellcheck="false" />
       <button id="login-enter" class="btn btn-primary" type="button">Entrar</button>

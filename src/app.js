@@ -152,6 +152,11 @@ function renderAll() {
   renderUnits();
   renderRoster();
   renderBolos();
+  renderVehiculos();
+  renderMultas();
+  renderOrdenes();
+  renderStats();
+  renderTabBadges();
   renderRegistros();
   renderLog();
 }
@@ -206,6 +211,13 @@ function callCardHtml(c) {
   </div>`;
 }
 
+function sectionHtml(title, count, body, cls = '') {
+  return `<section class="section-block ${cls}">
+    <div class="section-head"><h3>${title}</h3><span class="section-count">${count}</span></div>
+    ${body}
+  </section>`;
+}
+
 function renderCalls() {
   const cont = $('#calls-list');
   const calls = [...db.calls].sort((a, b) => {
@@ -214,10 +226,17 @@ function renderCalls() {
     return openA - openB || b.createdAt - a.createdAt;
   });
   if (!calls.length) {
-    cont.innerHTML = '<div class="empty">No hay llamadas registradas. Crea la primera arriba. ⤴</div>';
+    cont.innerHTML = '<div class="empty">Sin llamadas.</div>';
     return;
   }
-  cont.innerHTML = calls.map(callCardHtml).join('');
+  const groups = [
+    { title: '🚨 Pendientes', list: calls.filter((c) => c.status === 'pendiente') },
+    { title: '📟 Activas', list: calls.filter((c) => c.status === 'despachada' || c.status === 'en_escena') },
+    { title: '✅ Cerradas', list: calls.filter((c) => c.status === 'cerrada') },
+  ];
+  cont.innerHTML = groups.filter((g) => g.list.length)
+    .map((g) => sectionHtml(g.title, g.list.length, `<div class="cards">${g.list.map(callCardHtml).join('')}</div>`))
+    .join('');
 }
 
 // ============================================================
@@ -299,19 +318,13 @@ function setUnitStatus(unit, status) {
   addLog(`Unidad ${unit.name} → ${(UNIT_STATUSES[status] || { label: status }).label}`);
 }
 
-function renderUnits() {
-  const tbody = $('#units-tbody');
-  if (!db.units.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin unidades registradas.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = db.units.map((u) => {
-    const st = UNIT_STATUSES[u.status] || UNIT_STATUSES['10-8'];
-    const call = u.callId ? db.calls.find((c) => c.id === u.callId) : null;
-    const options = Object.entries(UNIT_STATUSES)
-      .map(([k, v]) => `<option value="${k}" ${k === u.status ? 'selected' : ''}>${esc(v.label)}</option>`)
-      .join('');
-    return `<tr>
+function unitRowHtml(u) {
+  const st = UNIT_STATUSES[u.status] || UNIT_STATUSES['10-8'];
+  const call = u.callId ? db.calls.find((c) => c.id === u.callId) : null;
+  const options = Object.entries(UNIT_STATUSES)
+    .map(([k, v]) => `<option value="${k}" ${k === u.status ? 'selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
+  return `<tr>
       <td><strong>${esc(u.name)}</strong></td>
       <td>${deptBadgeHtml(u.dept)}</td>
       <td>${esc(u.operator || '—')}</td>
@@ -322,10 +335,28 @@ function renderUnits() {
         <button class="btn btn-small btn-danger" data-action="unit-delete" data-id="${u.id}">🗑</button>
       </td>
     </tr>`;
-  }).join('');
 }
 
-$('#units-tbody').addEventListener('change', (e) => {
+function renderUnits() {
+  const cont = $('#units-sections');
+  if (!db.units.length) {
+    cont.innerHTML = '<div class="empty">Sin unidades.</div>';
+    return;
+  }
+  const groups = [
+    { title: '🟢 Disponibles', list: db.units.filter((u) => u.status === '10-8') },
+    { title: '🔵 En servicio', list: db.units.filter((u) => u.status === '10-97' || u.status === '10-23') },
+    { title: '🟡 Ocupadas', list: db.units.filter((u) => u.status === '10-6') },
+    { title: '⚪ Fuera de servicio', list: db.units.filter((u) => u.status === '10-7') },
+  ];
+  cont.innerHTML = groups.filter((g) => g.list.length).map((g) => sectionHtml(
+    g.title, g.list.length,
+    `<table class="table"><thead><tr><th>Indicativo</th><th>Departamento</th><th>Operador</th><th>Estado</th><th>Llamada</th><th></th></tr></thead><tbody>${g.list.map(unitRowHtml).join('')}</tbody></table>`,
+    'table-section',
+  )).join('');
+}
+
+$('#units-sections').addEventListener('change', (e) => {
   const sel = e.target.closest('.status-select');
   if (!sel) return;
   const unit = db.units.find((u) => u.id === sel.dataset.id);
@@ -335,7 +366,7 @@ $('#units-tbody').addEventListener('change', (e) => {
   renderAll();
 });
 
-$('#units-tbody').addEventListener('click', (e) => {
+$('#units-sections').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action="unit-delete"]');
   if (!btn) return;
   const unit = db.units.find((u) => u.id === btn.dataset.id);
@@ -356,22 +387,25 @@ $('#units-tbody').addEventListener('click', (e) => {
 // ============================================================
 
 function renderRoster() {
-  const tbody = $('#roster-tbody');
+  const cont = $('#roster-sections');
   if (!db.roster.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">El roster está vacío.</td></tr>';
+    cont.innerHTML = '<div class="empty">Roster vacío.</div>';
     return;
   }
-  tbody.innerHTML = db.roster.map((p) => `<tr>
+  const byDept = {};
+  for (const p of db.roster) (byDept[p.dept] ||= []).push(p);
+  cont.innerHTML = Object.entries(byDept).map(([dept, list]) => sectionHtml(
+    deptBadgeHtml(dept), list.length,
+    `<table class="table"><thead><tr><th>Nombre</th><th>Rango</th><th></th></tr></thead><tbody>${list.map((p) => `<tr>
       <td><strong>${esc(p.name)}</strong></td>
       <td>${esc(p.rank)}</td>
-      <td>${deptBadgeHtml(p.dept)}</td>
-      <td class="row-actions">
-        <button class="btn btn-small btn-danger" data-action="roster-delete" data-id="${p.id}">🗑</button>
-      </td>
-    </tr>`).join('');
+      <td class="row-actions"><button class="btn btn-small btn-danger" data-action="roster-delete" data-id="${p.id}">🗑</button></td>
+    </tr>`).join('')}</tbody></table>`,
+    'table-section',
+  )).join('');
 }
 
-$('#roster-tbody').addEventListener('click', (e) => {
+$('#roster-sections').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action="roster-delete"]');
   if (!btn) return;
   const p = db.roster.find((x) => x.id === btn.dataset.id);
@@ -387,16 +421,10 @@ $('#roster-tbody').addEventListener('click', (e) => {
 // 8. Render de BOLOs
 // ============================================================
 
-function renderBolos() {
-  const cont = $('#bolos-list');
-  if (!db.bolos.length) {
-    cont.innerHTML = '<div class="empty">No hay BOLOs activos.</div>';
-    return;
-  }
-  cont.innerHTML = db.bolos.map((b) => {
-    const active = !b.resolved;
-    const color = b.tipo === 'Vehículo' ? '#f59e0b' : '#a855f7';
-    return `<div class="card ${active ? '' : 'card-done'}" style="border-left-color:${color}">
+function boloCardHtml(b) {
+  const active = !b.resolved;
+  const color = b.tipo === 'Vehículo' ? '#f59e0b' : '#a855f7';
+  return `<div class="card ${active ? '' : 'card-done'}" style="border-left-color:${color}">
       <div class="card-head">
         <span class="pill" style="color:${color};background:${color}1c">${esc(b.tipo)}</span>
         ${active ? '' : '<span class="pill" style="color:#22c55e;background:#22c55e1c">Resuelto</span>'}
@@ -412,7 +440,19 @@ function renderBolos() {
         <button class="btn btn-small btn-danger" data-action="bolo-delete" data-id="${b.id}">🗑</button>
       </div>
     </div>`;
-  }).join('');
+}
+
+function renderBolos() {
+  const cont = $('#bolos-list');
+  if (!db.bolos.length) {
+    cont.innerHTML = '<div class="empty">Sin BOLOs.</div>';
+    return;
+  }
+  const active = db.bolos.filter((b) => !b.resolved);
+  const done = db.bolos.filter((b) => b.resolved);
+  cont.innerHTML =
+    (active.length ? sectionHtml('🚨 Activos', active.length, `<div class="cards">${active.map(boloCardHtml).join('')}</div>`) : '') +
+    (done.length ? sectionHtml('✅ Resueltos', done.length, `<div class="cards">${done.map(boloCardHtml).join('')}</div>`, 'section-done') : '');
 }
 
 $('#bolos-list').addEventListener('click', (e) => {
@@ -433,6 +473,147 @@ $('#bolos-list').addEventListener('click', (e) => {
   saveDb();
   renderAll();
 });
+
+// ============================================================
+// 8b. Secciones de datos: resumen, vehículos, multas y órdenes
+// ============================================================
+
+function renderStats() {
+  const cont = $('#stats-row');
+  if (!cont) return;
+  const cards = [
+    { icon: '🚨', label: 'Llamadas activas', value: db.calls.filter((c) => c.status !== 'cerrada').length, tab: 'despacho' },
+    { icon: '🚓', label: 'Unidades disponibles', value: `${db.units.filter((u) => u.status === '10-8').length}/${db.units.length}`, tab: 'unidades' },
+    { icon: '🔎', label: 'BOLOs activos', value: db.bolos.filter((b) => !b.resolved).length, tab: 'bolos' },
+    { icon: '🚗', label: 'Vehículos robados', value: db.vehicles.filter((v) => v.status === 'Robado').length, tab: 'vehiculos' },
+    { icon: '🧾', label: 'Multas pendientes', value: db.fines.filter((f) => f.status !== 'pagada').length, tab: 'multas' },
+  ];
+  cont.innerHTML = cards.map((c) => `
+    <button class="stat-card" type="button" data-go-tab="${c.tab}">
+      <span class="stat-icon">${c.icon}</span>
+      <span class="stat-info"><span class="stat-value">${c.value}</span><span class="stat-label">${c.label}</span></span>
+    </button>`).join('');
+}
+
+function renderTabBadges() {
+  const counts = {
+    despacho: db.calls.filter((c) => c.status !== 'cerrada').length,
+    unidades: db.units.filter((u) => u.status === '10-8').length,
+    bolos: db.bolos.filter((b) => !b.resolved).length,
+    vehiculos: db.vehicles.filter((v) => v.status === 'Robado').length,
+    multas: db.fines.filter((f) => f.status !== 'pagada').length,
+    ordenes: db.warrants.filter((w) => w.status === 'activa').length,
+  };
+  document.querySelectorAll('.tab-count').forEach((el) => {
+    const n = counts[el.dataset.count] || 0;
+    el.textContent = n ? n : '';
+    el.classList.toggle('hidden', !n);
+  });
+}
+
+let vehFilter = 'todos';
+let fineFilter = 'todas';
+let warrantFilter = 'todas';
+
+function openRecDetail(kind, id) {
+  recDetail = { kind, id };
+  renderAll();
+  const tab = document.querySelector('.tab[data-tab="registros"]');
+  if (tab) tab.click();
+}
+
+function renderVehiculos() {
+  const cont = $('#vehiculos-list');
+  if (!cont) return;
+  document.querySelectorAll('[data-veh-filter]').forEach((b) => b.classList.toggle('active', b.dataset.vehFilter === vehFilter));
+  let list = db.vehicles.slice().sort((a, b) => (b.status === 'Robado') - (a.status === 'Robado') || (b.ts || 0) - (a.ts || 0));
+  if (vehFilter === 'robados') list = list.filter((v) => v.status === 'Robado');
+  if (!list.length) { cont.innerHTML = '<div class="empty">Sin vehículos.</div>'; return; }
+  cont.innerHTML = `<table class="table"><thead><tr><th>Placa</th><th>Modelo</th><th>Color</th><th>Dueño</th><th>Estado</th><th></th></tr></thead><tbody>${list.map((v) => `<tr>
+    <td><strong>${esc(v.plate)}</strong></td>
+    <td>${esc(v.model || '—')}</td>
+    <td>${esc(v.color || '—')}</td>
+    <td>${esc(v.owner || '—')}</td>
+    <td><span class="tag ${v.status === 'Robado' ? 'tag-bad' : 'tag-ok'}">${esc(v.status)}</span></td>
+    <td class="row-actions">
+      <button class="btn btn-small" type="button" data-open-rec="vehicle" data-id="${esc(v.id)}">👁 Ver</button>
+      <button class="btn btn-small ${v.status === 'Robado' ? 'btn-ok' : 'btn-danger'}" type="button" data-action="vehicle-stolen" data-id="${esc(v.id)}">${v.status === 'Robado' ? '✔' : '⚠️'}</button>
+    </td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderMultas() {
+  const cont = $('#multas-list');
+  if (!cont) return;
+  document.querySelectorAll('[data-fine-filter]').forEach((b) => b.classList.toggle('active', b.dataset.fineFilter === fineFilter));
+  const totals = $('#multas-totales');
+  if (totals) {
+    const pending = db.fines.filter((f) => f.status !== 'pagada');
+    const paid = db.fines.filter((f) => f.status === 'pagada');
+    const sum = (arr) => arr.reduce((acc, f) => acc + (f.amount || 0), 0);
+    totals.innerHTML = `
+      <div class="stat-card static"><span class="stat-icon">⏳</span><span class="stat-info"><span class="stat-value">$${sum(pending)}</span><span class="stat-label">${pending.length} pendientes</span></span></div>
+      <div class="stat-card static"><span class="stat-icon">✅</span><span class="stat-info"><span class="stat-value">$${sum(paid)}</span><span class="stat-label">${paid.length} pagadas</span></span></div>`;
+  }
+  let list = db.fines.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  if (fineFilter === 'pendientes') list = list.filter((f) => f.status !== 'pagada');
+  if (fineFilter === 'pagadas') list = list.filter((f) => f.status === 'pagada');
+  if (!list.length) { cont.innerHTML = '<div class="empty">Sin multas.</div>'; return; }
+  cont.innerHTML = `<table class="table"><thead><tr><th>Persona</th><th>Monto</th><th>Motivo</th><th>Estado</th><th></th></tr></thead><tbody>${list.map((f) => `<tr>
+    <td><strong>${esc(f.person)}</strong></td>
+    <td>$${f.amount}</td>
+    <td>${esc(f.reason || '—')}</td>
+    <td><span class="tag ${f.status === 'pagada' ? 'tag-ok' : 'tag-warn'}">${esc(f.status)}</span></td>
+    <td class="row-actions">
+      <button class="btn btn-small" type="button" data-open-rec="fine" data-id="${esc(f.id)}">👁 Ver</button>
+      <button class="btn btn-small ${f.status === 'pagada' ? '' : 'btn-ok'}" type="button" data-action="fine-toggle" data-id="${esc(f.id)}">${f.status === 'pagada' ? '↩️' : '✅'}</button>
+    </td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderOrdenes() {
+  const cont = $('#ordenes-list');
+  if (!cont) return;
+  document.querySelectorAll('[data-warrant-filter]').forEach((b) => b.classList.toggle('active', b.dataset.warrantFilter === warrantFilter));
+  let list = db.warrants.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  if (warrantFilter === 'activas') list = list.filter((w) => w.status === 'activa');
+  if (warrantFilter === 'cumplidas') list = list.filter((w) => w.status === 'cumplida');
+  if (!list.length) { cont.innerHTML = '<div class="empty">Sin órdenes.</div>'; return; }
+  cont.innerHTML = `<table class="table"><thead><tr><th>Persona</th><th>Tipo</th><th>Motivo</th><th>Estado</th><th></th></tr></thead><tbody>${list.map((w) => `<tr>
+    <td><strong>${esc(w.person)}</strong></td>
+    <td>${esc(w.wkind || '—')}</td>
+    <td>${esc(w.reason || '—')}</td>
+    <td><span class="tag ${w.status === 'activa' ? 'tag-bad' : 'tag-ok'}">${esc(w.status)}</span></td>
+    <td class="row-actions">
+      <button class="btn btn-small" type="button" data-open-rec="warrant" data-id="${esc(w.id)}">👁 Ver</button>
+      <button class="btn btn-small ${w.status === 'cumplida' ? '' : 'btn-ok'}" type="button" data-action="warrant-toggle" data-id="${esc(w.id)}">${w.status === 'cumplida' ? '↩️' : '✅'}</button>
+    </td></tr>`).join('')}</tbody></table>`;
+}
+
+function wireDataSections() {
+  document.querySelectorAll('[data-veh-filter]').forEach((b) => b.addEventListener('click', () => { vehFilter = b.dataset.vehFilter; renderVehiculos(); }));
+  document.querySelectorAll('[data-fine-filter]').forEach((b) => b.addEventListener('click', () => { fineFilter = b.dataset.fineFilter; renderMultas(); }));
+  document.querySelectorAll('[data-warrant-filter]').forEach((b) => b.addEventListener('click', () => { warrantFilter = b.dataset.warrantFilter; renderOrdenes(); }));
+
+  const onListClick = (e) => {
+    const open = e.target.closest('[data-open-rec]');
+    if (open) { openRecDetail(open.dataset.openRec, open.dataset.id); return; }
+    const act = e.target.closest('[data-action]');
+    if (act) handleRecAction(act.dataset.action, act.dataset.id);
+  };
+  ['#vehiculos-list', '#multas-list', '#ordenes-list'].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.addEventListener('click', onListClick);
+  });
+
+  const stats = $('#stats-row');
+  if (stats) {
+    stats.addEventListener('click', (e) => {
+      const go = e.target.closest('[data-go-tab]');
+      if (!go) return;
+      const tab = document.querySelector('.tab[data-tab="' + go.dataset.goTab + '"]');
+      if (tab) tab.click();
+    });
+  }
+}
 
 // ============================================================
 // 9. Registros: personas, vehículos, multas, órdenes y reportes
@@ -829,15 +1010,33 @@ function wireRegistros() {
 // 10. Render del historial
 // ============================================================
 
+function dayLabel(date) {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Hoy';
+  if (date.toDateString() === yesterday.toDateString()) return 'Ayer';
+  return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 function renderLog() {
   const cont = $('#log-list');
   if (!db.log.length) {
-    cont.innerHTML = '<div class="empty">Sin eventos todavía.</div>';
+    cont.innerHTML = '<div class="empty">Sin eventos.</div>';
     return;
   }
-  cont.innerHTML = db.log.slice(0, 200)
-    .map((l) => `<div class="log-row"><span class="muted">${fmtTime(l.ts)}</span><span>${esc(l.text)}</span></div>`)
-    .join('');
+  const groups = [];
+  for (const l of db.log.slice(0, 200)) {
+    const date = new Date(l.ts);
+    const key = date.toDateString();
+    let group = groups.find((g) => g.key === key);
+    if (!group) { group = { key, title: dayLabel(date), list: [] }; groups.push(group); }
+    group.list.push(l);
+  }
+  cont.innerHTML = groups.map((g) => sectionHtml(
+    g.title, g.list.length,
+    g.list.map((l) => `<div class="log-row"><span class="muted">${fmtTime(l.ts)}</span><span>${esc(l.text)}</span></div>`).join(''),
+  )).join('');
 }
 
 // ============================================================
@@ -1110,7 +1309,7 @@ function renderInvitePicker(containerSel, excludeNames) {
   const excluded = new Set([Radio.state.name, ...(excludeNames || [])]);
   const users = (Radio.state.userlist || []).filter((u) => !excluded.has(u.name));
   if (!users.length) {
-    box.innerHTML = '<div class="muted small">No hay otras personas conectadas ahora.</div>';
+    box.innerHTML = '<div class="muted small">Sin otras personas conectadas.</div>';
     return;
   }
   box.innerHTML = users.map((u) => `<label class="invite-user">
@@ -1223,7 +1422,7 @@ function renderAdminPanel() {
   const users = (Radio.state.userlist || []).filter((u) => u.role !== 'Propietario');
   const box = $('#admin-users');
   if (!users.length) {
-    box.innerHTML = '<div class="muted small">No hay nadie más conectado ahora.</div>';
+    box.innerHTML = '<div class="muted small">Sin nadie más conectado.</div>';
     return;
   }
   box.innerHTML = users.map((u) => `<div class="admin-row">
@@ -2176,7 +2375,7 @@ function updateCivilUrl() {
   const m = raw.match(/^wss?:\/\/(.+?)\/?$/i);
   if (!m) { el.textContent = ''; return; }
   const httpUrl = (raw.toLowerCase().startsWith('wss') ? 'https://' : 'http://') + m[1].replace(/\/+$/, '');
-  el.textContent = '📞 Los civiles llaman al 911 acá: ' + httpUrl + '/911 (compartiles ese enlace)';
+  el.textContent = '📞 Enlace 911 para civiles: ' + httpUrl + '/911';
 }
 
 // ============================================================
@@ -2461,6 +2660,7 @@ function init() {
   wireRadio();
   wireAudioTab();
   wireRegistros();
+  wireDataSections();
   wirePanic();
   wireErlc();
   wireHosting();
