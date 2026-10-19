@@ -1593,14 +1593,25 @@ function overlaySync() {
   const st = Radio.state;
   const members = [...st.members.values()];
   const talker = members.find((m) => m.talking && m.id !== st.myId);
+  // Unidad propia en el CAD (indicativo + estado) para mostrarla en la radio
+  let unit = null;
+  if (typeof db !== 'undefined' && Array.isArray(db.units)) {
+    const who = (st.name || '').trim().toLowerCase();
+    unit = db.units.find((u) => (u.operator || '').trim().toLowerCase() === who) || null;
+  }
+  const unitStatus = unit ? ((UNIT_STATUSES[unit.status] || {}).label || unit.status || '') : '';
   const data = {
     connected: !!st.connected,
     channel: st.channel || '',
     name: st.name || '',
+    department: st.department || '',
     role: st.role || '',
     ptt: !!st.pttActive,
     talker: talker ? talker.name : '',
+    talkerDept: talker ? (talker.department || '') : '',
     count: members.filter((m) => m.id !== st.myId).length,
+    unit: unit ? unit.name : '',
+    unitStatus,
     pttKey: ($('#ptt-key') && $('#ptt-key').value) || 'V',
   };
   const key = JSON.stringify(data);
@@ -2664,17 +2675,16 @@ function wireErlc() {
 
 // ============================================================
 // 19c. 🗺️ Mapa en vivo (posiciones reales del juego)
-// ============================================================
-// La API usa el centro del mapa como origen (0,0): X a la derecha y Z hacia
-// abajo. El mapa oficial mide 5355x5355; en la app usamos una copia de 4096.
+// La API entrega las coordenadas del mundo en el mismo sistema que el mapa
+// oficial (5355x5355): 1 unidad = 1 px y (0,0) en la esquina superior
+// izquierda (verificado en vivo con el recorrido de un oficial: postales
+// 231 -> 225). En la app usamos una copia recortada a 3200x3940.
 
 const MAP_IMG_W = 3200;       // tamaño de src/assets/mapa.jpg
 const MAP_IMG_H = 3940;
-const MAP_SCALE = 4096 / 5355; // mundo -> px del mapa oficial reducido a 4096
-const MAP_CROP_X = 400;        // recorte aplicado a ese mapa de referencia
-const MAP_CROP_Y = 120;
-const MAP_WORLD_SIZE = 5355;  // tamaño del mapa oficial en unidades del juego
-const MAP_CENTER = MAP_WORLD_SIZE / 2;
+const MAP_SCALE = 3200 / 4184; // mundo (px del mapa oficial) -> px de la copia
+const MAP_CROP_X = 523 * MAP_SCALE; // recorte aplicado (esquina de la isla)
+const MAP_CROP_Y = 157 * MAP_SCALE;
 
 const mapState = {
   open: false,
@@ -2691,8 +2701,8 @@ const mapState = {
 
 function mapWorldToPx(x, z) {
   return {
-    x: (MAP_CENTER + Number(x || 0)) * MAP_SCALE - MAP_CROP_X,
-    y: (MAP_CENTER + Number(z || 0)) * MAP_SCALE - MAP_CROP_Y,
+    x: Number(x || 0) * MAP_SCALE - MAP_CROP_X,
+    y: Number(z || 0) * MAP_SCALE - MAP_CROP_Y,
   };
 }
 

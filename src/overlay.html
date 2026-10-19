@@ -6,60 +6,149 @@
 <style>
   html, body {
     margin: 0; height: 100%; background: transparent; overflow: hidden;
-    font-family: "Segoe UI", system-ui, sans-serif;
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif;
     user-select: none; cursor: default;
   }
-  .radio {
-    height: 100%; box-sizing: border-box;
-    background: linear-gradient(180deg, #12213c 0%, #0b1526 100%);
-    border: 1px solid #2a4a7a; border-radius: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
-    color: #e8effc; display: flex; flex-direction: column; overflow: hidden;
+  .radio { position: relative; width: 100%; height: 100%; }
+
+  /* Antena */
+  .antenna {
+    position: absolute; top: 2px; right: 30px; width: 13px; height: 54px;
+    background: linear-gradient(90deg, #33383f 0%, #171a1f 45%, #0a0b0d 100%);
+    border-radius: 7px 7px 3px 3px; transform: rotate(5deg); transform-origin: bottom center;
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, .10);
   }
-  .top { display: flex; align-items: center; gap: 6px; padding: 7px 10px 4px; -webkit-app-region: drag; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex: none; }
-  .dot.on { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
-  .brand { flex: 1; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #8ea4c8; }
+  .antenna::after {
+    content: ""; position: absolute; left: -3px; bottom: -4px; width: 19px; height: 9px;
+    background: linear-gradient(#2a2e35, #121418); border-radius: 3px;
+  }
+
+  /* Cuerpo de la radio */
+  .body {
+    position: absolute; top: 30px; left: 8px; right: 8px; bottom: 6px;
+    background: linear-gradient(160deg, #23272e 0%, #14171c 40%, #0b0d10 100%);
+    border: 1px solid #343b46; border-radius: 22px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .09);
+    padding: 15px 12px 9px; display: flex; flex-direction: column; gap: 9px;
+    -webkit-app-region: drag; box-sizing: border-box;
+  }
   .x {
-    -webkit-app-region: no-drag; width: 18px; height: 18px; padding: 0;
-    background: #12213c; color: #8ea4c8; border: 1px solid #2a4a7a; border-radius: 6px;
-    font-size: 11px; line-height: 15px; cursor: pointer;
+    -webkit-app-region: no-drag; position: absolute; top: 9px; right: 11px;
+    width: 17px; height: 17px; padding: 0; background: #1a1e24; color: #8b96a5;
+    border: 1px solid #3a414c; border-radius: 5px; font-size: 10px; line-height: 15px;
+    cursor: pointer; z-index: 3;
   }
-  .x:hover { color: #fff; border-color: #3b82f6; }
-  .chan { padding: 0 12px; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar { height: 3px; margin: 6px 12px 0; background: #1c2c4c; border-radius: 2px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; background: #22c55e; transition: width .15s; }
-  .bar.ptt i { width: 100%; background: #ef4444; }
-  .who {
-    flex: 1; display: flex; align-items: center; gap: 8px; min-height: 32px;
-    margin: 6px 10px; padding: 5px 10px; border-radius: 10px;
-    background: #0a1322; border: 1px solid #1c2c4c; overflow: hidden;
+  .x:hover { color: #fff; border-color: #5b6b80; }
+  .dot {
+    position: absolute; top: 14px; left: 14px; width: 7px; height: 7px;
+    border-radius: 50%; background: #3a3f47; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15);
   }
-  .who.talking { border-color: #22c55e; box-shadow: inset 0 0 10px rgba(34, 197, 94, .22); }
-  .who.ptt { border-color: #ef4444; box-shadow: inset 0 0 10px rgba(239, 68, 68, .28); }
-  .who .icon { font-size: 15px; flex: none; }
-  .who .txt { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .who .sub { margin-left: auto; font-size: 10px; color: #8ea4c8; white-space: nowrap; }
-  .bottom { display: flex; justify-content: space-between; padding: 0 12px 8px; font-size: 10px; color: #8ea4c8; }
+  .dot.on { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
+  .dot.talk { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .dot.ptt { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+  .grille { display: flex; flex-direction: column; gap: 3px; margin: 1px 40px 0 28px; }
+  .grille i { display: block; height: 2px; border-radius: 2px; background: #05070a; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+
+  /* Pantalla */
+  .screen {
+    flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px;
+    background: linear-gradient(180deg, #f6f9fc 0%, #e2eaf2 100%);
+    border: 1px solid #9aabbf; border-radius: 9px; padding: 6px 7px 5px;
+    box-shadow: inset 0 2px 6px rgba(10, 20, 35, .28), 0 1px 0 rgba(255, 255, 255, .07);
+    color: #16263b; overflow: hidden;
+  }
+  .sbar { display: flex; align-items: center; gap: 6px; font-size: 8.5px; color: #52657a; }
+  .sbar .bell { font-size: 9px; line-height: 1; opacity: .75; }
+  .clock { flex: 1; text-align: center; font-weight: 700; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+  .sig { display: flex; align-items: flex-end; gap: 1.5px; height: 9px; }
+  .sig i { width: 2px; background: #3b6ea8; border-radius: 1px; }
+  .sig i:nth-child(1) { height: 3px; } .sig i:nth-child(2) { height: 5px; }
+  .sig i:nth-child(3) { height: 7px; } .sig i:nth-child(4) { height: 9px; }
+  .batt { width: 17px; height: 9px; border: 1px solid #3b6ea8; border-radius: 2px; padding: 1px; box-sizing: border-box; }
+  .batt i { display: block; height: 100%; width: 72%; background: #3b6ea8; border-radius: 1px; }
+
+  .row2 { display: flex; gap: 5px; }
+  .abox { background: #fff; border: 1px solid #c3d0dd; border-radius: 4px; padding: 1px 5px 2px; min-width: 0; }
+  .abox .lab { display: block; font-size: 6.5px; font-weight: 800; letter-spacing: .14em; color: #7b8b9d; line-height: 1.25; }
+  .abox .val { display: block; font-size: 10.5px; font-weight: 800; color: #12263d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .abox.zone { width: 76px; flex: none; }
+  .abox.chan { flex: 1; border-left: 3px solid #2f6fd4; }
+
+  .msg {
+    background: #eaf2fb; border: 1px solid #cbdcee; border-left: 3px solid #2f6fd4;
+    border-radius: 5px; padding: 3px 5px 4px; min-height: 40px; flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .msg.talking { background: #e9f9f0; border-left-color: #18a558; }
+  .msg.ptt { background: #fdeff0; border-left-color: #d7373f; }
+  .msg .lab { font-size: 6.5px; font-weight: 800; letter-spacing: .14em; color: #7b8b9d; }
+  #who-txt { font-size: 13px; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #who-sub { font-size: 8.5px; color: #5a6b7e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .urow { display: flex; align-items: center; gap: 5px; font-size: 8.5px; color: #3d4f63; min-width: 0; }
+  #unit { font-weight: 800; color: #12263d; background: #fff; border: 1px solid #c3d0dd; border-radius: 3px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ustatus { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #count { margin-left: auto; font-weight: 700; white-space: nowrap; }
+
+  .tabs { display: flex; gap: 4px; margin-top: auto; padding-top: 4px; border-top: 1px solid #c8d6e4; }
+  .tabs span { flex: 1; text-align: center; font-size: 8.5px; font-weight: 800; letter-spacing: .04em; color: #2f5f9e; background: linear-gradient(#ffffff, #e9f0f7); border: 1px solid #c3d0dd; border-radius: 4px; padding: 2px 0; }
+
+  /* Teclado */
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .key {
+    background: linear-gradient(#2d323b, #1b1f26); border: 1px solid #3b424d; border-radius: 6px;
+    color: #c5cfdb; font-size: 10.5px; font-weight: 700; text-align: center; padding: 3.5px 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  }
+  .foot { display: flex; justify-content: space-between; align-items: center; font-size: 7.5px; letter-spacing: .16em; color: #6f7a89; }
+  .foot .model { letter-spacing: .2em; color: #55606e; }
 </style>
 </head>
 <body>
   <div class="radio">
-    <div class="top">
-      <span class="dot" id="dot"></span>
-      <span class="brand">Radio de voz</span>
+    <div class="antenna"></div>
+    <div class="body">
       <button class="x" id="hide" title="Ocultar (podés abrirla de nuevo desde el CAD)">✕</button>
-    </div>
-    <div class="chan" id="chan">Desconectado</div>
-    <div class="bar" id="bar"><i></i></div>
-    <div class="who" id="who">
-      <span class="icon" id="icon">📻</span>
-      <span class="txt" id="who-txt">Sin conexión</span>
-      <span class="sub" id="who-sub"></span>
-    </div>
-    <div class="bottom">
-      <span id="count">👥 0</span>
-      <span id="hint">PTT: V</span>
+      <span class="dot" id="dot"></span>
+      <div class="grille"><i></i><i></i><i></i></div>
+
+      <div class="screen">
+        <div class="sbar">
+          <span class="bell">🔔</span>
+          <span class="clock" id="clock">--/--/---- --:--</span>
+          <span class="sig"><i></i><i></i><i></i><i></i></span>
+          <span class="batt"><i></i></span>
+        </div>
+
+        <div class="row2">
+          <div class="abox zone"><span class="lab">ZONA</span><span class="val" id="zone">—</span></div>
+          <div class="abox chan"><span class="lab">CANAL</span><span class="val" id="chan">Desconectado</span></div>
+        </div>
+
+        <div class="msg" id="msg">
+          <span class="lab" id="msg-lab">MENSAJE</span>
+          <span id="who-txt">Sin conexión</span>
+          <span id="who-sub">Conectate desde el CAD</span>
+        </div>
+
+        <div class="urow">
+          <span id="unit">Sin unidad</span>
+          <span id="ustatus"></span>
+          <span id="count">👥 0</span>
+        </div>
+
+        <div class="tabs"><span>Zonas</span><span>Contactos</span></div>
+      </div>
+
+      <div class="keypad">
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+        <div class="key">✱</div><div class="key">0</div><div class="key">#</div>
+      </div>
+
+      <div class="foot"><span id="hint">PTT: V</span><span class="model">RADIO</span></div>
     </div>
   </div>
 <script>
@@ -69,33 +158,57 @@
     if (window.cadNative && window.cadNative.overlayHide) window.cadNative.overlayHide();
   });
 
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function tick() {
+    const d = new Date();
+    $('clock').textContent = pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  tick();
+  setInterval(tick, 15000);
+
   function render(s) {
     const st = s || {};
-    $('dot').classList.toggle('on', !!st.connected);
-    $('chan').textContent = st.channel || (st.connected ? 'Sin canal' : 'Desconectado');
+    const connected = !!st.connected;
+
+    // Zona = departamento, Canal = canal actual
+    $('zone').textContent = st.department || st.role || '—';
+    $('chan').textContent = st.channel || (connected ? 'Sin canal' : 'Desconectado');
+
+    // Info de la unidad propia (indicativo + estado en el CAD)
+    $('unit').textContent = st.unit || st.name || 'Sin unidad';
+    $('ustatus').textContent = st.unitStatus || (st.role && st.role !== 'Miembro' ? st.role : '');
     $('count').textContent = '👥 ' + (st.count || 0);
     $('hint').textContent = 'PTT: ' + (st.pttKey || 'V');
 
-    const who = $('who');
-    const bar = $('bar');
-    who.classList.toggle('ptt', !!st.ptt);
-    who.classList.toggle('talking', !st.ptt && !!st.talker);
+    const msg = $('msg');
+    msg.classList.toggle('ptt', !!st.ptt);
+    msg.classList.toggle('talking', !st.ptt && !!st.talker);
 
-    if (st.ptt) {
-      $('icon').textContent = '🔴';
-      $('who-txt').textContent = 'TRANSMITIENDO';
-      $('who-sub').textContent = st.name || '';
-      bar.classList.add('ptt');
+    const dot = $('dot');
+    dot.classList.toggle('on', connected);
+    dot.classList.toggle('talk', connected && !st.ptt && !!st.talker);
+    dot.classList.toggle('ptt', !!st.ptt);
+
+    if (!connected) {
+      $('msg-lab').textContent = 'MENSAJE';
+      $('who-txt').textContent = 'Sin conexión';
+      $('who-sub').textContent = 'Conectate desde el CAD';
+    } else if (st.ptt) {
+      $('msg-lab').textContent = 'TRANSMITIENDO';
+      $('who-txt').textContent = st.name || 'Vos';
+      $('who-sub').textContent = (st.department ? st.department + ' · ' : '') + 'micrófono abierto';
     } else if (st.talker) {
-      $('icon').textContent = '🔊';
+      $('msg-lab').textContent = 'HABLANDO';
       $('who-txt').textContent = st.talker;
-      $('who-sub').textContent = 'hablando';
-      bar.classList.remove('ptt');
+      $('who-sub').textContent = (st.talkerDept ? st.talkerDept + ' · ' : '') + 'hablando';
+    } else if (st.channel) {
+      $('msg-lab').textContent = 'MENSAJE';
+      $('who-txt').textContent = 'En espera';
+      $('who-sub').textContent = 'Escuchando el canal';
     } else {
-      $('icon').textContent = '📻';
-      $('who-txt').textContent = !st.connected ? 'Sin conexión' : (st.channel ? 'En línea' : 'Entrá a un canal');
-      $('who-sub').textContent = st.connected ? (st.role || '') : '';
-      bar.classList.remove('ptt');
+      $('msg-lab').textContent = 'MENSAJE';
+      $('who-txt').textContent = 'Elegí un canal';
+      $('who-sub').textContent = 'Radio en línea';
     }
   }
 
