@@ -100,6 +100,7 @@ const ROLES_ASSIGNABLE = ['Miembro', 'Supervisor', 'Administrador'];
 const OWNER_PASS_KEY = 'cad-erlc-owner-pass';
 const ROLES_CACHE_KEY = 'cad-erlc-roles-cache';
 let pendingOwnerPass = '';
+let ownerAutoTried = false; // evita reintentos en bucle si el servidor rechaza la restauración
 
 function getOwnerPass() {
   try { return localStorage.getItem(OWNER_PASS_KEY) || ''; } catch { return ''; }
@@ -1253,12 +1254,16 @@ function onRadioEvent(event, payload) {
       $('#radio-connect').classList.remove('btn-primary');
       $('#radio-connect').classList.add('btn-danger');
       saveRadioPrefs();
+      ownerAutoTried = false;
+      updateLinkVisibility();
       flash('Conectado al servidor de radio');
       break;
 
     case 'disconnected':
       setRadioStatus(false);
       updateErlcVisibility();
+      updateLinkVisibility();
+      ownerAutoTried = false;
       $('#radio-connect').textContent = 'Conectar';
       $('#radio-connect').classList.add('btn-primary');
       $('#radio-connect').classList.remove('btn-danger');
@@ -1298,6 +1303,12 @@ function onRadioEvent(event, payload) {
       break;
 
     case 'owner':
+      // Si el servidor de la nube se reinició de cero y "olvidó" al propietario,
+      // esta PC (la única con la contraseña guardada) lo vuelve a crear sola.
+      if (!payload.owner && !payload.ownerExists && getOwnerPass() && !ownerAutoTried) {
+        ownerAutoTried = true;
+        Radio.ownerSetup(getOwnerPass());
+      }
       if (payload.owner && payload.assignments) {
         try { localStorage.setItem(ROLES_CACHE_KEY, JSON.stringify(payload.assignments)); } catch {}
       }
@@ -1309,6 +1320,7 @@ function onRadioEvent(event, payload) {
       renderOwnerBox();
       renderAdminPanel();
       updateErlcVisibility();
+      updateLinkVisibility();
       if (payload.owner && payload.rolesFresh) {
         let cached = null;
         try { cached = JSON.parse(localStorage.getItem(ROLES_CACHE_KEY) || 'null'); } catch {}
@@ -1323,6 +1335,7 @@ function onRadioEvent(event, payload) {
       renderOwnerBox();
       renderAdminPanel();
       updateErlcVisibility();
+      updateLinkVisibility();
       flash('Tu rol ahora es: ' + Radio.state.role);
       break;
 
@@ -1762,6 +1775,16 @@ function wireLink() {
     const ok = await linkPush();
     flash(ok ? 'Enlace con el bot: OK ✅' : 'No se pudo enlazar con el bot ⚠️');
   });
+  updateLinkVisibility();
+}
+
+// El panel del enlace con el bot solo lo ve el propietario:
+// la contraseña guardada (y por lo tanto el enlace) viven solo en su PC.
+function updateLinkVisibility() {
+  const panel = $('#link-panel');
+  if (!panel) return;
+  const canSee = Radio.state.isOwner || (!Radio.state.connected && !!getOwnerPass());
+  panel.classList.toggle('hidden', !canSee);
 }
 
 // ============================================================
