@@ -348,11 +348,27 @@ function setupGlobalPanic() {
 // jugás ER:LC (como el overlay de Sonoran Radio). La maneja la interfaz.
 let overlayWindow = null;
 let lastOverlayState = null;
+let overlayCollapsed = false;
+
+const OVERLAY_W = 300;
+const OVERLAY_H = 435;
+const OVERLAY_MINI_W = 68;
+const OVERLAY_MINI_H = 50;
+
+function clampToWorkArea(bounds) {
+  const { workArea } = screen.getPrimaryDisplay();
+  return {
+    width: bounds.width,
+    height: bounds.height,
+    x: Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - bounds.width)),
+    y: Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - bounds.height)),
+  };
+}
 
 function createOverlayWindow() {
   const { workArea } = screen.getPrimaryDisplay();
-  const width = 300;
-  const height = 402;
+  const width = overlayCollapsed ? OVERLAY_MINI_W : OVERLAY_W;
+  const height = overlayCollapsed ? OVERLAY_MINI_H : OVERLAY_H;
   overlayWindow = new BrowserWindow({
     width,
     height,
@@ -379,6 +395,9 @@ function createOverlayWindow() {
   overlayWindow.webContents.once('did-finish-load', () => {
     if (lastOverlayState && overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.webContents.send('overlay-state', lastOverlayState);
+    }
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('overlay-collapsed', { collapsed: overlayCollapsed });
     }
   });
   overlayWindow.on('closed', () => { overlayWindow = null; });
@@ -409,6 +428,46 @@ function setupOverlayIPC() {
 
   ipcMain.on('overlay-hide', () => {
     if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
+  });
+
+  // Flechita: guarda la radio como una pestañita chica y la vuelve a sacar
+  ipcMain.handle('overlay-collapse', () => {
+    if (!overlayWindow || overlayWindow.isDestroyed()) {
+      overlayCollapsed = !overlayCollapsed;
+      return { collapsed: overlayCollapsed };
+    }
+    const b = overlayWindow.getBounds();
+    overlayCollapsed = !overlayCollapsed;
+    if (overlayCollapsed) {
+      overlayWindow.setBounds(clampToWorkArea({
+        x: b.x + b.width - OVERLAY_MINI_W,
+        y: b.y,
+        width: OVERLAY_MINI_W,
+        height: OVERLAY_MINI_H,
+      }));
+    } else {
+      overlayWindow.setBounds(clampToWorkArea({
+        x: b.x + b.width - OVERLAY_W,
+        y: b.y,
+        width: OVERLAY_W,
+        height: OVERLAY_H,
+      }));
+    }
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    overlayWindow.webContents.send('overlay-collapsed', { collapsed: overlayCollapsed });
+    return { collapsed: overlayCollapsed };
+  });
+
+  // Botón de pánico de la radio flotante: lo ejecuta el CAD (sonido + aviso a todos)
+  ipcMain.on('overlay-panic', (_e, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('overlay-panic', data || {});
+    }
+  });
+  ipcMain.on('overlay-panic-clear', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('overlay-panic-clear');
+    }
   });
 
   ipcMain.on('overlay-open-cad', () => {

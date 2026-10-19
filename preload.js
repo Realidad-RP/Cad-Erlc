@@ -28,4 +28,10 @@ contextBridge.exposeInMainWorld('cadNative', {
   overlaySend: (state) => ipcRenderer.send('overlay-state', state),
   overlayHide: () => ipcRenderer.send('overlay-hide'),
   onOverlayState: (cb) => ipcRenderer.on('overlay-state', (_e, state) => cb(state)),
+  overlayCollapse: () => ipcRenderer.invoke('overlay-collapse'),
+  onOverlayCollapsed: (cb) => ipcRenderer.on('overlay-collapsed', (_e, data) => cb(data)),
+  overlayPanic: (data) => ipcRenderer.send('overlay-panic', data),
+  overlayPanicClear: () => ipcRenderer.send('overlay-panic-clear'),
+  onOverlayPanic: (cb) => ipcRenderer.on('overlay-panic', (_e, data) => cb(data)),
+  onOverlayPanicClear: (cb) => ipcRenderer.on('overlay-panic-clear', () => cb()),
 });

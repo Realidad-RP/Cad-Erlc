@@ -9,6 +9,7 @@
     font-family: "Segoe UI", Roboto, system-ui, sans-serif;
     user-select: none; cursor: default;
   }
+  .hidden { display: none !important; }
   .radio { position: relative; width: 100%; height: 100%; }
 
   /* Antena */
@@ -39,6 +40,7 @@
     cursor: pointer; z-index: 3;
   }
   .x:hover { color: #fff; border-color: #5b6b80; }
+  .collapse { right: 32px; font-weight: 800; }
   .dot {
     position: absolute; top: 14px; left: 14px; width: 7px; height: 7px;
     border-radius: 50%; background: #3a3f47; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15);
@@ -47,7 +49,7 @@
   .dot.talk { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
   .dot.ptt { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
 
-  .grille { display: flex; flex-direction: column; gap: 3px; margin: 1px 40px 0 28px; }
+  .grille { display: flex; flex-direction: column; gap: 3px; margin: 1px 62px 0 28px; }
   .grille i { display: block; height: 2px; border-radius: 2px; background: #05070a; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
 
   /* Pantalla */
@@ -82,6 +84,7 @@
   }
   .msg.talking { background: #e9f9f0; border-left-color: #18a558; }
   .msg.ptt { background: #fdeff0; border-left-color: #d7373f; }
+  .msg.panic { background: #fdecec; border-left-color: #d7373f; }
   .msg .lab { font-size: 6.5px; font-weight: 800; letter-spacing: .14em; color: #7b8b9d; }
   #who-txt { font-size: 13px; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #who-sub { font-size: 8.5px; color: #5a6b7e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -101,14 +104,71 @@
     color: #c5cfdb; font-size: 10.5px; font-weight: 700; text-align: center; padding: 3.5px 0;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
   }
+
+  /* Botón de pánico */
+  .panic {
+    -webkit-app-region: no-drag; margin: 0; padding: 5px 0; border-radius: 7px;
+    background: linear-gradient(#c62828, #8e1b1b); border: 1px solid #e35b5b;
+    color: #ffe9e9; font: 800 10.5px "Segoe UI", sans-serif; letter-spacing: .14em; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 6px rgba(0, 0, 0, .35);
+  }
+  .panic:hover { filter: brightness(1.12); }
+  .panic.clear { background: linear-gradient(#1f9d55, #14713c); border-color: #3fd27e; color: #eafff2; }
+
   .foot { display: flex; justify-content: space-between; align-items: center; font-size: 7.5px; letter-spacing: .16em; color: #6f7a89; }
   .foot .model { letter-spacing: .2em; color: #55606e; }
+
+  /* Modo guardado (pestañita con la flechita) */
+  .mini { display: none; }
+  body.mini .antenna, body.mini .body { display: none; }
+  body.mini .mini {
+    display: flex; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 5px;
+    background: linear-gradient(180deg, #23272e, #0c0e12); border: 1px solid #39414c; border-radius: 13px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .08); cursor: pointer;
+  }
+  .mini:hover { border-color: #56657a; }
+  .m-dot { width: 9px; height: 9px; border-radius: 50%; background: #3a3f47; flex: none; }
+  .m-dot.on { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
+  .m-dot.talk { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .m-dot.ptt { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+  .m-ico { font-size: 15px; line-height: 1; }
+  .m-ico.red { filter: drop-shadow(0 0 4px #ef4444); }
+  .m-arrow { color: #9fb0c4; font-size: 15px; font-weight: 800; margin-left: 1px; }
+
+  /* Cartel de confirmación del pánico */
+  .panic-card {
+    position: absolute; inset: 8px; z-index: 5; display: flex; flex-direction: column; gap: 7px;
+    background: linear-gradient(180deg, #1a1e25, #0c0f14); border: 1px solid #5b2a2a;
+    border-radius: 16px; padding: 14px 12px; color: #e8eef5; box-shadow: 0 14px 30px rgba(0, 0, 0, .7);
+    -webkit-app-region: no-drag;
+  }
+  .pc-title { font-size: 14px; font-weight: 800; letter-spacing: .06em; color: #ff6b6b; }
+  .pc-sub { font-size: 10px; color: #9aa8ba; line-height: 1.35; }
+  .pc-input {
+    width: 100%; box-sizing: border-box; margin-top: 2px; padding: 7px 8px; border-radius: 7px;
+    border: 1px solid #3a4452; background: #0e151f; color: #e8eef5; font: 11px "Segoe UI", sans-serif;
+    outline: none; user-select: text;
+  }
+  .pc-input:focus { border-color: #7f8fa5; }
+  .pc-warn { font-size: 10px; color: #ffb020; }
+  .pc-note { font-size: 9px; color: #7e8b9c; }
+  .pc-btns { display: flex; gap: 7px; margin-top: auto; }
+  .pc-btns button {
+    flex: 1; padding: 7px 0; border-radius: 7px; border: 1px solid #3a4452; cursor: pointer;
+    font: 800 11px "Segoe UI", sans-serif; letter-spacing: .06em;
+  }
+  #panic-cancel { background: #1b222c; color: #c3cedb; }
+  #panic-cancel:hover { background: #24303e; }
+  #panic-send { background: linear-gradient(#c62828, #8e1b1b); border-color: #e35b5b; color: #ffecec; }
+  #panic-send:hover { filter: brightness(1.12); }
+  #panic-send:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 </style>
 </head>
 <body>
   <div class="radio">
     <div class="antenna"></div>
     <div class="body">
+      <button class="x collapse" id="collapse" title="Guardar la radio (flechita)">❮</button>
       <button class="x" id="hide" title="Ocultar (podés abrirla de nuevo desde el CAD)">✕</button>
       <span class="dot" id="dot"></span>
       <div class="grille"><i></i><i></i><i></i></div>
@@ -148,13 +208,35 @@
         <div class="key">✱</div><div class="key">0</div><div class="key">#</div>
       </div>
 
+      <button class="panic" id="panic-btn" title="Pedir ayuda a todo el CAD (con sonido)">🚨 PÁNICO</button>
+
       <div class="foot"><span id="hint">PTT: V</span><span class="model">RADIO</span></div>
+    </div>
+
+    <div class="mini" id="mini" title="Abrir la radio">
+      <span class="m-dot" id="m-dot"></span>
+      <span class="m-ico" id="m-ico">📻</span>
+      <span class="m-arrow">❯</span>
+    </div>
+
+    <div class="panic-card hidden" id="panic-card">
+      <span class="pc-title">🚨 PÁNICO</span>
+      <span class="pc-sub">Se avisa a todo el CAD con sonido y se crea la llamada en Despacho.</span>
+      <input class="pc-input" id="panic-where" maxlength="200" placeholder="Tu ubicación (calle, CP…)" />
+      <span class="pc-warn hidden" id="panic-warn">Conectate a la radio primero.</span>
+      <span class="pc-note">La ubicación es opcional, pero ayuda a que te encuentren.</span>
+      <div class="pc-btns">
+        <button id="panic-cancel">CANCELAR</button>
+        <button id="panic-send">ENVIAR 🚨</button>
+      </div>
     </div>
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
+  let lastState = {};
 
   $('hide').addEventListener('click', () => {
+    closePanicCard();
     if (window.cadNative && window.cadNative.overlayHide) window.cadNative.overlayHide();
   });
 
@@ -166,28 +248,93 @@
   tick();
   setInterval(tick, 15000);
 
+  // ---------- Guardar / sacar la radio con la flechita ----------
+  const setMini = (v) => document.body.classList.toggle('mini', !!v);
+
+  async function toggleCollapse(want) {
+    if (typeof want === 'boolean') setMini(want);
+    if (!(window.cadNative && cadNative.overlayCollapse)) return;
+    try {
+      const r = await cadNative.overlayCollapse();
+      setMini(!!(r && r.collapsed));
+    } catch {}
+  }
+
+  $('collapse').addEventListener('click', () => { closePanicCard(); toggleCollapse(true); });
+  $('mini').addEventListener('click', () => toggleCollapse(false));
+  if (window.cadNative && cadNative.onOverlayCollapsed) {
+    cadNative.onOverlayCollapsed((d) => setMini(d && d.collapsed));
+  }
+
+  // ---------- Pánico desde la radio ----------
+  function openPanicCard() {
+    $('panic-card').classList.remove('hidden');
+    $('panic-where').value = '';
+    const ok = !!lastState.connected;
+    $('panic-warn').classList.toggle('hidden', ok);
+    $('panic-send').disabled = !ok;
+    setTimeout(() => { try { $('panic-where').focus(); } catch {} }, 30);
+  }
+  function closePanicCard() { $('panic-card').classList.add('hidden'); }
+
+  $('panic-btn').addEventListener('click', () => {
+    if (lastState.panicSelf) {
+      if (window.cadNative && cadNative.overlayPanicClear) cadNative.overlayPanicClear();
+      return;
+    }
+    openPanicCard();
+  });
+  $('panic-cancel').addEventListener('click', closePanicCard);
+  $('panic-send').addEventListener('click', () => {
+    if ($('panic-send').disabled) return;
+    const location = ($('panic-where').value || '').trim();
+    if (window.cadNative && cadNative.overlayPanic) cadNative.overlayPanic({ location });
+    closePanicCard();
+  });
+  $('panic-where').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('panic-send').click(); }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanicCard(); });
+
+  // ---------- Pintar el estado de la radio ----------
   function render(s) {
     const st = s || {};
+    lastState = st;
     const connected = !!st.connected;
+    const panicOn = !!st.panicName;
+    const panicSelf = !!st.panicSelf;
 
-    // Zona = departamento, Canal = canal actual
     $('zone').textContent = st.department || st.role || '—';
     $('chan').textContent = st.channel || (connected ? 'Sin canal' : 'Desconectado');
 
-    // Info de la unidad propia (indicativo + estado en el CAD)
     $('unit').textContent = st.unit || st.name || 'Sin unidad';
     $('ustatus').textContent = st.unitStatus || (st.role && st.role !== 'Miembro' ? st.role : '');
     $('count').textContent = '👥 ' + (st.count || 0);
     $('hint').textContent = 'PTT: ' + (st.pttKey || 'V');
 
+    // Botón: pánico normal o "TODO CONTROLADO" si ya mandé el mío
+    const pb = $('panic-btn');
+    pb.classList.toggle('clear', panicSelf);
+    pb.textContent = panicSelf ? '✅ TODO CONTROLADO' : '🚨 PÁNICO';
+
+    // Mensaje del pánico en la pestañita
+    $('m-ico').textContent = panicOn ? '🚨' : '📻';
+    $('m-ico').classList.toggle('red', panicOn);
+
     const msg = $('msg');
     msg.classList.toggle('ptt', !!st.ptt);
-    msg.classList.toggle('talking', !st.ptt && !!st.talker);
+    msg.classList.toggle('panic', !st.ptt && panicOn);
+    msg.classList.toggle('talking', !st.ptt && !panicOn && !!st.talker);
 
     const dot = $('dot');
     dot.classList.toggle('on', connected);
     dot.classList.toggle('talk', connected && !st.ptt && !!st.talker);
     dot.classList.toggle('ptt', !!st.ptt);
+
+    const mdot = $('m-dot');
+    mdot.classList.toggle('on', connected);
+    mdot.classList.toggle('talk', connected && !st.ptt && !!st.talker);
+    mdot.classList.toggle('ptt', !!st.ptt || (panicSelf && connected));
 
     if (!connected) {
       $('msg-lab').textContent = 'MENSAJE';
@@ -197,6 +344,10 @@
       $('msg-lab').textContent = 'TRANSMITIENDO';
       $('who-txt').textContent = st.name || 'Vos';
       $('who-sub').textContent = (st.department ? st.department + ' · ' : '') + 'micrófono abierto';
+    } else if (panicOn) {
+      $('msg-lab').textContent = panicSelf ? 'TU PÁNICO ESTÁ ACTIVO' : '🚨 PÁNICO';
+      $('who-txt').textContent = panicSelf ? (st.name || 'Vos') : st.panicName;
+      $('who-sub').textContent = panicSelf ? 'Todo el CAD fue avisado' : 'pidió ayuda';
     } else if (st.talker) {
       $('msg-lab').textContent = 'HABLANDO';
       $('who-txt').textContent = st.talker;

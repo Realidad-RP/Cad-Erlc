@@ -1588,6 +1588,9 @@ function onRadioEvent(event, payload) {
 // cada evento de la radio; si nada cambió, no manda nada.
 let overlayLastKey = '';
 
+// Último pánico activo (para mostrarlo en la radio flotante)
+let panicState = null;
+
 function overlaySync() {
   if (!window.cadNative || !window.cadNative.overlaySend) return;
   const st = Radio.state;
@@ -1612,6 +1615,8 @@ function overlaySync() {
     count: members.filter((m) => m.id !== st.myId).length,
     unit: unit ? unit.name : '',
     unitStatus,
+    panicName: panicState ? (panicState.name || '') : '',
+    panicSelf: !!(panicState && panicState.name && panicState.name.trim() === (st.name || '').trim()),
     pttKey: ($('#ptt-key') && $('#ptt-key').value) || 'V',
   };
   const key = JSON.stringify(data);
@@ -1635,6 +1640,18 @@ function wireOverlay() {
       overlaySync();
     }
   });
+
+  // Pánico desde la radio flotante: mismo aviso, sonido y llamada que F8
+  if (window.cadNative && cadNative.onOverlayPanic) {
+    cadNative.onOverlayPanic((d) => {
+      dispararPanico(d && typeof d.location === 'string' ? d.location : '');
+    });
+  }
+  if (window.cadNative && cadNative.onOverlayPanicClear) {
+    cadNative.onOverlayPanicClear(() => {
+      if (Radio.state.connected) Radio.clearPanic();
+    });
+  }
 }
 
 function wireRadio() {
@@ -2335,6 +2352,7 @@ function createPanicCall(p) {
 function showPanicAlert(p) {
   const overlay = $('#panic-overlay');
   if (!overlay) return;
+  panicState = { name: p.name || '', note: p.note || '', ts: p.ts || Date.now() };
   const self = String(p.name || '').trim() === ($('#radio-name').value || '').trim();
   const d = deptInfo(p.department);
   const ts = p.ts || Date.now();
@@ -2360,6 +2378,7 @@ function showPanicAlert(p) {
 function hidePanicAlert(p) {
   const overlay = $('#panic-overlay');
   if (overlay) overlay.classList.add('hidden');
+  panicState = null;
   panicSoundStop();
   addLog('✅ ' + ((p && p.name) || 'La unidad') + ' dio el TODO CONTROLADO.');
   renderLog();
@@ -2997,15 +3016,17 @@ function loadPanicPrefs() {
   sendPanicConfig();
 }
 
-// Dispara la alerta de pánico: lo usan el botón y la tecla global
-function dispararPanico() {
+// Dispara la alerta de pánico: lo usan el botón, la tecla global y la radio flotante
+// (desde la radio flotante se pasa la ubicación escrita ahí).
+function dispararPanico(noteArg) {
   if (!Radio.state.connected) {
     showRadioError('Conéctate al radio primero para poder pedir ayuda.');
     return;
   }
-  const note = ($('#panic-where').value || '').trim();
+  const fromOverlay = typeof noteArg === 'string';
+  const note = (fromOverlay ? noteArg : ($('#panic-where').value || '')).trim();
   Radio.sendPanic(note);
-  $('#panic-where').value = '';
+  if (!fromOverlay) $('#panic-where').value = '';
   flash('🆘 Enviando alerta a todo el CAD…');
 }
 
