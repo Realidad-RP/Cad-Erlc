@@ -2048,7 +2048,12 @@ function panicSoundStop() {
 }
 
 function createPanicCall(p) {
-  const already = db.calls.find((c) => c.panicFor === p.name && c.status !== 'cerrada' && Date.now() - c.createdAt < 60000);
+  // Una misma alerta crea UNA sola llamada: el servidor de radio vuelve a
+  // avisar del pánico activo cada vez que alguien entra, y no queremos
+  // llamadas repetidas en Despacho.
+  const already = db.calls.find((c) =>
+    (p.ts && c.panicTs === p.ts) ||
+    (c.panicFor === p.name && c.status !== 'cerrada' && Date.now() - c.createdAt < 60000));
   if (already) return;
   db.calls.unshift({
     id: nextId('call'),
@@ -2061,6 +2066,7 @@ function createPanicCall(p) {
     units: [],
     createdAt: Date.now(),
     panicFor: p.name,
+    panicTs: p.ts || Date.now(),
   });
   saveDb();
   renderCalls();
@@ -2071,21 +2077,24 @@ function showPanicAlert(p) {
   if (!overlay) return;
   const self = String(p.name || '').trim() === ($('#radio-name').value || '').trim();
   const d = deptInfo(p.department);
+  const ts = p.ts || Date.now();
   $('#panic-title').textContent = self ? '🆘 TU ALERTA FUE ENVIADA' : '🆘 ' + p.name + ' PIDE AYUDA';
   $('#panic-body').innerHTML =
     deptBadgeHtml(p.department) + ' ' +
     (p.note ? '📍 ' + esc(p.note) : '📍 Ubicación desconocida') +
     (self
       ? '<div class="muted small">Tus compañeros ya recibieron la alerta. Cuando estés a salvo, tocá "✅ TODO CONTROLADO".</div>'
-      : '<div class="muted small">Se creó la llamada en Despacho automáticamente. 📟</div>');
-  $('#panic-when').textContent = '⏰ ' + new Date(p.ts || Date.now()).toLocaleTimeString('es-ES');
+      : '<div class="muted small">La llamada está en Despacho. 📟</div>');
+  $('#panic-when').textContent = '⏰ ' + new Date(ts).toLocaleTimeString('es-ES');
   $('#panic-clear').classList.toggle('hidden', !self);
   overlay.classList.remove('hidden');
-  panicSoundStart();
+  // Si el aviso es viejo (por ejemplo, al reabrir el CAD con un pánico que
+  // quedó activo), se muestra sin alarma sonora ni aviso emergente repetido.
+  const fresh = Date.now() - ts < 120000;
+  if (fresh) { panicSoundStart(); flash('🚨 ALERTA: ' + p.name); }
   createPanicCall(p);
   addLog('🆘 ' + p.name + ' (' + d.short + ') ¡PIDIÓ AYUDA!' + (p.note ? ' — ' + p.note : ''));
   renderLog();
-  flash('🚨 ALERTA: ' + p.name);
 }
 
 function hidePanicAlert(p) {

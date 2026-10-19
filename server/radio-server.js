@@ -390,6 +390,8 @@ function buildServer(wss, httpServer, port, iceServers) {
             iceServers,
           });
           if (client.isOwner) sendOwnerStatus(client);
+          // Un pánico de hace más de 30 minutos ya no se reenvía al entrar.
+          if (activePanic && Date.now() - activePanic.ts > 30 * 60 * 1000) activePanic = null;
           if (activePanic) send(ws, { type: 'panic', ...activePanic });
           broadcastUserlist();
           break;
@@ -684,8 +686,9 @@ function buildServer(wss, httpServer, port, iceServers) {
 
         case 'panic-clear': {
           if (!activePanic) break;
-          // Solo quien la activó (o un administrador) puede dar el "todo controlado"
-          if (client.id !== activePanic.from && !isAdmin(client)) break;
+          // Puede cerrarla quien la activó (por nombre, aunque haya reiniciado
+          // el CAD y su conexión sea otra) o un administrador.
+          if (client.name !== activePanic.name && !isAdmin(client)) break;
           activePanic = null;
           for (const c of clients.values()) send(c.ws, { type: 'panic-clear', name: client.name, ts: Date.now() });
           console.log(`[Radio] ✅ Pánico controlado por ${client.name}`);
