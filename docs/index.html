@@ -8,8 +8,9 @@
   <meta name="theme-color" content="#050a10">
   <meta property="og:title" content="La Realidad RP — Roleplay en Los Angeles">
   <meta property="og:description" content="Servidor hispano de roleplay en Los Angeles (ER:LC). Whitelist, CAD y DNI propios. Unite a La Realidad RP.">
-  <meta property="og:image" content="assets/logo.png">
+  <meta property="og:image" content="assets/erlc-hero-lapd.jpg">
   <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preload" as="image" href="assets/erlc-hero.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
@@ -33,7 +34,7 @@
 
     <a class="drawer-panel" data-open-panel>
       <span class="ico">🆔</span>
-      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord · Próximamente</small></span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord</small></span>
     </a>
 
     <div class="drawer-label">Página</div>
@@ -89,7 +90,16 @@
 
   <main>
     <!-- ===================== PORTADA ===================== -->
-    <section class="hero">
+    <section class="hero hero-erlc">
+      <!-- Escena ER:LC con post-proceso estilo shader (bloom, grade, grano y viñeta) -->
+      <div class="hero-scene" aria-hidden="true">
+        <div class="hero-scene-img"></div>
+        <div class="hero-shader hero-bloom"></div>
+        <div class="hero-shader hero-grain"></div>
+        <div class="hero-shader hero-vignette"></div>
+        <img class="hero-watermark" src="assets/lapd-watermark.svg" alt="" draggable="false">
+      </div>
+
       <div class="container">
         <span class="badge-pill reveal"><i class="dot"></i> Comunidad activa de roleplay en ER:LC</span>
         <h1 class="hero-title reveal">LA REALIDAD <span class="grad">RP</span></h1>
@@ -383,7 +393,8 @@
 
       <p class="disclaimer">
         Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
-        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+        Police Roleplay Community, Emergency Response: Liberty County ni el Departamento de Policía de Los Ángeles (LAPD).
+        Todas las marcas pertenecen a sus respectivos propietarios.
       </p>
     </div>
   </footer>

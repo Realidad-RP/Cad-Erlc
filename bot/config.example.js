@@ -37,6 +37,7 @@ module.exports = {
     bolo: '',     // BOLOs nuevos y resueltos
     erlc: '',     // avisos en vivo del juego (webhooks)
     estado: '',   // mensaje que se actualiza solo con el estado del servidor
+    panel: '',    // datos privados de la web (si vacío, el bot crea #panel-ciudadano)
   },
 
   // Cada cuántos segundos consultar el estado del juego (mínimo 30)

@@ -60,6 +60,14 @@ function loadDb() {
   for (const k of ['calls', 'units', 'roster', 'bolos', 'log', 'persons', 'vehicles', 'fines', 'warrants', 'reports']) {
     if (!Array.isArray(db[k])) db[k] = [];
   }
+  // Unidades de versiones anteriores: un solo operador → lista de oficiales.
+  for (const u of db.units) {
+    if (!Array.isArray(u.officers)) u.officers = u.operator ? [u.operator] : [];
+    u.officers = u.officers
+      .map((n) => String(n || '').trim())
+      .filter((n, i, arr) => n && arr.findIndex((x) => x.toLowerCase() === n.toLowerCase()) === i);
+    if (!u.operator && u.officers.length) u.operator = u.officers[0];
+  }
 }
 
 function saveDb() {
@@ -93,7 +101,7 @@ function fmtTime(ts) {
 }
 
 // Roles que el propietario puede asignar (el Propietario se crea con su contraseña)
-const ROLES_ASSIGNABLE = ['Miembro', 'Supervisor', 'Administrador'];
+const ROLES_ASSIGNABLE = ['Miembro', 'Despachador', 'Supervisor', 'Administrador'];
 
 // En esta PC se recuerdan la contraseña del propietario y los roles asignados
 // (para restaurarlos si el servidor de la nube se reinicia y los olvida)
@@ -126,7 +134,109 @@ const ROLE_BADGES = {
   Propietario:   { icon: '👑', color: '#eab308' },
   Administrador: { icon: '🛡️', color: '#3b82f6' },
   Supervisor:    { icon: '⭐', color: '#10b981' },
+  Despachador:   { icon: '🎧', color: '#a855f7' },
+  Miembro:       { icon: '🚓', color: '#94a3b8' },
 };
+
+// Qué secciones ve cada rango. null = todas (el Propietario).
+// El Historial queda SIEMPRE solo para el Propietario.
+const ROLE_SECTIONS = {
+  Propietario:   null,
+  Administrador: ['despacho', 'mapa', 'unidades', 'roster', 'bolos', 'vehiculos', 'multas', 'ordenes', 'registros', 'audio'],
+  Supervisor:    ['despacho', 'mapa', 'unidades', 'roster', 'bolos', 'vehiculos', 'multas', 'ordenes', 'registros', 'audio'],
+  Despachador:   ['despacho', 'roster', 'ordenes', 'audio'],
+  // Los oficiales conservan las herramientas de policía; el Historial es solo del Propietario.
+  Miembro:       ['despacho', 'mapa', 'unidades', 'roster', 'bolos', 'vehiculos', 'multas', 'ordenes', 'registros', 'audio'],
+};
+
+// Usuario y rango recordados en esta PC
+const SESSION_KEY = 'cad-erlc-session';
+const LAST_ROLE_KEY = 'cad-erlc-last-role';
+let currentUserName = '';
+let currentRole = 'Miembro';
+
+function isStaffRole(role) {
+  return ['Propietario', 'Administrador', 'Supervisor'].includes(role || currentRole);
+}
+
+function sectionAllowed(tab) {
+  if (currentRole === 'Propietario') return true;
+  return (ROLE_SECTIONS[currentRole] || ROLE_SECTIONS.Miembro).includes(tab);
+}
+
+function currentOfficerName() {
+  const input = $('#radio-name');
+  return currentUserName || (input && input.value.trim()) || 'Oficial';
+}
+
+function readSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
+}
+
+function saveSession() {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ name: currentUserName, role: currentRole, at: Date.now() }));
+  } catch {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
+
+function cachedRoleFor(name) {
+  try {
+    const map = JSON.parse(localStorage.getItem(ROLES_CACHE_KEY) || '{}');
+    if (name && map[name]) return map[name];
+  } catch {}
+  return '';
+}
+
+function resolveRoleForName(name) {
+  // Solo el rol guardado para ESE nombre. El Propietario se recupera con su
+  // contraseña al conectar la radio (auto-login), no se hereda entre nombres.
+  return cachedRoleFor(name) || 'Miembro';
+}
+
+function setCurrentRole(role) {
+  const next = role || 'Miembro';
+  if (next === currentRole) { applyRoleUI(); return; }
+  currentRole = next;
+  try { localStorage.setItem(LAST_ROLE_KEY, next); } catch {}
+  saveSession();
+  applyRoleUI();
+}
+
+// Aplica el rango a la interfaz: pestañas, historial y ficha de usuario.
+function applyRoleUI() {
+  if (Radio.state.connected && Radio.state.role) currentRole = Radio.state.role;
+  const chip = $('#user-chip');
+  if (chip) {
+    const b = ROLE_BADGES[currentRole];
+    chip.textContent = currentUserName
+      ? '👤 ' + currentUserName + (b ? ' · ' + b.icon + ' ' + currentRole : ' · ' + currentRole)
+      : '👤 Invitado';
+    chip.classList.toggle('hidden', !currentUserName);
+  }
+  const logout = $('#logout-btn');
+  if (logout) logout.classList.toggle('hidden', !currentUserName);
+
+  document.querySelectorAll('.tab').forEach((btn) => {
+    const tab = btn.dataset.tab;
+    let show = sectionAllowed(tab);
+    if (tab === 'erlc') show = show && erlcCanView();
+    btn.classList.toggle('hidden', !show);
+  });
+
+  const clear = $('#log-clear');
+  if (clear) clear.classList.toggle('hidden', currentRole !== 'Propietario');
+
+  // Si la pestaña actual ya no está permitida, ir a la primera disponible.
+  const active = document.querySelector('.tab.active');
+  if (active && active.classList.contains('hidden')) {
+    const first = Array.from(document.querySelectorAll('.tab')).find((b) => !b.classList.contains('hidden'));
+    if (first) first.click();
+  }
+}
 
 function roleBadgeHtml(role) {
   const r = ROLE_BADGES[role];
@@ -318,29 +428,67 @@ function setUnitStatus(unit, status) {
   addLog(`Unidad ${unit.name} → ${(UNIT_STATUSES[status] || { label: status }).label}`);
 }
 
+// Oficiales de una unidad (compatible con unidades viejas de un solo operador)
+function unitOfficers(u) {
+  if (Array.isArray(u.officers) && u.officers.length) return u.officers;
+  return u.operator ? [u.operator] : [];
+}
+
+function unitsOfOfficer(name) {
+  const who = String(name || '').trim().toLowerCase();
+  if (!who) return [];
+  return db.units.filter((u) => unitOfficers(u).some((n) => String(n).trim().toLowerCase() === who));
+}
+
+function myUnit() {
+  return unitsOfOfficer(currentOfficerName())[0] || null;
+}
+
+function isUnitMember(u) {
+  const who = currentOfficerName().toLowerCase();
+  return unitOfficers(u).some((n) => String(n).trim().toLowerCase() === who);
+}
+
 function unitRowHtml(u) {
   const st = UNIT_STATUSES[u.status] || UNIT_STATUSES['10-8'];
   const call = u.callId ? db.calls.find((c) => c.id === u.callId) : null;
+  const me = currentOfficerName();
+  const mine = isUnitMember(u);
+  const staff = isStaffRole();
+  const canEdit = mine || staff;
+  const canJoin = !myUnit() && !mine;
+  const officers = unitOfficers(u);
   const options = Object.entries(UNIT_STATUSES)
     .map(([k, v]) => `<option value="${k}" ${k === u.status ? 'selected' : ''}>${esc(v.label)}</option>`)
     .join('');
+  const officersHtml = officers.length
+    ? officers.map((n) => `<span class="unit-officer${String(n).toLowerCase() === me.toLowerCase() ? ' me' : ''}">${esc(n)}</span>`).join('')
+    : '<span class="muted">—</span>';
+  const canDelete = staff || (mine && officers.length <= 1);
   return `<tr>
       <td><strong>${esc(u.name)}</strong></td>
       <td>${deptBadgeHtml(u.dept)}</td>
-      <td>${esc(u.operator || '—')}</td>
+      <td><div class="unit-officers">${officersHtml}</div></td>
       <td><span class="pill" style="color:${st.color};background:${st.color}1c">${esc(st.label)}</span></td>
       <td>${call ? esc('#' + call.id + ' · ' + call.location) : '<span class="muted">—</span>'}</td>
       <td class="row-actions">
-        <select class="status-select" data-id="${u.id}">${options}</select>
-        <button class="btn btn-small btn-danger" data-action="unit-delete" data-id="${u.id}">🗑</button>
+        <div class="unit-actions">
+          <select class="status-select" data-id="${u.id}" ${canEdit ? '' : 'disabled'} title="${canEdit ? 'Cambiar estado' : 'Solo los oficiales de esta unidad pueden cambiarla'}">${options}</select>
+          ${canJoin ? `<button class="btn btn-small" data-action="unit-join" data-id="${u.id}" title="Unirme a esta unidad">➕ Unirme</button>` : ''}
+          ${mine ? `<button class="btn btn-small" data-action="unit-leave" data-id="${u.id}" title="Salir de esta unidad">🚪 Salir</button>` : ''}
+          ${canDelete ? `<button class="btn btn-small btn-danger" data-action="unit-delete" data-id="${u.id}" title="Eliminar unidad">🗑</button>` : ''}
+          ${!canEdit ? '<span class="unit-lock" title="Solo los oficiales de esta unidad pueden modificarla">🔒</span>' : ''}
+        </div>
       </td>
     </tr>`;
 }
 
 function renderUnits() {
   const cont = $('#units-sections');
+  const opInput = $('#unit-operator');
+  if (opInput && !opInput.value && currentUserName) opInput.value = currentUserName;
   if (!db.units.length) {
-    cont.innerHTML = '<div class="empty">Sin unidades.</div>';
+    cont.innerHTML = '<div class="empty">Sin unidades. Creá la primera o unite a una existente.</div>';
     return;
   }
   const groups = [
@@ -351,7 +499,7 @@ function renderUnits() {
   ];
   cont.innerHTML = groups.filter((g) => g.list.length).map((g) => sectionHtml(
     g.title, g.list.length,
-    `<table class="table"><thead><tr><th>Indicativo</th><th>Departamento</th><th>Operador</th><th>Estado</th><th>Llamada</th><th></th></tr></thead><tbody>${g.list.map(unitRowHtml).join('')}</tbody></table>`,
+    `<table class="table"><thead><tr><th>Indicativo</th><th>Departamento</th><th>Oficiales en la unidad</th><th>Estado</th><th>Llamada</th><th></th></tr></thead><tbody>${g.list.map(unitRowHtml).join('')}</tbody></table>`,
     'table-section',
   )).join('');
 }
@@ -361,25 +509,71 @@ $('#units-sections').addEventListener('change', (e) => {
   if (!sel) return;
   const unit = db.units.find((u) => u.id === sel.dataset.id);
   if (!unit) return;
+  if (!isUnitMember(unit) && !isStaffRole()) {
+    flash('⛔ Solo los oficiales de esa unidad pueden cambiar su estado.');
+    renderAll();
+    return;
+  }
   setUnitStatus(unit, sel.value);
   saveDb();
   renderAll();
 });
 
 $('#units-sections').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-action="unit-delete"]');
+  const btn = e.target.closest('button[data-action]');
   if (!btn) return;
   const unit = db.units.find((u) => u.id === btn.dataset.id);
   if (!unit) return;
-  if (!confirm(`¿Eliminar la unidad ${unit.name}?`)) return;
-  if (unit.callId) {
-    const call = db.calls.find((c) => c.id === unit.callId);
-    if (call) call.units = call.units.filter((x) => x !== unit.id);
+
+  if (btn.dataset.action === 'unit-join') {
+    const actual = myUnit();
+    if (actual && actual.id !== unit.id) {
+      flash('⚠️ Ya estás en la unidad ' + actual.name + '. Salí de ella para unirte a otra.');
+      return;
+    }
+    const me = currentOfficerName();
+    const current = unitOfficers(unit);
+    if (current.some((n) => String(n).toLowerCase() === me.toLowerCase())) return;
+    unit.officers = current.slice();
+    unit.officers.push(me);
+    if (!unit.operator) unit.operator = me;
+    addLog(`Unidad ${unit.name}: se unió ${me}`);
+    saveDb();
+    renderAll();
+    flash('✅ Te uniste a la unidad ' + unit.name);
+    return;
   }
-  db.units = db.units.filter((u) => u.id !== unit.id);
-  addLog(`Unidad ${unit.name} eliminada`);
-  saveDb();
-  renderAll();
+
+  if (btn.dataset.action === 'unit-leave') {
+    const me = currentOfficerName();
+    unit.officers = unitOfficers(unit).filter((n) => String(n).toLowerCase() !== me.toLowerCase());
+    if (unit.operator && String(unit.operator).toLowerCase() === me.toLowerCase()) {
+      unit.operator = unit.officers[0] || '';
+    }
+    addLog(`Unidad ${unit.name}: salió ${me}`);
+    saveDb();
+    renderAll();
+    flash('Saliste de la unidad ' + unit.name);
+    return;
+  }
+
+  if (btn.dataset.action === 'unit-delete') {
+    const officers = unitOfficers(unit);
+    const allowed = isStaffRole() || (isUnitMember(unit) && officers.length <= 1);
+    if (!allowed) {
+      flash('⛔ Solo el Propietario/Administrador o el último oficial de la unidad pueden eliminarla.');
+      return;
+    }
+    if (!confirm(`¿Eliminar la unidad ${unit.name}?`)) return;
+    if (unit.callId) {
+      const call = db.calls.find((c) => c.id === unit.callId);
+      if (call) call.units = call.units.filter((x) => x !== unit.id);
+    }
+    db.units = db.units.filter((u) => u.id !== unit.id);
+    addLog(`Unidad ${unit.name} eliminada`);
+    saveDb();
+    renderAll();
+  }
 });
 
 // ============================================================
@@ -1092,11 +1286,18 @@ function wireForms() {
     e.preventDefault();
     const name = $('#unit-name').value.trim();
     if (!name) return;
+    const actual = myUnit();
+    if (actual && !isStaffRole()) {
+      flash('⚠️ Ya estás en la unidad ' + actual.name + '. Salí de ella para crear otra.');
+      return;
+    }
+    const operator = $('#unit-operator').value.trim() || currentOfficerName();
     const unit = {
       id: nextId('U'),
       name,
       dept: $('#unit-dept').value,
-      operator: $('#unit-operator').value.trim(),
+      operator,
+      officers: operator ? [operator] : [],
       status: '10-8',
       callId: null,
     };
@@ -1144,8 +1345,12 @@ function wireForms() {
     flash('BOLO #' + bolo.id + ' publicado');
   });
 
-  // ---- Borrar historial ----
+  // ---- Borrar historial (solo el Propietario) ----
   $('#log-clear').addEventListener('click', () => {
+    if (currentRole !== 'Propietario') {
+      flash('⛔ Solo el Propietario puede borrar el historial.');
+      return;
+    }
     if (!confirm('¿Borrar todo el historial?')) return;
     db.log = [];
     saveDb();
@@ -1160,6 +1365,7 @@ function wireForms() {
 function wireTabs() {
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (btn.classList.contains('hidden')) return;
       document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.tab-content').forEach((sec) => {
         sec.classList.toggle('active', sec.id === 'tab-' + btn.dataset.tab);
@@ -1457,6 +1663,12 @@ function onRadioEvent(event, payload) {
       ownerAutoTried = false;
       updateLinkVisibility();
       flash('Conectado al servidor de radio');
+      // El propietario de esta PC recupera su rango solo (la contraseña está guardada)
+      setTimeout(() => {
+        if (Radio.state.connected && !Radio.state.isOwner && getOwnerPass()) {
+          Radio.ownerLogin(getOwnerPass());
+        }
+      }, 1200);
       break;
 
     case 'disconnected':
@@ -1519,6 +1731,7 @@ function onRadioEvent(event, payload) {
       }
       renderOwnerBox();
       renderAdminPanel();
+      setCurrentRole(Radio.state.role);
       updateErlcVisibility();
       updateLinkVisibility();
       if (payload.owner && payload.rolesFresh) {
@@ -1534,6 +1747,7 @@ function onRadioEvent(event, payload) {
     case 'role':
       renderOwnerBox();
       renderAdminPanel();
+      setCurrentRole(Radio.state.role);
       updateErlcVisibility();
       updateLinkVisibility();
       flash('Tu rol ahora es: ' + Radio.state.role);
@@ -1599,8 +1813,11 @@ function overlaySync() {
   // Unidad propia en el CAD (indicativo + estado) para mostrarla en la radio
   let unit = null;
   if (typeof db !== 'undefined' && Array.isArray(db.units)) {
-    const who = (st.name || '').trim().toLowerCase();
-    unit = db.units.find((u) => (u.operator || '').trim().toLowerCase() === who) || null;
+    const who = (st.name || currentOfficerName() || '').trim().toLowerCase();
+    unit = db.units.find((u) =>
+      unitOfficers(u).some((n) => String(n).trim().toLowerCase() === who)
+      || (u.operator || '').trim().toLowerCase() === who
+    ) || null;
   }
   const unitStatus = unit ? ((UNIT_STATUSES[unit.status] || {}).label || unit.status || '') : '';
   const data = {
@@ -1826,6 +2043,23 @@ function wireRadio() {
     Radio.assignRole(btn.dataset.adminApply, sel.value);
     flash('Rol actualizado: ' + btn.dataset.adminApply + ' → ' + sel.value);
   });
+
+  // Asignar rol a un oficial aunque no esté conectado (queda guardado en el servidor)
+  const adminRoleSel = $('#admin-role');
+  if (adminRoleSel) {
+    adminRoleSel.innerHTML = ROLES_ASSIGNABLE.map((r) => `<option value="${r}">${esc(r)}</option>`).join('');
+  }
+  const adminOffline = $('#admin-apply-offline');
+  if (adminOffline) {
+    adminOffline.addEventListener('click', () => {
+      const name = ($('#admin-name').value || '').trim();
+      const role = adminRoleSel ? adminRoleSel.value : 'Miembro';
+      if (!name) { flash('⚠️ Escribí el nombre exacto del oficial.'); return; }
+      Radio.assignRole(name, role);
+      $('#admin-name').value = '';
+      flash('Rol guardado: ' + name + ' → ' + role);
+    });
+  }
 
   // ---- Botón de PTT en pantalla (ratón/táctil) ----
   const pttBtn = $('#ptt-button');
@@ -2501,25 +2735,20 @@ function updateErlcVisibility() {
   const btn = $('#tab-btn-erlc');
   if (!btn) return;
   const canView = erlcCanView();
-  btn.classList.toggle('hidden', !canView);
-
-  // La pestaña del mapa usa la misma clave y los mismos permisos.
-  const mapBtn = $('#tab-btn-mapa');
-  if (mapBtn) mapBtn.classList.toggle('hidden', !canView);
 
   if (!canView) {
-    // Si estaba en la pestaña, volver a Despacho
+    // Si estaba en la pestaña ER:LC, volver a Despacho. El mapa NO se toca:
+    // los policías (Miembro) tienen acceso al mapa 2D en vivo.
     const sec = $('#tab-erlc');
-    const mapSec = $('#tab-mapa');
-    if ((sec && sec.classList.contains('active')) || (mapSec && mapSec.classList.contains('active'))) {
+    if (sec && sec.classList.contains('active')) {
       const home = document.querySelector('.tab[data-tab="despacho"]');
       if (home) home.click();
     }
-    if (typeof mapOpen === 'function') mapOpen(false);
     if (erlc.connected) erlcDisconnect();
   } else if (!erlcCanCommand()) {
     $('#erlc-cmd-panel').classList.add('hidden');
   }
+  applyRoleUI();
 }
 
 function erlcSetStatus(text, ok) {
@@ -2725,7 +2954,6 @@ const MAP_CROP_Y = 157 * MAP_SCALE;
 
 const mapState = {
   open: false,
-  mode: 'plano',
   zoom: 1,
   panX: 0,
   panY: 0,
@@ -2882,16 +3110,6 @@ function wireMapa() {
   const plane = $('#map-plane');
   if (plane) { plane.style.width = MAP_IMG_W + 'px'; plane.style.height = MAP_IMG_H + 'px'; }
 
-  // Vista plana / 3D
-  document.querySelectorAll('[data-map-mode]').forEach((b) => {
-    b.addEventListener('click', () => {
-      mapState.mode = b.dataset.mapMode;
-      document.querySelectorAll('[data-map-mode]').forEach((x) => x.classList.toggle('active', x === b));
-      vp.classList.toggle('mode-3d', mapState.mode === '3d');
-      mapFit();
-    });
-  });
-
   // Mostrar/ocultar civiles
   const civBtn = $('#map-civ-btn');
   if (civBtn) {
@@ -2994,6 +3212,24 @@ function wireLogin() {
   const overlay = $('#login-overlay');
   if (!overlay) return;
   const input = $('#login-pass');
+  const nameInput = $('#login-name');
+  const saved = readSession();
+
+  if (saved && saved.name) {
+    currentUserName = saved.name;
+    currentRole = saved.role || resolveRoleForName(saved.name);
+    if (nameInput) nameInput.value = saved.name;
+    const rn = $('#radio-name');
+    if (rn && !rn.value) rn.value = saved.name;
+    overlay.classList.add('hidden');
+    applyRoleUI();
+    setTimeout(() => flash('🔓 Bienvenido de nuevo, ' + currentUserName), 700);
+  } else {
+    const rn = $('#radio-name');
+    if (nameInput && rn && rn.value) nameInput.value = rn.value;
+    setTimeout(() => input.focus(), 250);
+  }
+
   const entrar = () => {
     const ok = (input.value || '').trim().toUpperCase() === CLAVE_INGRESO;
     if (!ok) {
@@ -3005,16 +3241,36 @@ function wireLogin() {
       overlay.classList.add('shake');
       return;
     }
+    currentUserName = (nameInput ? nameInput.value.trim() : '') || currentUserName || 'Oficial';
+    const rn = $('#radio-name');
+    if (rn) rn.value = currentUserName;
+    saveRadioPrefs();
+    currentRole = (saved && saved.name === currentUserName)
+      ? (saved.role || resolveRoleForName(currentUserName))
+      : resolveRoleForName(currentUserName);
+    saveSession();
     overlay.classList.add('hidden');
     input.value = '';
+    applyRoleUI();
     // Directo al MDT general (vista principal)
     const home = document.querySelector('.tab[data-tab="despacho"]');
     if (home) home.click();
-    flash('🔓 Bienvenido al MDT general');
+    flash('🔓 Bienvenido al MDT general, ' + currentUserName);
   };
   $('#login-enter').addEventListener('click', entrar);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') entrar(); });
-  setTimeout(() => input.focus(), 250);
+  if (nameInput) nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.focus(); } });
+
+  const logout = $('#logout-btn');
+  if (logout) {
+    logout.addEventListener('click', () => {
+      if (!confirm('¿Cerrar sesión en esta PC? Tu nombre y rango quedan guardados para la próxima.')) return;
+      clearSession();
+      currentUserName = '';
+      location.reload();
+    });
+  }
+  applyRoleUI();
 }
 
 const PANIC_PREFS_KEY = 'cad-erlc-panic-prefs';

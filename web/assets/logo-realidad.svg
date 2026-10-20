@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Fondo -->
+  <rect width="1024" height="1024" fill="#05070b"/>
+
+  <!-- Insignia (octágono) -->
+  <path d="M 190 42 L 834 42 L 982 190 L 982 834 L 834 982 L 190 982 L 42 834 L 42 190 Z"
+        fill="#0a0f16" stroke="#ffffff" stroke-width="15" stroke-linejoin="round"/>
+
+  <!-- Sol -->
+  <circle cx="694" cy="316" r="86" fill="#ffffff"/>
+
+  <!-- Montañas (detrás de los edificios) -->
+  <path d="M 540 512 L 540 462 L 610 372 L 662 426 L 724 336 L 786 424 L 838 386 L 880 452 L 880 512 Z"
+        fill="#0a0f16" stroke="#ffffff" stroke-width="13" stroke-linejoin="round"/>
+
+  <!-- Ciudad (edificios) -->
+  <g fill="#ffffff">
+    <rect x="214" y="448" width="38" height="64"/>
+    <rect x="260" y="400" width="46" height="112"/>
+    <rect x="283" y="352" width="8" height="52"/>
+    <rect x="314" y="452" width="54" height="60"/>
+    <rect x="376" y="372" width="38" height="140"/>
+    <path d="M 376 372 L 395 338 L 414 372 Z"/>
+    <rect x="422" y="420" width="52" height="92"/>
+    <rect x="482" y="330" width="34" height="182"/>
+    <rect x="496" y="298" width="7" height="34"/>
+    <rect x="524" y="452" width="42" height="60"/>
+    <rect x="574" y="388" width="38" height="124"/>
+    <rect x="620" y="430" width="56" height="82"/>
+    <rect x="684" y="356" width="40" height="156"/>
+    <rect x="732" y="456" width="40" height="56"/>
+    <rect x="780" y="408" width="44" height="104"/>
+    <rect x="832" y="460" width="24" height="52"/>
+  </g>
+
+  <!-- Palmera izquierda -->
+  <g stroke="#ffffff" fill="none" stroke-linecap="round">
+    <path d="M 208 512 C 200 440, 206 370, 222 316" stroke-width="15"/>
+    <path d="M 222 316 C 196 282, 160 272, 126 286" stroke-width="11"/>
+    <path d="M 222 316 C 200 276, 174 254, 142 248" stroke-width="11"/>
+    <path d="M 222 316 C 218 268, 208 234, 188 208" stroke-width="11"/>
+    <path d="M 222 316 C 240 272, 268 250, 300 244" stroke-width="11"/>
+    <path d="M 222 316 C 248 284, 284 278, 316 292" stroke-width="11"/>
+    <path d="M 222 316 C 244 300, 274 306, 296 322" stroke-width="11"/>
+  </g>
+
+  <!-- Palmera derecha -->
+  <g stroke="#ffffff" fill="none" stroke-linecap="round">
+    <path d="M 828 512 C 836 458, 838 406, 830 362" stroke-width="13"/>
+    <path d="M 830 362 C 808 338, 780 330, 752 340" stroke-width="9"/>
+    <path d="M 830 362 C 814 330, 792 314, 766 310" stroke-width="9"/>
+    <path d="M 830 362 C 828 326, 822 300, 806 280" stroke-width="9"/>
+    <path d="M 830 362 C 846 330, 868 316, 894 314" stroke-width="9"/>
+    <path d="M 830 362 C 852 342, 878 338, 902 348" stroke-width="9"/>
+  </g>
+
+  <!-- Nombre -->
+  <text x="512" y="782" text-anchor="middle" fill="#ffffff"
+        font-family="'Arial Black','Segoe UI Black',Arial,sans-serif" font-weight="900" font-style="italic"
+        font-size="138" textLength="820" lengthAdjust="spacingAndGlyphs">REALIDAD</text>
+
+  <!-- Ciudad -->
+  <text x="512" y="898" text-anchor="middle" fill="#e8edf5" opacity="0.92"
+        font-family="Arial,'Segoe UI',sans-serif" font-weight="700"
+        font-size="56" textLength="600" lengthAdjust="spacingAndGlyphs">— LOS ANGELES —</text>
+</svg>

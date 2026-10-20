@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Normativa — La Realidad RP</title>
+  <meta name="description" content="Normativa oficial de La Realidad RP: reglas de roleplay, convivencia, vehículos, economía y sanciones.">
+  <meta name="theme-color" content="#050a10">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===================== MENÚ LATERAL DE CATEGORÍAS ===================== -->
+  <button class="menu-fab" id="btnDrawer" aria-label="Abrir categorías">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+  </button>
+
+  <aside class="side-drawer" id="sideDrawer" aria-label="Menú principal">
+    <div class="drawer-head">
+      <a class="drawer-brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Menú</small></span>
+      </a>
+      <button class="drawer-close" id="btnDrawerClose" aria-label="Cerrar">✕</button>
+    </div>
+
+    <a class="drawer-panel" data-open-panel>
+      <span class="ico">🆔</span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord</small></span>
+    </a>
+
+    <div class="drawer-label">Página</div>
+    <nav class="drawer-list">
+      <a href="index.html" data-page="index.html"><span class="ico">🏠</span> Inicio</a>
+      <a href="index.html#como-jugar"><span class="ico">🚀</span> Cómo unirse</a>
+      <a href="index.html#servidores"><span class="ico">🖥️</span> Servidores</a>
+      <a href="resenas.html" data-page="resenas.html"><span class="ico">⭐</span> Reseñas</a>
+      <a href="normativa.html" data-page="normativa.html"><span class="ico">📜</span> Normativa</a>
+    </nav>
+
+    <div class="drawer-label">Central 911</div>
+    <nav class="drawer-list">
+      <a class="hot" data-link="c911"><span class="ico">🆘</span> Llamar al 911</a>
+    </nav>
+
+    <div class="drawer-label">Comunidad</div>
+    <nav class="drawer-list">
+      <a data-link="cad"><span class="ico">📥</span> CAD-RLD</a>
+      <a data-link="discord"><span class="ico">💬</span> Discord</a>
+    </nav>
+
+    <div class="drawer-foot">La Realidad RP · Los Angeles (ER:LC) 🌆</div>
+  </aside>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#como-jugar">Cómo unirse</a>
+        <a href="index.html#servidores">Servidores</a>
+        <a href="resenas.html">Reseñas</a>
+        <a href="normativa.html" class="active">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <p class="crumb"><a href="index.html">Inicio</a> · Normativa</p>
+        <h1>Normativa de la comunidad</h1>
+        <p>Al entrar al servidor aceptás estas reglas. Leelas con atención: conocerlas te evita sanciones y hace el rol mejor para todos.</p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:14px">
+      <div class="container">
+        <p class="updated">Última actualización: octubre 2026</p>
+
+        <div class="prose">
+          <article class="rule">
+            <h2><span class="n">1</span> Respeto y convivencia</h2>
+            <p>Tratá a todos con respeto, dentro y fuera del personaje. El rol puede ser intenso, pero nunca debe convertirse en ataques personales.</p>
+            <ul>
+              <li>Prohibido el acoso, la discriminación y los insultos fuera de rol.</li>
+              <li>Los conflictos entre jugadores se resuelven con el staff, no en el chat.</li>
+              <li>Respetá las decisiones del staff: si no estás de acuerdo, abrí un ticket con calma.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">2</span> Roleplay de calidad</h2>
+            <p>Tu personaje tiene una historia, emociones y consecuencias. Jugá como si todo fuera real.</p>
+            <ul>
+              <li><b>RDM:</b> prohibido atacar o matar sin una razón de rol previa.</li>
+              <li><b>VDM:</b> prohibido usar el vehículo como arma de forma intencional.</li>
+              <li><b>Meta-gaming:</b> prohibido usar información que tu personaje no conoce (ej: leer el chat de staff).</li>
+              <li><b>Power-gaming:</b> prohibido forzar acciones sobre otros jugadores sin darles oportunidad de reaccionar.</li>
+              <li><b>Fail RP:</b> prohibido romper la coherencia del rol (ej: actuar herido después de "revivir", ignorar un secuestro en curso).</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">3</span> Valoración de la vida</h2>
+            <p>Tu personaje quiere vivir. Ante una amenaza real (un arma apuntándote, un secuestro), valorá tu vida antes que tu orgullo.</p>
+            <ul>
+              <li>Prohibido correr o pelear cuando te apuntan a corta distancia.</li>
+              <li>Prohibido "revivir" o volver al lugar de un conflicto tras morir (no copiar rol).</li>
+              <li>Si tu personaje muere, olvidá lo ocurrido en esa escena.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">4</span> Personajes, DNI y cuentas</h2>
+            <p>Cada jugador tiene un personaje con su DNI, historia y licencias.</p>
+            <ul>
+              <li>Un solo personaje activo por persona (salvo autorización del staff).</li>
+              <li>Prohibido compartir cuentas o suplantar a otro miembro de la comunidad.</li>
+              <li>Los nombres deben ser realistas y coherentes con un personaje.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">5</span> Vehículos y conducción</h2>
+            <p>La ciudad tiene tráfico y normas viales, también en el rol.</p>
+            <ul>
+              <li>Respetá semáforos y límites de velocidad en zonas concurridas.</li>
+              <li>Prohibido conducir de forma irreal en persecuciones sin motivo (más de 10 minutos sin escape).</li>
+              <li>No uses vehículos de emergencia si no pertenecés al departamento correspondiente.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">6</span> Zonas seguras</h2>
+            <p>Hay lugares donde el rol de conflicto no está permitido.</p>
+            <ul>
+              <li>Hospitales, comisarías y spawns son zonas seguras: no se ataca ni se secuestra allí.</li>
+              <li>Los eventos oficiales tienen sus propias reglas, que se anuncian antes de empezar.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">7</span> Economía y estafas</h2>
+            <p>La economía es parte del rol, pero tiene límites.</p>
+            <ul>
+              <li>Las estafas de rol son válidas, pero como máximo dentro de una historia coherente y sin abusar de la confianza OOC (fuera de rol).</li>
+              <li>Prohibido comerciar cuentas, dinero real o bienes del servidor fuera de los canales oficiales.</li>
+              <li>El abuso de bugs económicos será sancionado con ban permanente.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">8</span> Departamentos y servicios de emergencia</h2>
+            <p>Policía, bomberos y demás servicios representan valores de la comunidad.</p>
+            <ul>
+              <li>Solo actuá como fuerza pública si tenés el rol y la certificación correspondiente.</li>
+              <li>Prohibido el abuso de autoridad: cada detención necesita una razón de rol.</li>
+              <li>Corrupción policial: solo con autorización del staff y dentro de una trama registrada.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">9</span> Sanciones</h2>
+            <p>El staff evalúa cada caso según su gravedad y tus antecedentes. Las decisiones pueden apelarse por ticket.</p>
+          </article>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Tipo de falta</th>
+                  <th>Ejemplos</th>
+                  <th>Sanción típica</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Leve</td>
+                  <td>Lenguaje fuera de rol, cortar el rol un momento</td>
+                  <td>Advertencia verbal</td>
+                </tr>
+                <tr>
+                  <td>Media</td>
+                  <td>RDM/VDM aislado, Fail RP, abuso de bugs menores</td>
+                  <td>Aviso formal + mute temporal (24–72 h)</td>
+                </tr>
+                <tr>
+                  <td>Grave</td>
+                  <td>Meta-gaming repetido, acoso, escapar de la policía sin rol</td>
+                  <td>Suspensión de 7 a 30 días</td>
+                </tr>
+                <tr>
+                  <td>Muy grave</td>
+                  <td>Trampas, estafas con dinero real, acoso grave, cuentas compartidas</td>
+                  <td>Ban permanente</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="notice" style="margin-top:26px">
+            <b>¿Dudas o denuncias?</b> Abrí un ticket en el Discord con pruebas (video o capturas).
+            El staff está disponible todos los días para ayudarte.
+          </div>
+
+          <div class="hero-actions" style="margin-top:26px">
+            <a class="btn btn-primary" data-link="discord">Unirme al Discord</a>
+            <a class="btn btn-ghost" href="terminos.html">Ver términos de servicio</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+            <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+          </a>
+          <p>La comunidad de roleplay en español de Emergency Response: Liberty County. Whitelist, economía interna, eventos y soporte 24/7.</p>
+          <div class="socials">
+            <a data-link="discord" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>
+            <a data-link="instagram" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>
+            <a data-link="tiktok" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M15 3c.3 1.9 1.6 3.4 3.5 3.8v2.1c-1.3-.1-2.5-.6-3.5-1.4v6.2a5.3 5.3 0 1 1-5.3-5.3c.3 0 .6 0 .8.1v2.2a3.1 3.1 0 1 0 2.2 3V3h2.3z"/></svg></a>
+            <a data-link="youtube" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15.2V8.8l5.2 3.2z"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Comunidad</div>
+          <ul>
+            <li><a href="index.html#como-jugar">Cómo unirse</a></li>
+            <li><a href="index.html#servidores">Servidores</a></li>
+            <li><a href="resenas.html">Reseñas</a></li>
+            <li><a href="index.html#equipo">Equipo</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Soporte</div>
+          <ul>
+            <li><a data-link="discord">Discord</a></li>
+            <li><a data-link="correo">Correo</a></li>
+            <li><a href="normativa.html">Normativa</a></li>
+            <li><a href="terminos.html">Términos</a></li>
+            <li><a href="privacidad.html">Privacidad</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP. Todos los derechos reservados.</p>
+      </div>
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

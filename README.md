@@ -20,7 +20,7 @@ CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emer
 - 🖥️ **Servidor integrado**: cualquier miembro puede alojar el radio desde la app con un solo botón.
 - 🌍 **Listo para internet**: se puede alojar el servidor en la nube (Render, VPS, Docker) y aceptar gente de cualquier país.
 - 🤖 **Bot de Discord**: enlaza el CAD con tu Discord (llamadas, unidades, BOLOs, estado del juego en vivo, comandos dentro del juego y **búsqueda de personas por DNI** con `/dni`).
-- 🔐 **Acceso con contraseña**: al abrir la app se pide la contraseña **LAAY** (se cambia en una línea de `src/app.js`) y entrás directo al **MDT general**.
+- 🔐 **Acceso con contraseña**: al abrir la app se pide la contraseña **LAAY** (se cambia en una línea de `src/app.js`) y entrás directo al **MDT general**. La pantalla de acceso tiene fondo cinematográfico estilo ER:LC y el escudo **LAPD** como marca de agua transparente.
 
 ## ▶️ Cómo ejecutarla
 

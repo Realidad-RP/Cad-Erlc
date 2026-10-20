@@ -28,6 +28,8 @@ const {
 
 const { createCadMirror, buildCadSummary, buildDniReply } = require('./lib/cad');
 const { createBotServer } = require('./lib/server');
+const { createWebAuth } = require('./lib/web-auth');
+const { createDiscordStore } = require('./lib/store');
 const { getServerStatus, getPlayers, runCommand } = require('./lib/erlc');
 
 // ============================================================
@@ -61,6 +63,7 @@ function loadConfig() {
       bolo: pick('CH_BOLO', channels.bolo || ''),
       erlc: pick('CH_ERLC', channels.erlc || ''),
       estado: pick('CH_ESTADO', channels.estado || ''),
+      panel: pick('CH_PANEL', channels.panel || ''), // datos privados de la web
     },
   };
 }
@@ -77,6 +80,82 @@ const mirror = createCadMirror();
 let statusMessageId = null;   // mensaje de estado que se edita solo (canal estado)
 let lastCommandAt = 0;        // control del límite de 1 comando cada ~5 s de la API
 let discordReady = false;
+
+// ============================================================
+// 2b. Cuentas de la web (Panel de Ciudadano)
+// ============================================================
+
+// Busca al usuario de Discord por su nombre dentro del servidor.
+// Usa la búsqueda de miembros por REST: en el Developer Portal hay
+// que activar "SERVER MEMBERS INTENT" (Bot → Privileged Gateway Intents).
+async function resolveDiscordUser(query) {
+  if (!discordReady) return null;
+  const q = String(query || '').trim().replace(/^@+/, '');
+  if (!q) return null;
+
+  let guild = null;
+  try {
+    if (cfg.guildId) {
+      guild = client.guilds.cache.get(cfg.guildId) || await client.guilds.fetch(cfg.guildId);
+    } else {
+      guild = client.guilds.cache.first() || null;
+    }
+  } catch (err) {
+    console.warn('[Web] No pude abrir el servidor de Discord:', err.message);
+    return null;
+  }
+  if (!guild) return null;
+
+  let members = [];
+  try {
+    if (typeof guild.members.search === 'function') {
+      const found = await guild.members.search({ query: q, limit: 10 });
+      members = Array.from(found.values());
+    }
+  } catch (err) {
+    console.warn('[Web] Búsqueda de miembros:', err.message);
+    console.warn('[Web] Activá "SERVER MEMBERS INTENT" en Discord Developer Portal → Bot.');
+  }
+  if (!members.length) members = Array.from(guild.members.cache.values());
+
+  const lower = q.toLowerCase();
+  const member =
+    members.find((m) => m.user.username.toLowerCase() === lower) ||
+    members.find((m) => String(m.user.globalName || '').toLowerCase() === lower) ||
+    members.find((m) => String(m.displayName || '').toLowerCase() === lower) ||
+    members.find((m) => m.user.username.toLowerCase().includes(lower));
+
+  if (!member) return null;
+  return {
+    id: member.id,
+    username: member.user.username,
+    displayName: member.displayName || member.user.globalName || member.user.username,
+    avatar: member.user.displayAvatarURL({ size: 128, extension: 'png' }),
+  };
+}
+
+async function sendDiscordDM(discordId, content) {
+  if (!discordReady) throw new Error('El bot de Discord todavía no está conectado.');
+  if (!discordId) throw new Error('Ese usuario no tiene ID de Discord.');
+  const user = await client.users.fetch(String(discordId));
+  await user.send(content);
+}
+
+// Cuentas y reseñas: se guardan en un canal privado de Discord para que
+// sobrevivan a los reinicios de Render (el disco gratuito es efímero).
+const webStore = createDiscordStore({
+  client,
+  guildId: cfg.guildId,
+  channelId: cfg.channels.panel,
+  log: console.log,
+});
+
+const webAuth = createWebAuth({
+  store: webStore,
+  resolveDiscordUser,
+  sendDiscordDM,
+  log: console.log,
+});
 
 // ============================================================
 // 3. Publicación en Discord
@@ -410,6 +489,7 @@ client.on(Events.ClientReady, async (c) => {
   } catch (err) {
     console.warn('[Bot] No se pudieron registrar los comandos:', err.message);
   }
+  console.log('[Web] Registro/login con código por MD activo (revisá SERVER MEMBERS INTENT).');
 
   const base = process.env.RENDER_EXTERNAL_URL;
   if (base) {
@@ -426,9 +506,11 @@ client.on(Events.ClientReady, async (c) => {
 
 (async () => {
   try {
-    const server = await createBotServer({ cfg, onCadSnapshot, onErlcEvent });
+    const server = await createBotServer({ cfg, onCadSnapshot, onErlcEvent, webAuth });
     console.log(`[Bot] Servidor HTTP activo en el puerto ${server.port} (salud: /health)`);
     console.log(`[Bot] El CAD debe apuntar a: http://localhost:${server.port}  (clave: ${cfg.cadKey ? 'configurada ✅' : 'FALTA ⚠️'})`);
+    console.log(`[Web] Cuentas y reseñas listas · datos en ${webAuth.file}`);
+    console.log(`[Web] La web debe apuntar a ${process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + server.port}`);
     if (!cfg.channels.despacho && !cfg.channels.bolo && !cfg.channels.erlc) {
       console.log('[Bot] Aviso: no hay canales configurados; los avisos se muestran solo acá en consola.');
     }

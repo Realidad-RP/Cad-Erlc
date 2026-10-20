@@ -37,7 +37,7 @@ const DEPARTMENTS = ['LCPD', 'CHP', 'LCFD', 'DOT', 'DISPATCH'];
 const STAFF_ROLES = ['Propietario', 'Administrador', 'Supervisor'];
 
 // Roles que el propietario puede asignar desde la app
-const ASSIGNABLE_ROLES = ['Miembro', 'Supervisor', 'Administrador'];
+const ASSIGNABLE_ROLES = ['Miembro', 'Despachador', 'Supervisor', 'Administrador'];
 
 // Dónde se guardan los canales (se puede cambiar con la variable CHANNELS_FILE)
 const CHANNELS_FILE = process.env.CHANNELS_FILE || path.join(__dirname, 'channels.json');

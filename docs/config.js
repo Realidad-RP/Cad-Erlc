@@ -32,6 +32,10 @@ window.LR_CONFIG = {
   // Página para llamar al 911 (civiles) — la sirve el servidor de radio
   central911: "https://cad-erlc-radio.onrender.com/911",
 
+  // Servidor del bot de Discord (cuentas + reseñas compartidas).
+  // Si abrís la web en tu PC, la web usa automáticamente http://localhost:8790.
+  apiBase: "https://cad-erlc-bot.onrender.com",
+
   /* ---------- Números de la portada ----------
      Poné los números reales de tu comunidad.
      Si dejás miembros en 0, se muestra "—".                          */

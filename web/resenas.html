@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reseñas de la comunidad — La Realidad RP</title>
+  <meta name="description" content="Opiniones y reseñas de los jugadores de La Realidad RP, la comunidad de roleplay en Emergency Response: Liberty County.">
+  <meta name="theme-color" content="#050a10">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===================== MENÚ LATERAL DE CATEGORÍAS ===================== -->
+  <button class="menu-fab" id="btnDrawer" aria-label="Abrir categorías">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+  </button>
+
+  <aside class="side-drawer" id="sideDrawer" aria-label="Menú principal">
+    <div class="drawer-head">
+      <a class="drawer-brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Menú</small></span>
+      </a>
+      <button class="drawer-close" id="btnDrawerClose" aria-label="Cerrar">✕</button>
+    </div>
+
+    <a class="drawer-panel" data-open-panel>
+      <span class="ico">🆔</span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord</small></span>
+    </a>
+
+    <div class="drawer-label">Página</div>
+    <nav class="drawer-list">
+      <a href="index.html" data-page="index.html"><span class="ico">🏠</span> Inicio</a>
+      <a href="index.html#como-jugar"><span class="ico">🚀</span> Cómo unirse</a>
+      <a href="index.html#servidores"><span class="ico">🖥️</span> Servidores</a>
+      <a href="resenas.html" data-page="resenas.html"><span class="ico">⭐</span> Reseñas</a>
+      <a href="normativa.html" data-page="normativa.html"><span class="ico">📜</span> Normativa</a>
+    </nav>
+
+    <div class="drawer-label">Central 911</div>
+    <nav class="drawer-list">
+      <a class="hot" data-link="c911"><span class="ico">🆘</span> Llamar al 911</a>
+    </nav>
+
+    <div class="drawer-label">Comunidad</div>
+    <nav class="drawer-list">
+      <a data-link="cad"><span class="ico">📥</span> CAD-RLD</a>
+      <a data-link="discord"><span class="ico">💬</span> Discord</a>
+    </nav>
+
+    <div class="drawer-foot">La Realidad RP · Los Angeles (ER:LC) 🌆</div>
+  </aside>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#como-jugar">Cómo unirse</a>
+        <a href="index.html#servidores">Servidores</a>
+        <a href="resenas.html" class="active">Reseñas</a>
+        <a href="normativa.html">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <p class="crumb"><a href="index.html">Inicio</a> · Reseñas</p>
+        <h1>Reseñas de la comunidad</h1>
+        <p>Contanos tu experiencia en La Realidad RP y ayudá a que más jugadores se sumen.</p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:14px">
+      <div class="container">
+
+        <!-- ============ RESUMEN DE VALORACIÓN ============ -->
+        <div class="rating-panel">
+          <div class="rating-big">
+            <div class="num js-rating-num">—</div>
+            <span class="js-rating-stars" style="display:flex;justify-content:center"></span>
+            <span class="count js-rating-count">todavía sin reseñas</span>
+          </div>
+          <div class="bars" id="distBars">
+            <div class="bar-row">
+              <span class="lvl">5 ★</span>
+              <span class="bar-bg"><span class="bar-fill" id="bar-5"></span></span>
+              <span class="pct" id="bar-5-pct">0%</span>
+            </div>
+            <div class="bar-row">
+              <span class="lvl">4 ★</span>
+              <span class="bar-bg"><span class="bar-fill" id="bar-4"></span></span>
+              <span class="pct" id="bar-4-pct">0%</span>
+            </div>
+            <div class="bar-row">
+              <span class="lvl">3 ★</span>
+              <span class="bar-bg"><span class="bar-fill" id="bar-3"></span></span>
+              <span class="pct" id="bar-3-pct">0%</span>
+            </div>
+            <div class="bar-row">
+              <span class="lvl">2 ★</span>
+              <span class="bar-bg"><span class="bar-fill" id="bar-2"></span></span>
+              <span class="pct" id="bar-2-pct">0%</span>
+            </div>
+            <div class="bar-row">
+              <span class="lvl">1 ★</span>
+              <span class="bar-bg"><span class="bar-fill" id="bar-1"></span></span>
+              <span class="pct" id="bar-1-pct">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ FORMULARIO ============ -->
+        <div class="card form-card" style="margin-bottom:44px">
+          <h2 style="font-size:24px;margin-bottom:6px">Dejá tu reseña</h2>
+          <p class="muted" style="margin-bottom:22px">¿Ya jugaste en el servidor? Tu opinión nos ayuda a mejorar.</p>
+
+          <form id="formResena" novalidate>
+            <div class="form-grid">
+              <div class="form-row-2">
+                <div class="field">
+                  <label for="rNombre">Tu nombre (o usuario de Discord)</label>
+                  <input type="text" id="rNombre" maxlength="40" placeholder="Ej: Alonso_LS" required>
+                </div>
+                <div class="field">
+                  <label>Tu puntuación</label>
+                  <div class="star-input" id="starInput">
+                    <button type="button" data-v="1" aria-label="1 estrella"></button>
+                    <button type="button" data-v="2" aria-label="2 estrellas"></button>
+                    <button type="button" data-v="3" aria-label="3 estrellas"></button>
+                    <button type="button" data-v="4" aria-label="4 estrellas"></button>
+                    <button type="button" data-v="5" aria-label="5 estrellas"></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="rTexto">Tu experiencia</label>
+                <textarea id="rTexto" maxlength="600" placeholder="Ej: El mejor rol en el que jugué. El staff es súper atento y los eventos son increíbles." required></textarea>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <button type="submit" class="btn btn-primary btn-lg">Publicar reseña</button>
+                <span class="form-note" id="rNota">🛈 Tu reseña se publica en el muro y se ve desde cualquier dispositivo. Si entrás con tu cuenta, lleva tu nombre y foto de Discord.</span>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- ============ MURO DE RESEÑAS ============ -->
+        <div class="section-head left">
+          <span class="kicker">El muro</span>
+          <h2 style="font-size:30px">Todas las reseñas</h2>
+        </div>
+        <div class="grid cols-3" id="resenasMuro"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+            <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+          </a>
+          <p>La comunidad de roleplay en español de Emergency Response: Liberty County. Whitelist, economía interna, eventos y soporte 24/7.</p>
+          <div class="socials">
+            <a data-link="discord" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>
+            <a data-link="instagram" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>
+            <a data-link="tiktok" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M15 3c.3 1.9 1.6 3.4 3.5 3.8v2.1c-1.3-.1-2.5-.6-3.5-1.4v6.2a5.3 5.3 0 1 1-5.3-5.3c.3 0 .6 0 .8.1v2.2a3.1 3.1 0 1 0 2.2 3V3h2.3z"/></svg></a>
+            <a data-link="youtube" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15.2V8.8l5.2 3.2z"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Comunidad</div>
+          <ul>
+            <li><a href="index.html#como-jugar">Cómo unirse</a></li>
+            <li><a href="index.html#servidores">Servidores</a></li>
+            <li><a href="resenas.html">Reseñas</a></li>
+            <li><a href="index.html#equipo">Equipo</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Soporte</div>
+          <ul>
+            <li><a data-link="discord">Discord</a></li>
+            <li><a data-link="correo">Correo</a></li>
+            <li><a href="normativa.html">Normativa</a></li>
+            <li><a href="terminos.html">Términos</a></li>
+            <li><a href="privacidad.html">Privacidad</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP. Todos los derechos reservados.</p>
+      </div>
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

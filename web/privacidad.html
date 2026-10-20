@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de privacidad — La Realidad RP</title>
+  <meta name="description" content="Política de privacidad de La Realidad RP: qué datos usamos, para qué y cómo los protegemos.">
+  <meta name="theme-color" content="#050a10">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===================== MENÚ LATERAL DE CATEGORÍAS ===================== -->
+  <button class="menu-fab" id="btnDrawer" aria-label="Abrir categorías">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+  </button>
+
+  <aside class="side-drawer" id="sideDrawer" aria-label="Menú principal">
+    <div class="drawer-head">
+      <a class="drawer-brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Menú</small></span>
+      </a>
+      <button class="drawer-close" id="btnDrawerClose" aria-label="Cerrar">✕</button>
+    </div>
+
+    <a class="drawer-panel" data-open-panel>
+      <span class="ico">🆔</span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord</small></span>
+    </a>
+
+    <div class="drawer-label">Página</div>
+    <nav class="drawer-list">
+      <a href="index.html" data-page="index.html"><span class="ico">🏠</span> Inicio</a>
+      <a href="index.html#como-jugar"><span class="ico">🚀</span> Cómo unirse</a>
+      <a href="index.html#servidores"><span class="ico">🖥️</span> Servidores</a>
+      <a href="resenas.html" data-page="resenas.html"><span class="ico">⭐</span> Reseñas</a>
+      <a href="normativa.html" data-page="normativa.html"><span class="ico">📜</span> Normativa</a>
+    </nav>
+
+    <div class="drawer-label">Central 911</div>
+    <nav class="drawer-list">
+      <a class="hot" data-link="c911"><span class="ico">🆘</span> Llamar al 911</a>
+    </nav>
+
+    <div class="drawer-label">Comunidad</div>
+    <nav class="drawer-list">
+      <a data-link="cad"><span class="ico">📥</span> CAD-RLD</a>
+      <a data-link="discord"><span class="ico">💬</span> Discord</a>
+    </nav>
+
+    <div class="drawer-foot">La Realidad RP · Los Angeles (ER:LC) 🌆</div>
+  </aside>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#como-jugar">Cómo unirse</a>
+        <a href="index.html#servidores">Servidores</a>
+        <a href="resenas.html">Reseñas</a>
+        <a href="normativa.html">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <p class="crumb"><a href="index.html">Inicio</a> · Privacidad</p>
+        <h1>Política de privacidad</h1>
+        <p>Queremos que sepas exactamente qué datos usamos y para qué. Simple y claro.</p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:14px">
+      <div class="container">
+        <p class="updated">Última actualización: octubre 2026</p>
+
+        <div class="prose">
+          <article class="rule">
+            <h2><span class="n">1</span> Qué datos recopilamos</h2>
+            <ul>
+              <li><b>Datos de Discord:</b> nombre de usuario, ID, nombre visible y foto cuando te unís a la comunidad o creás una cuenta web, para darte roles, gestionar la whitelist e identificarte en el Panel de Ciudadano.</li>
+              <li><b>Cuenta de la web:</b> usuario, rol, fecha de creación y una <b>contraseña cifrada con scrypt</b> (nunca se guarda en texto plano). La sesión usa un token que podés cerrar cuando quieras.</li>
+              <li><b>Reseñas:</b> el nombre, la foto de Discord, la puntuación, el texto y la fecha que publicás. Son <b>públicas</b> en el muro de reseñas.</li>
+              <li><b>Datos del juego:</b> el CAD y el bot pueden registrar llamadas, unidades y actividad dentro del servidor para el funcionamiento del roleplay.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">2</span> Para qué usamos esos datos</h2>
+            <ul>
+              <li>Gestionar tu acceso, roles y compras.</li>
+              <li>Moderar la comunidad y resolver reportes.</li>
+              <li>Mejorar el servidor y la experiencia de juego.</li>
+            </ul>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">3</span> Almacenamiento local y servidor</h2>
+            <p>Esta web no usa cookies de seguimiento ni publicidad. En el almacenamiento local de tu navegador guardamos el token de sesión, una copia de tu perfil y de las reseñas para que la página cargue rápido, el último usuario y la caché de avatares de Roblox. Podés cerrar sesión desde la web y borrar esos datos vaciando el almacenamiento del navegador.</p>
+            <p>Las cuentas y las reseñas se guardan en un <b>canal privado del Discord de la comunidad</b>, administrado por el bot, para que sobrevivan a los reinicios del servidor y se vean desde cualquier dispositivo. Solo el staff autorizado y el bot tienen acceso a ese canal.</p>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">4</span> Con quién compartimos datos</h2>
+            <p>No vendemos ni compartimos tus datos con terceros. Solo interactuamos con las plataformas necesarias: <b>Discord</b> (comunidad y soporte) y <b>Roblox / Emergency Response: Liberty County</b> (el juego). Cada plataforma tiene su propia política de privacidad.</p>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">5</span> Menores de edad</h2>
+            <p>La comunidad sigue las normas de Roblox y Discord: si sos menor de edad, tu participación debe contar con la supervisión de tu tutor y cumplir la edad mínima de esas plataformas.</p>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">6</span> Tus derechos</h2>
+            <p>Podés pedir en cualquier momento que eliminemos tus datos de la comunidad (roles, registros de whitelist, cuenta web y reseñas) abriendo un ticket en Discord o escribiéndonos un correo. También podés cerrar sesión y dejar de usar la cuenta cuando quieras.</p>
+          </article>
+
+          <article class="rule">
+            <h2><span class="n">7</span> Contacto</h2>
+            <p>Para cualquier duda sobre tus datos, escribinos por Discord o al correo de soporte que aparece en el pie de esta página.</p>
+          </article>
+
+          <div class="notice">
+            <b>Importante:</b> las reseñas son públicas y las cuentas se guardan en el canal privado del Discord de la comunidad para que se vean desde cualquier dispositivo. El staff nunca te va a pedir tu contraseña: los códigos de acceso llegan por MD desde el bot oficial.
+          </div>
+
+          <div class="hero-actions" style="margin-top:26px">
+            <a class="btn btn-primary" data-link="discord">Consultar por Discord</a>
+            <a class="btn btn-ghost" href="terminos.html">Ver términos y condiciones</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+            <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+          </a>
+          <p>La comunidad de roleplay en español de Emergency Response: Liberty County. Whitelist, economía interna, eventos y soporte 24/7.</p>
+          <div class="socials">
+            <a data-link="discord" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg></a>
+            <a data-link="instagram" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 6a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 17.6 6z"/></svg></a>
+            <a data-link="tiktok" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M15 3c.3 1.9 1.6 3.4 3.5 3.8v2.1c-1.3-.1-2.5-.6-3.5-1.4v6.2a5.3 5.3 0 1 1-5.3-5.3c.3 0 .6 0 .8.1v2.2a3.1 3.1 0 1 0 2.2 3V3h2.3z"/></svg></a>
+            <a data-link="youtube" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15.2V8.8l5.2 3.2z"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Comunidad</div>
+          <ul>
+            <li><a href="index.html#como-jugar">Cómo unirse</a></li>
+            <li><a href="index.html#servidores">Servidores</a></li>
+            <li><a href="resenas.html">Reseñas</a></li>
+            <li><a href="index.html#equipo">Equipo</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="foot-title">Soporte</div>
+          <ul>
+            <li><a data-link="discord">Discord</a></li>
+            <li><a data-link="correo">Correo</a></li>
+            <li><a href="normativa.html">Normativa</a></li>
+            <li><a href="terminos.html">Términos</a></li>
+            <li><a href="privacidad.html">Privacidad</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP. Todos los derechos reservados.</p>
+      </div>
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community ni Emergency Response: Liberty County. Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -30,7 +30,7 @@
 
     <a class="drawer-panel" data-open-panel>
       <span class="ico">🆔</span>
-      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord · Próximamente</small></span>
+      <span class="txt"><b>Panel de Ciudadano</b><small>Entrá con tu Discord</small></span>
     </a>
 
     <div class="drawer-label">Página</div>
@@ -98,8 +98,9 @@
           <article class="rule">
             <h2><span class="n">1</span> Qué datos recopilamos</h2>
             <ul>
-              <li><b>Datos de Discord:</b> nombre de usuario e ID cuando te unís a la comunidad, para darte roles y gestionar la whitelist.</li>
-              <li><b>Datos de la web:</b> las reseñas que publicás (nombre y texto) se guardan <b>en tu propio navegador</b>, no en nuestros servidores.</li>
+              <li><b>Datos de Discord:</b> nombre de usuario, ID, nombre visible y foto cuando te unís a la comunidad o creás una cuenta web, para darte roles, gestionar la whitelist e identificarte en el Panel de Ciudadano.</li>
+              <li><b>Cuenta de la web:</b> usuario, rol, fecha de creación y una <b>contraseña cifrada con scrypt</b> (nunca se guarda en texto plano). La sesión usa un token que podés cerrar cuando quieras.</li>
+              <li><b>Reseñas:</b> el nombre, la foto de Discord, la puntuación, el texto y la fecha que publicás. Son <b>públicas</b> en el muro de reseñas.</li>
               <li><b>Datos del juego:</b> el CAD y el bot pueden registrar llamadas, unidades y actividad dentro del servidor para el funcionamiento del roleplay.</li>
             </ul>
           </article>
@@ -114,8 +115,9 @@
           </article>
 
           <article class="rule">
-            <h2><span class="n">3</span> Almacenamiento local (cookies)</h2>
-            <p>Esta web no usa cookies de seguimiento ni publicidad. Guardamos datos mínimos en el almacenamiento local de tu navegador (por ejemplo, tus reseñas y la preferencia del menú). Podés borrarlos vaciando los datos del navegador.</p>
+            <h2><span class="n">3</span> Almacenamiento local y servidor</h2>
+            <p>Esta web no usa cookies de seguimiento ni publicidad. En el almacenamiento local de tu navegador guardamos el token de sesión, una copia de tu perfil y de las reseñas para que la página cargue rápido, el último usuario y la caché de avatares de Roblox. Podés cerrar sesión desde la web y borrar esos datos vaciando el almacenamiento del navegador.</p>
+            <p>Las cuentas y las reseñas se guardan en un <b>canal privado del Discord de la comunidad</b>, administrado por el bot, para que sobrevivan a los reinicios del servidor y se vean desde cualquier dispositivo. Solo el staff autorizado y el bot tienen acceso a ese canal.</p>
           </article>
 
           <article class="rule">
@@ -130,7 +132,7 @@
 
           <article class="rule">
             <h2><span class="n">6</span> Tus derechos</h2>
-            <p>Podés pedir en cualquier momento que eliminemos tus datos de la comunidad (roles, registros de whitelist y cuenta) abriendo un ticket en Discord o escribiéndonos un correo.</p>
+            <p>Podés pedir en cualquier momento que eliminemos tus datos de la comunidad (roles, registros de whitelist, cuenta web y reseñas) abriendo un ticket en Discord o escribiéndonos un correo. También podés cerrar sesión y dejar de usar la cuenta cuando quieras.</p>
           </article>
 
           <article class="rule">
@@ -139,7 +141,7 @@
           </article>
 
           <div class="notice">
-            <b>Importante:</b> esta web es un sitio informativo y estático. Las reseñas publicadas se guardan en tu navegador; en el futuro, si se conecta al servidor de la comunidad, las reseñas podrían ser visibles para todos los miembros.
+            <b>Importante:</b> las reseñas son públicas y las cuentas se guardan en el canal privado del Discord de la comunidad para que se vean desde cualquier dispositivo. El staff nunca te va a pedir tu contraseña: los códigos de acceso llegan por MD desde el bot oficial.
           </div>
 
           <div class="hero-actions" style="margin-top:26px">

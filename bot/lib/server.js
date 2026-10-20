@@ -5,9 +5,11 @@
 //   GET  /              → texto informativo
 //   POST /cad/snapshot  → lo llama el CAD con su estado (llamadas/unidades/BOLOs)
 //   POST /erlc/webhook  → eventos en tiempo real del juego (firmados con Ed25519)
+//   /auth/*  y  /reviews → cuentas del Panel de Ciudadano y reseñas compartidas
+//                          (las maneja lib/web-auth.js)
 //
 // Todo responde con CORS abierto para que el CAD (app de escritorio)
-// pueda enviar desde cualquier origen.
+// y la web puedan enviar desde cualquier origen.
 
 const http = require('http');
 const { verifyErlcSignature } = require('./erlc');
@@ -21,13 +23,13 @@ function readBody(req) {
   });
 }
 
-function createBotServer({ cfg, onCadSnapshot, onErlcEvent, log = console.log }) {
+function createBotServer({ cfg, onCadSnapshot, onErlcEvent, webAuth = null, log = console.log }) {
   return new Promise((resolve, reject) => {
     const server = http.createServer(async (req, res) => {
       const cors = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'content-type, x-cad-key',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'content-type, authorization, x-cad-key',
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
       };
       const send = (code, body, type = 'text/plain; charset=utf-8') => {
         res.writeHead(code, { ...cors, 'Content-Type': type });
@@ -41,6 +43,17 @@ function createBotServer({ cfg, onCadSnapshot, onErlcEvent, log = console.log })
 
       if (req.method === 'GET' && (url === '/health' || url === '/')) {
         return send(200, url === '/health' ? 'ok' : 'CAD ER:LC — bot activo 🤖\n');
+      }
+
+      // ---- Cuentas de la web y reseñas compartidas ----
+      if (webAuth) {
+        try {
+          if (await webAuth.handle(req, res, url)) return;
+        } catch (err) {
+          log('[Web] Error atendiendo el pedido:', err.message);
+          if (!res.headersSent) return sendJson(500, { ok: false, error: 'Error interno.' });
+          return;
+        }
       }
 
       // ---- Enlace con el CAD ----

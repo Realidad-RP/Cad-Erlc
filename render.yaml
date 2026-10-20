@@ -50,3 +50,5 @@ services:
         sync: false
       - key: CH_ESTADO
         sync: false
+      - key: CH_PANEL
+        sync: false

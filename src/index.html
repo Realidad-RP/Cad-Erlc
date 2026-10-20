@@ -10,6 +10,8 @@
 <header class="topbar">
   <div class="brand"><span class="brand-logo">🏛️</span> CAD <span class="brand-sub">| AYUNTAMIENTO |</span> Los Angeles</div>
   <div class="topbar-right">
+    <span id="user-chip" class="pill user-chip">👤 Invitado</span>
+    <button id="logout-btn" class="btn btn-small hidden" type="button" title="Cerrar sesión">🔒 Salir</button>
     <span id="radio-status" class="pill pill-off">Radio: desconectado</span>
     <span id="clock" class="muted"></span>
   </div>
@@ -102,6 +104,14 @@
       <h2>👑 Administración de roles</h2>
       <div class="muted small">Rol de cada persona conectada:</div>
       <div id="admin-users" class="admin-users"></div>
+      <div class="admin-assign">
+        <div class="muted small">Asignar a un oficial (aunque esté desconectado):</div>
+        <input id="admin-name" maxlength="40" placeholder="Nombre exacto del oficial" />
+        <div class="field-row">
+          <select id="admin-role"></select>
+          <button id="admin-apply-offline" class="btn btn-primary btn-small" type="button">Asignar</button>
+        </div>
+      </div>
     </section>
 
     <section class="panel">
@@ -225,8 +235,7 @@
         <div class="panel-head">
           <h2>🗺️ Mapa en vivo</h2>
           <div class="filters">
-            <button class="btn btn-small active" data-map-mode="plano" type="button">🗺️ Plano</button>
-            <button class="btn btn-small" data-map-mode="3d" type="button">⛰️ 3D</button>
+            <span class="muted small">🗺️ Plano en vivo</span>
             <button class="btn btn-small" id="map-civ-btn" type="button">👥 Civiles</button>
           </div>
         </div>
@@ -532,16 +541,25 @@
 
 <!-- Pantalla de acceso (contraseña para el MDT) -->
 <div id="login-overlay" class="login-overlay">
+  <div class="login-slides" aria-hidden="true">
+    <div class="login-slide s1"></div>
+    <div class="login-slide s2"></div>
+    <div class="login-slide s3"></div>
+  </div>
+  <img class="login-watermark" src="assets/lapd-watermark.svg" alt="" aria-hidden="true" draggable="false" />
   <div class="login-card">
     <img src="assets/logo.png" alt="Escudo" class="login-logo" />
     <div class="login-title">CAD <span>| AYUNTAMIENTO |</span> Los Angeles</div>
     <div class="login-sub">Contraseña del MDT</div>
+    <div class="login-row login-name-row">
+      <input id="login-name" type="text" maxlength="40" placeholder="Tu nombre de oficial (se guarda)" autocomplete="off" spellcheck="false" />
+    </div>
     <div class="login-row">
       <input id="login-pass" type="password" placeholder="Contraseña" autocomplete="off" spellcheck="false" />
       <button id="login-enter" class="btn btn-primary" type="button">Entrar</button>
     </div>
     <div id="login-error" class="login-error hidden">❌ Contraseña incorrecta. Probá de nuevo.</div>
-    <div class="login-hint muted small">🚓 MDT general · La Realidad RP</div>
+    <div class="login-hint muted small">🚓 MDT general · La Realidad RP · tu nombre y rango quedan guardados</div>
   </div>
 </div>
 

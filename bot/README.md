@@ -18,6 +18,7 @@ El bot une las tres piezas de tu comunidad:
 | 🎮 **Estado en vivo** | Muestra cuántos jugadores hay en el servidor de ER:LC (y un mensaje que se actualiza solo) |
 | 📡 **Avisos del juego** | Recibe las **llamadas de emergencia** del juego y los comandos con `;` en tiempo real (webhooks) |
 | 💬 **Comandos** | `/estado` · `/jugadores` · `/cad` · `/juego` (ejecuta comandos dentro del juego, solo admins) |
+| 🪪 **Cuentas web** | Crea cuentas para el **Panel de Ciudadano** de la web con el usuario de Discord, contraseña y **código por MD**. Guarda las **reseñas compartidas** para que se vean desde cualquier dispositivo |
 
 ---
 
@@ -29,25 +30,29 @@ El bot une las tres piezas de tu comunidad:
 2. **New Application** → ponele nombre (ej. `CAD ERLC`) → Create.
 3. Menú izquierdo → **Bot**:
    - Pulsá **Reset Token** → **Copy** y guardá ese texto (es el `discordToken`). ⚠️ No lo compartas con nadie.
-   - No hace falta activar ningunos “intents” para este bot.
+   - **Importante para la web:** en **Privileged Gateway Intents** activá **SERVER MEMBERS INTENT** y guardá.
+     El bot lo usa para encontrar tu usuario de Discord cuando creás la cuenta web (busca por nombre).
+     No hace falta activar `MESSAGE CONTENT INTENT`.
 4. Menú izquierdo → **General Information** → copiá el **Application ID**.
 5. Invitá el bot a tu servidor: abrí esta dirección cambiando `TU_APPLICATION_ID`:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=TU_APPLICATION_ID&scope=bot+applications.commands&permissions=19456
+   https://discord.com/oauth2/authorize?client_id=TU_APPLICATION_ID&scope=bot+applications.commands&permissions=93200
    ```
 
-   (permisos: ver canales, enviar mensajes y enlaces de embeds)
+   (permisos: ver canales, enviar mensajes, embeds, leer historial, gestionar mensajes y crear el canal privado del panel)
 
 ### Parte 2 — IDs de canales y servidor
 
 1. En Discord: **Ajustes de usuario → Avanzado → Modo desarrollador: activado**.
 2. Clic derecho a tu **servidor** → *Copiar ID* (ese es el `guildId`).
-3. Clic derecho a cada **canal** → *Copiar ID*. Podés preparar hasta 4 canales:
+3. Clic derecho a cada **canal** → *Copiar ID*. Podés preparar hasta 5 canales:
    - `despacho` — llamadas y despachos del CAD
    - `bolo` — BOLOs
    - `erlc` — avisos en vivo del juego (webhooks)
    - `estado` — un mensaje que se actualiza solo, con los jugadores conectados
+   - `panel` — **privado**, donde se guardan las cuentas y reseñas de la web.
+     Si no lo creás, el bot crea **#panel-ciudadano** solo (necesita permiso *Gestionar canales*).
 
 ### Parte 3 — Configurar
 
@@ -107,11 +112,41 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 1. Subí el proyecto a GitHub (que ya tenés).
 2. En Render: tu Blueprint → **Sync** (lee el nuevo servicio `cad-erlc-bot` del `render.yaml`).
 3. Completá las variables de entorno del servicio:
-   `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `ERLC_SERVER_KEY`, `CAD_KEY` y los canales (`CH_DESPACHO`, `CH_BOLO`, `CH_ERLC`, `CH_ESTADO`).
+   `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `ERLC_SERVER_KEY`, `CAD_KEY` y los canales (`CH_DESPACHO`, `CH_BOLO`, `CH_ERLC`, `CH_ESTADO`, opcional `CH_PANEL`).
 4. Cuando termine el deploy, en el CAD poné como dirección del bot: `https://cad-erlc-bot.onrender.com`.
 
 > 💡 En el plan gratuito el servicio se duerme tras un rato sin tráfico HTTP;
 > el bot de Discord mantiene la conexión despierta mientras hay movimiento.
+>
+> 💾 En ese plan el disco se borra en cada reinicio. Por eso las **cuentas web y las reseñas**
+> se guardan como mensajes en el canal privado **#panel-ciudadano** de tu Discord:
+> siguen ahí aunque Render reinicie el servicio. Las sesiones vencen solas a los 30 días.
+
+---
+
+### Parte 8 — Cuentas del Panel de Ciudadano (web)
+
+La web tiene un botón **Cuenta** (arriba a la derecha y en el menú lateral). El flujo es:
+
+1. La persona escribe su **usuario de Discord**, una **contraseña** y la confirma.
+2. El bot busca ese usuario **en tu servidor**, le manda un **MD con un código de 6 dígitos** y la web pide el código.
+3. Al ingresarlo, la cuenta queda creada y la persona entra automáticamente, con su **nombre y foto de Discord**.
+4. Para volver a entrar: usuario + contraseña. Si la olvidó, pide un código por MD y elige una nueva.
+5. Las **reseñas** que publique quedan guardadas en el servidor y se ven desde cualquier dispositivo, con su foto de Discord.
+
+**Requisitos (una sola vez):**
+
+- Activar **SERVER MEMBERS INTENT** en el Developer Portal (Parte 1). Sin esto, la web no puede encontrar el usuario por nombre.
+- Que el bot esté en el servidor y que la persona tenga los **MD abiertos** (si no, no puede recibir el código).
+- Un lugar privado para guardar los datos:
+  - lo ideal es dejar que el bot cree **#panel-ciudadano** (necesita *Gestionar canales*), o
+  - crear el canal a mano, darle acceso al bot y poner su ID en `CH_PANEL`.
+
+> ⚠️ El canal del panel debe ser **privado**: guarda hashes de contraseñas (scrypt), sesiones y reseñas.
+> No le des acceso a @everyone. El bot no publica las contraseñas en ningún otro lado.
+
+La web ya apunta a `https://cad-erlc-bot.onrender.com`. Si usás otra dirección, cambiala en `web/config.js` (`apiBase`).
+Si abrís la web en tu propia PC, también acepta el bot local en `http://127.0.0.1:8790`.
 
 ---
 
@@ -129,6 +164,18 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 
 ---
 
+## Pruebas rápidas 🧪
+
+Desde la raíz del proyecto (no necesitan conectarse a Discord):
+
+```bash
+node bot/test-web-auth.js        # cuentas, códigos, sesiones y reseñas
+node bot/test-discord-store.js   # guardado duradero en #panel-ciudadano
+node bot/self-test.js            # configuración y utilidades del bot
+```
+
+---
+
 ## Problemas comunes 🔧
 
 | Síntoma | Causa y solución |
@@ -140,12 +187,19 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 | Error **429** | Límite de la API alcanzado; el bot ya espera solo. No lo apures |
 | Los comandos no aparecen en Discord | Revisá `guildId`; si lo cambiás, reiniciá el bot (tarda hasta 1 hora si es global) |
 | El bot no publica pero no da error | Revisá que los IDs de canales sean correctos y que el bot tenga permiso de *Enviar mensajes* en ese canal |
+| La web dice **“No encuentro ese usuario en el servidor”** | Activá **SERVER MEMBERS INTENT** en el Developer Portal y reiniciá el bot |
+| La web dice **“No pude enviarte un MD”** | La persona no está en el servidor o tiene los MD cerrados (Privacidad → Mensajes directos) |
+| La web dice **“El sistema de cuentas está iniciando”** | El bot todavía no terminó de conectar o no puede leer/crear **#panel-ciudadano**. Dale *Leer historial* y *Gestionar canales*, o creá el canal y configurá `CH_PANEL` |
+| Las reseñas no se comparten entre dispositivos | El bot no está guardando en Discord: revisá los permisos del canal del panel y los logs de Render |
 
 ## Seguridad 🔒
 
 - `bot/config.js` **no se sube a GitHub** (ya está en `.gitignore`): tiene el token y las claves.
 - Si el token se filtra: Developer Portal → Bot → **Reset Token** y actualizá `config.js`.
 - La `cadKey` protege el enlace CAD → bot: sin ella, nadie puede publicar en tus canales.
+- Las contraseñas web nunca se guardan en texto plano: se usa **scrypt** con sal.
+  Los códigos de recuperación son de 6 dígitos, vencen a los **10 minutos** y tienen un enfriamiento de **30 segundos**.
+- El canal **#panel-ciudadano** contiene datos privados: no lo hagas público ni le des acceso a roles que no correspondan.
 
 ## Estructura
 
@@ -154,6 +208,10 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 | `index.js` | Programa principal: Discord, comandos, estado en vivo |
 | `lib/erlc.js` | Cliente de la API de ER:LC + verificación de firmas Ed25519 |
 | `lib/cad.js` | Espejo del CAD y detección de novedades |
-| `lib/server.js` | Servidor HTTP: enlace con el CAD y webhook del juego |
+| `lib/server.js` | Servidor HTTP: enlace con el CAD, webhook del juego y cuentas web |
+| `lib/web-auth.js` | Cuentas, códigos por MD, sesiones y API de reseñas de la web |
+| `lib/store.js` | Guardado duradero: archivo local (pruebas) o canal privado de Discord (producción) |
 | `config.js` | Tus claves (privado, no se sube) |
-| `self-test.js` | Prueba automática |
+| `self-test.js` | Prueba automática del bot |
+| `test-web-auth.js` | Prueba automática de cuentas y reseñas (26 comprobaciones) |
+| `test-discord-store.js` | Prueba del guardado en Discord con un canal simulado (13 comprobaciones) |
