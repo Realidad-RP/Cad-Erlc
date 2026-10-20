@@ -69,6 +69,9 @@ function lastCode() {
   const health = await fetch(base + '/health');
   check('health sigue funcionando', health.status === 200 && (await health.text()) === 'ok');
 
+  const webStatus = await api('/web/status');
+  check('diagnóstico web disponible', webStatus.status === 200 && webStatus.data.ok === true && webStatus.data.loaded === true);
+
   // Registro
   const reg1 = await api('/auth/register', { method: 'POST', body: { username: '@Ana', password: 'secreto1' } });
   check('registro pide código', reg1.status === 200 && reg1.data.pending === true && reg1.data.username === 'ana');

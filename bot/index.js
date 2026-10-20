@@ -154,6 +154,7 @@ const webAuth = createWebAuth({
   store: webStore,
   resolveDiscordUser,
   sendDiscordDM,
+  isDiscordReady: () => discordReady,
   log: console.log,
 });
 

@@ -45,6 +45,13 @@ function createBotServer({ cfg, onCadSnapshot, onErlcEvent, webAuth = null, log 
         return send(200, url === '/health' ? 'ok' : 'CAD ER:LC — bot activo 🤖\n');
       }
 
+      // ---- Diagnóstico de las cuentas web (sin secretos) ----
+      if (req.method === 'GET' && url === '/web/status') {
+        if (!webAuth || !webAuth.status) return sendJson(404, { ok: false, error: 'Cuentas web no configuradas.' });
+        const status = webAuth.check ? await webAuth.check() : webAuth.status();
+        return sendJson(200, { ok: true, ...status });
+      }
+
       // ---- Cuentas de la web y reseñas compartidas ----
       if (webAuth) {
         try {

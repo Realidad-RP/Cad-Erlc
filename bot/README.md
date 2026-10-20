@@ -213,5 +213,5 @@ node bot/self-test.js            # configuración y utilidades del bot
 | `lib/store.js` | Guardado duradero: archivo local (pruebas) o canal privado de Discord (producción) |
 | `config.js` | Tus claves (privado, no se sube) |
 | `self-test.js` | Prueba automática del bot |
-| `test-web-auth.js` | Prueba automática de cuentas y reseñas (26 comprobaciones) |
+| `test-web-auth.js` | Prueba automática de cuentas y reseñas (27 comprobaciones) |
 | `test-discord-store.js` | Prueba del guardado en Discord con un canal simulado (13 comprobaciones) |

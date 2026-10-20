@@ -120,11 +120,12 @@ function publicUser(account) {
  * @param {(username:string)=>Promise<object|null>} opts.resolveDiscordUser
  * @param {(discordId:string, content:string)=>Promise<any>} opts.sendDiscordDM
  */
-function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, log = console.log, now = () => Date.now() } = {}) {
+function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDiscordReady = () => true, log = console.log, now = () => Date.now() } = {}) {
   const dataStore = store || createFileStore(dataDir);
   const db = { accounts: {}, pending: {}, resets: {}, sessions: {}, reviews: [] };
   let loaded = false;
   let loading = null;
+  let lastLoadError = '';
 
   async function ensureLoaded() {
     if (loaded) return;
@@ -148,6 +149,7 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, log 
         }
         loaded = true;
       })().catch((err) => {
+        lastLoadError = (err && err.message) || String(err);
         loading = null;
         throw err;
       });
@@ -614,6 +616,31 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, log 
       reviews: db.reviews.length,
       sessions: Object.keys(db.sessions).length,
     }),
+    status: () => ({
+      loaded,
+      loading: !!loading,
+      store: dataStore.describe ? dataStore.describe() : 'almacén',
+      discordReady: !!isDiscordReady(),
+      lastError: lastLoadError,
+      accounts: Object.keys(db.accounts).length,
+      reviews: db.reviews.length,
+      sessions: Object.keys(db.sessions).length,
+    }),
+    check: async () => {
+      try { await ensureLoaded(); } catch (err) {
+        lastLoadError = (err && err.message) || String(err);
+      }
+      return {
+        loaded,
+        loading: !!loading,
+        store: dataStore.describe ? dataStore.describe() : 'almacén',
+        discordReady: !!isDiscordReady(),
+        lastError: lastLoadError,
+        accounts: Object.keys(db.accounts).length,
+        reviews: db.reviews.length,
+        sessions: Object.keys(db.sessions).length,
+      };
+    },
   };
 }
 

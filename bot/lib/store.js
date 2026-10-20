@@ -105,7 +105,16 @@ function createDiscordStore({ client, guildId, channelId, log = console.log }) {
 
   async function getGuild() {
     if (!client || !client.user) throw new Error('El bot de Discord todavía no está conectado.');
-    if (guildId) return client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId);
+    if (guildId) {
+      const configured = client.guilds.cache.get(guildId)
+        || await client.guilds.fetch(guildId).catch(() => null);
+      if (configured) return configured;
+      if (client.guilds.cache.size === 1) {
+        log('[Web] No encontré el servidor configurado; uso el único servidor del bot.');
+        return client.guilds.cache.first();
+      }
+      throw new Error('No encontré el servidor de Discord configurado (revisá DISCORD_GUILD_ID).');
+    }
     return client.guilds.cache.first() || null;
   }
 
@@ -124,24 +133,30 @@ function createDiscordStore({ client, guildId, channelId, log = console.log }) {
     }
     if (!found) {
       const { ChannelType, PermissionFlagsBits } = require('discord.js');
-      found = await guild.channels.create({
+      const create = (allow) => guild.channels.create({
         name: CHANNEL_NAME,
         type: ChannelType.GuildText,
         topic: '🔒 Datos privados del Panel de Ciudadano · no borrar ni renombrar',
         permissionOverwrites: [
           { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-          {
-            id: client.user.id,
-            allow: [
-              PermissionFlagsBits.ViewChannel,
-              PermissionFlagsBits.SendMessages,
-              PermissionFlagsBits.ReadMessageHistory,
-              PermissionFlagsBits.ManageMessages,
-              PermissionFlagsBits.EmbedLinks,
-            ],
-          },
+          { id: client.user.id, allow },
         ],
       });
+      try {
+        found = await create([
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.EmbedLinks,
+        ]);
+      } catch (err) {
+        // Algunos bots no pueden delegar todos esos permisos. Lo importante
+        // es que el canal sea privado y que el bot pueda verlo; el resto se
+        // hereda de sus roles. No pedimos ManageMessages: así funciona incluso
+        // si el bot no puede borrar mensajes viejos.
+        log('[Web] No pude crear el panel con todos los permisos; reintento con lo mínimo:', err.message);
+        found = await create([PermissionFlagsBits.ViewChannel]);
+      }
       log(`[Web] Canal privado creado: #${CHANNEL_NAME} (no lo borres).`);
     }
     channel = found;
