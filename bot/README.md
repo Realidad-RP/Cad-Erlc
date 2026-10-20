@@ -199,6 +199,7 @@ node bot/self-test.js            # configuración y utilidades del bot
 | Síntoma | Causa y solución |
 |---|---|
 | El CAD dice “Sin conexión con el bot” | El bot no está corriendo (`npm start`), la dirección no es la correcta, o la `cadKey` no coincide entre bot y CAD |
+| El CAD dice “HTTP 403” al enlazar y `/web/status` muestra `cadKeyReady:false` | Falta `CAD_KEY` en las variables de entorno de Render. Cargala con la misma clave del panel “Enlace con el bot” del CAD y redeployá |
 | `/cad` dice “El CAD todavía no envió datos” | Falta configurar el panel “Enlace con el bot” en la app |
 | Error **401** en los avisos del juego | La `erlcServerKey` es vieja; el dueño la regeneró en el juego |
 | Error **403** al consultar el juego | El servidor privado no tiene el pack **ERLC API**, o la clave es incorrecta |

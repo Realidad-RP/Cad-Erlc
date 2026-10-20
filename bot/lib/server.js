@@ -49,7 +49,8 @@ function createBotServer({ cfg, onCadSnapshot, onErlcEvent, webAuth = null, log 
       if (req.method === 'GET' && url === '/web/status') {
         if (!webAuth || !webAuth.status) return sendJson(404, { ok: false, error: 'Cuentas web no configuradas.' });
         const status = webAuth.check ? await webAuth.check() : webAuth.status();
-        return sendJson(200, { ok: true, ...status });
+        // Solo indica si la clave existe; nunca devuelve su valor.
+        return sendJson(200, { ok: true, ...status, cadKeyReady: !!cfg.cadKey });
       }
 
       // ---- Cuentas de la web y reseñas compartidas ----
