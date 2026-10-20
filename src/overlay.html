@@ -75,7 +75,9 @@
   .abox .lab { display: block; font-size: 6.5px; font-weight: 800; letter-spacing: .14em; color: #7b8b9d; line-height: 1.25; }
   .abox .val { display: block; font-size: 10.5px; font-weight: 800; color: #12263d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .abox.zone { width: 76px; flex: none; }
-  .abox.chan { flex: 1; border-left: 3px solid #2f6fd4; }
+  .abox.chan { flex: 1; border-left: 3px solid #2f6fd4; cursor: pointer; position: relative; padding-right: 16px; }
+  .abox.chan:hover { border-color: #8fb3dd; background: #f8fbff; }
+  .abox.chan::after { content: '▾'; position: absolute; right: 5px; top: 8px; font-size: 8px; color: #6f87a3; }
 
   .msg {
     background: #eaf2fb; border: 1px solid #cbdcee; border-left: 3px solid #2f6fd4;
@@ -95,7 +97,9 @@
   #count { margin-left: auto; font-weight: 700; white-space: nowrap; }
 
   .tabs { display: flex; gap: 4px; margin-top: auto; padding-top: 4px; border-top: 1px solid #c8d6e4; }
-  .tabs span { flex: 1; text-align: center; font-size: 8.5px; font-weight: 800; letter-spacing: .04em; color: #2f5f9e; background: linear-gradient(#ffffff, #e9f0f7); border: 1px solid #c3d0dd; border-radius: 4px; padding: 2px 0; }
+  .tabs span { flex: 1; text-align: center; font-size: 8.5px; font-weight: 800; letter-spacing: .04em; color: #2f5f9e; background: linear-gradient(#ffffff, #e9f0f7); border: 1px solid #c3d0dd; border-radius: 4px; padding: 2px 0; cursor: pointer; }
+  .tabs span:hover { border-color: #7fa5cf; color: #1d4f8c; background: linear-gradient(#ffffff, #dfeaf6); }
+  .tabs span:active { transform: translateY(1px); }
 
   /* Teclado */
   .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
@@ -162,6 +166,28 @@
   #panic-send { background: linear-gradient(#c62828, #8e1b1b); border-color: #e35b5b; color: #ffecec; }
   #panic-send:hover { filter: brightness(1.12); }
   #panic-send:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+
+  /* Lista de canales (pestaña "Canales") */
+  .chan-card {
+    position: absolute; inset: 8px; z-index: 6; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #141a22, #0a0d12); border: 1px solid #2f3a48;
+    border-radius: 16px; padding: 10px 10px 8px; color: #e8eef5;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .7); -webkit-app-region: no-drag;
+  }
+  .cc-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 6px; }
+  .cc-title { font-size: 11px; font-weight: 800; letter-spacing: .16em; color: #9fb0c4; }
+  .cc-close { width: 18px; height: 18px; padding: 0; border-radius: 5px; background: #1a1e24; color: #8b96a5; border: 1px solid #3a414c; cursor: pointer; font-size: 10px; line-height: 15px; }
+  .cc-close:hover { color: #fff; border-color: #5b6b80; }
+  .cc-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 2px; }
+  .cc-cat { font-size: 7.5px; font-weight: 800; letter-spacing: .14em; color: #6f7f92; margin: 6px 2px 2px; text-transform: uppercase; }
+  .cc-item { text-align: left; padding: 6px 8px; border-radius: 6px; background: #121821; border: 1px solid #26303d; color: #cdd8e5; font: 700 10.5px "Segoe UI", sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .cc-item:hover { border-color: #465a72; background: #16202c; }
+  .cc-item.on { border-color: #2f6fd4; background: #16314f; color: #eaf3ff; }
+  .cc-item .cc-dot { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; flex: none; box-shadow: 0 0 5px #22c55e; }
+  .cc-empty { padding: 22px 8px; text-align: center; font-size: 10px; color: #8b96a5; }
+  .cc-foot { padding: 6px 2px 0; font-size: 8px; color: #7e8b9c; text-align: center; }
+  .cc-list::-webkit-scrollbar { width: 5px; }
+  .cc-list::-webkit-scrollbar-thumb { background: #33414f; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -183,7 +209,7 @@
 
         <div class="row2">
           <div class="abox zone"><span class="lab">ZONA</span><span class="val" id="zone">—</span></div>
-          <div class="abox chan"><span class="lab">CANAL</span><span class="val" id="chan">Desconectado</span></div>
+          <div class="abox chan" id="chan-box" title="Cambiar de canal"><span class="lab">CANAL</span><span class="val" id="chan">Desconectado</span></div>
         </div>
 
         <div class="msg" id="msg">
@@ -198,7 +224,7 @@
           <span id="count">👥 0</span>
         </div>
 
-        <div class="tabs"><span>Zonas</span><span>Contactos</span></div>
+        <div class="tabs"><span id="tab-channels" title="Cambiar de canal">Canales</span><span>Contactos</span></div>
       </div>
 
       <div class="keypad">
@@ -230,6 +256,12 @@
         <button id="panic-send">ENVIAR 🚨</button>
       </div>
     </div>
+
+    <div class="chan-card hidden" id="chan-card">
+      <div class="cc-head"><span class="cc-title">CANALES</span><button class="cc-close" id="chan-close" title="Cerrar">✕</button></div>
+      <div class="cc-list" id="chan-list"></div>
+      <div class="cc-foot" id="chan-foot">Tocá un canal para entrar</div>
+    </div>
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
@@ -260,7 +292,7 @@
     } catch {}
   }
 
-  $('collapse').addEventListener('click', () => { closePanicCard(); setCollapsed(true); });
+  $('collapse').addEventListener('click', () => { closePanicCard(); closeChanCard(); setCollapsed(true); });
   $('mini').addEventListener('click', () => setCollapsed(false));
   if (window.cadNative && cadNative.onOverlayCollapsed) {
     cadNative.onOverlayCollapsed((d) => setMini(d && d.collapsed));
@@ -268,6 +300,7 @@
 
   // ---------- Pánico desde la radio ----------
   function openPanicCard() {
+    closeChanCard();
     $('panic-card').classList.remove('hidden');
     $('panic-where').value = '';
     const ok = !!lastState.connected;
@@ -294,7 +327,66 @@
   $('panic-where').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); $('panic-send').click(); }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanicCard(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closePanicCard(); closeChanCard(); }
+  });
+
+  // ---------- Cambiar de canal desde la radio ----------
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function renderChannelList(st) {
+    const list = Array.isArray(st.channels) ? st.channels : [];
+    const cur = st.channel || '';
+    const box = $('chan-list');
+    if (!list.length) {
+      box.innerHTML = '<div class="cc-empty">' + (st.connected ? 'No hay canales disponibles.' : 'Conectate a la radio primero.') + '</div>';
+      return;
+    }
+    const groups = new Map();
+    for (const c of list) {
+      const cat = String(c.cat || 'General');
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat).push(c);
+    }
+    let html = '';
+    for (const [cat, chs] of groups) {
+      html += '<div class="cc-cat">' + esc(cat) + '</div>';
+      for (const c of chs) {
+        const name = String(c.name || '');
+        const on = name === cur;
+        html += '<button class="cc-item' + (on ? ' on' : '') + '" data-ch="' + esc(name) + '" type="button">' +
+          (on ? '<span class="cc-dot"></span>' : '') + esc(name) + '</button>';
+      }
+    }
+    box.innerHTML = html;
+  }
+
+  function openChanCard() {
+    closePanicCard();
+    if (lastState.connected) {
+      renderChannelList(lastState);
+    } else {
+      $('chan-list').innerHTML = '<div class="cc-empty">Conectate a la radio primero.</div>';
+    }
+    $('chan-foot').textContent = lastState.connected ? 'Tocá un canal para entrar' : 'Conectate a la radio primero';
+    $('chan-card').classList.remove('hidden');
+  }
+  function closeChanCard() { $('chan-card').classList.add('hidden'); }
+
+  $('tab-channels').addEventListener('click', openChanCard);
+  $('chan-box').addEventListener('click', openChanCard);
+  $('chan-close').addEventListener('click', closeChanCard);
+  $('chan-list').addEventListener('click', (e) => {
+    const item = e.target.closest('.cc-item');
+    if (!item) return;
+    const name = item.dataset.ch || '';
+    if (!name) return;
+    if (!lastState.connected) { $('chan-foot').textContent = 'Conectate a la radio primero.'; return; }
+    if (name === lastState.channel) { closeChanCard(); return; }
+    $('chan-foot').textContent = 'Entrando a ' + name + '…';
+    if (window.cadNative && cadNative.overlayChannel) cadNative.overlayChannel({ name });
+    setTimeout(closeChanCard, 350);
+  });
 
   // ---------- Pintar el estado de la radio ----------
   function render(s) {
@@ -306,6 +398,7 @@
 
     $('zone').textContent = st.department || st.role || '—';
     $('chan').textContent = st.channel || (connected ? 'Sin canal' : 'Desconectado');
+    if (!$('chan-card').classList.contains('hidden')) renderChannelList(st);
 
     $('unit').textContent = st.unit || st.name || 'Sin unidad';
     $('ustatus').textContent = st.unitStatus || (st.role && st.role !== 'Miembro' ? st.role : '');

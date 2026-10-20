@@ -471,6 +471,11 @@ function setupOverlayIPC() {
       mainWindow.webContents.send('overlay-panic-clear');
     }
   });
+  ipcMain.on('overlay-channel', (_e, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('overlay-channel', data || {});
+    }
+  });
 
   ipcMain.on('overlay-open-cad', () => {
     if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); }

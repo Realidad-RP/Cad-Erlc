@@ -1615,6 +1615,9 @@ function overlaySync() {
     count: members.filter((m) => m.id !== st.myId).length,
     unit: unit ? unit.name : '',
     unitStatus,
+    channels: (st.channels || [])
+      .filter((ch) => { try { return canJoinChannel(ch).ok; } catch { return false; } })
+      .map((ch) => ({ name: ch.name, cat: ch.category || 'General' })),
     panicName: panicState ? (panicState.name || '') : '',
     panicSelf: !!(panicState && panicState.name && panicState.name.trim() === (st.name || '').trim()),
     pttKey: ($('#ptt-key') && $('#ptt-key').value) || 'V',
@@ -1650,6 +1653,21 @@ function wireOverlay() {
   if (window.cadNative && cadNative.onOverlayPanicClear) {
     cadNative.onOverlayPanicClear(() => {
       if (Radio.state.connected) Radio.clearPanic();
+    });
+  }
+
+  // Cambiar de canal desde la pestaña "Canales" de la radio flotante
+  if (window.cadNative && cadNative.onOverlayChannel) {
+    cadNative.onOverlayChannel(async (d) => {
+      const name = d && typeof d.name === 'string' ? d.name : '';
+      if (!name) return;
+      if (!Radio.state.connected) { flash('⚠️ Conectate a la radio primero.'); return; }
+      const ch = (Radio.state.channels || []).find((c) => c.name === name);
+      if (ch) {
+        const check = canJoinChannel(ch);
+        if (!check.ok) { flash('⛔ ' + check.why); return; }
+      }
+      await Radio.joinChannel(name);
     });
   }
 }
