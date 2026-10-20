@@ -39,6 +39,7 @@
   let pendingReset = null;  // username
   let resendTimer = null;
   let resendLeft = 0;
+  let panelIntent = false;  // el usuario entró desde "Panel de Ciudadano"
 
   function randomPhoto() { return PHOTOS[Math.floor(Math.random() * PHOTOS.length)]; }
 
@@ -72,12 +73,14 @@
       this.user = user || null;
       this.save();
       updateAuthUI();
+      emitAuthChange();
     },
     clear() {
       this.token = '';
       this.user = null;
       this.save();
       updateAuthUI();
+      emitAuthChange();
     },
     async api(pathname, { method = 'GET', json, headers = {} } = {}) {
       const opts = { method, headers: Object.assign({}, headers) };
@@ -122,19 +125,26 @@
     async init() {
       this.load();
       updateAuthUI();
-      if (!this.token) return;
-      try {
-        const d = await this.api('/auth/me');
-        if (d && d.user) {
-          this.user = d.user;
-          this.save();
-          updateAuthUI();
+      if (this.token) {
+        try {
+          const d = await this.api('/auth/me');
+          if (d && d.user) {
+            this.user = d.user;
+            this.save();
+            updateAuthUI();
+          }
+        } catch (err) {
+          if (err.status === 401) this.clear();
         }
-      } catch (err) {
-        if (err.status === 401) this.clear();
       }
+      emitAuthChange();
     },
+    ready: null,
   };
+
+  function emitAuthChange() {
+    document.dispatchEvent(new CustomEvent('lr:auth', { detail: { user: Auth.user } }));
+  }
 
   /* ============================================================
      1) ENLACES Y TEXTOS DESDE config.js
@@ -922,8 +932,9 @@
               <span class="auth-role" id="authAccountRole">Ciudadano</span>
               <span id="authAccountSince"></span>
             </div>
-            <p class="auth-sub auth-account-text">Tu cuenta está conectada al Discord. Acá vas a ver tu DNI y tus datos de la ciudad cuando el CAD termine de sincronizarlos.</p>
-            <button class="btn btn-primary auth-submit" type="button" data-auth-close>Volver al sitio</button>
+            <p class="auth-sub auth-account-text">Tu cuenta está conectada al Discord. En tu panel vas a ver el DNI, la licencia, los vehículos, las multas y las órdenes que tenga tu personaje en el CAD.</p>
+            <button class="btn btn-primary auth-submit" type="button" id="authOpenPanel">Abrir mi panel</button>
+            <button class="btn btn-ghost auth-submit" type="button" data-auth-close>Volver al sitio</button>
             <button class="btn btn-ghost auth-submit" type="button" id="authLogout">Cerrar sesión</button>
           </div>
 
@@ -961,8 +972,7 @@
         const d = await Auth.api('/auth/login', { method: 'POST', json: { username, password } });
         Auth.setSession(d.token, d.user);
         rememberUser(d.user.username);
-        closeAuth();
-        toast('✅ Entraste como ' + (d.user.displayName || d.user.username));
+        afterAuth('✅ Entraste como ' + (d.user.displayName || d.user.username));
       } catch (err) {
         setAuthMsg('login', '❌ ' + err.message, 'error');
       } finally {
@@ -1019,8 +1029,7 @@
         Auth.setSession(d.token, d.user);
         pendingAuth = null;
         if (resendTimer) { clearInterval(resendTimer); resendTimer = null; }
-        closeAuth();
-        toast('✅ Cuenta creada. ¡Bienvenido, ' + (d.user.displayName || d.user.username) + '!');
+        afterAuth('✅ Cuenta creada. ¡Bienvenido, ' + (d.user.displayName || d.user.username) + '!');
       } catch (err) {
         setAuthMsg('verify', '❌ ' + err.message, 'error');
       } finally {
@@ -1097,6 +1106,15 @@
       }
     });
 
+    // ---- Abrir el dashboard ----
+    const openPanelBtn = $('#authOpenPanel', modal);
+    if (openPanelBtn) {
+      openPanelBtn.addEventListener('click', () => {
+        closeAuth();
+        goPanel();
+      });
+    }
+
     // ---- Cerrar sesión ----
     const logoutBtn = $('#authLogout', modal);
     logoutBtn.addEventListener('click', async () => {
@@ -1109,6 +1127,37 @@
     });
   }
 
+  function isPanelPage() {
+    return /panel\.html$/i.test(location.pathname);
+  }
+
+  function goPanel() {
+    if (isPanelPage()) {
+      if (Auth.user) window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    location.href = 'panel.html';
+  }
+
+  function openPanelOrLogin() {
+    if (Auth.user) {
+      goPanel();
+      return;
+    }
+    panelIntent = true;
+    openAuth('login');
+  }
+
+  function afterAuth(message) {
+    const wantedPanel = panelIntent;
+    panelIntent = false;
+    closeAuth();
+    toast(message);
+    if (wantedPanel && !isPanelPage()) {
+      setTimeout(() => { location.href = 'panel.html'; }, 600);
+    }
+  }
+
   function setupAccountEntryPoints() {
     const header = $('.header-inner');
     if (header && !$('#headerAccount')) {
@@ -1117,7 +1166,7 @@
       btn.id = 'headerAccount';
       btn.className = 'header-account';
       btn.innerHTML = '<span class="ha-ic">👤</span><span class="ha-txt">Ingresar</span>';
-      btn.addEventListener('click', () => openAuth(Auth.user ? 'account' : 'login'));
+      btn.addEventListener('click', openPanelOrLogin);
       const burger = $('#btnMenu');
       if (burger && burger.parentNode === header) header.insertBefore(btn, burger);
       else header.appendChild(btn);
@@ -1126,7 +1175,7 @@
     $$('[data-open-panel]').forEach((trigger) => {
       trigger.addEventListener('click', (e) => {
         e.preventDefault();
-        openAuth(Auth.user ? 'account' : 'login');
+        openPanelOrLogin();
       });
     });
 
@@ -1134,6 +1183,7 @@
       const trigger = e.target.closest('[data-open-auth]');
       if (!trigger) return;
       e.preventDefault();
+      panelIntent = false;
       openAuth('login');
     });
   }
@@ -1371,11 +1421,21 @@
 
     // Las dos consultas son independientes: no hacemos esperar el muro
     // de reseñas a que termine de validarse la sesión.
-    Auth.init();
+    Auth.ready = Auth.init();
     Reviews.refresh();
 
     setInterval(() => {
       if (!document.hidden) Reviews.refresh();
     }, 60000);
   });
+
+  // API compartida para páginas con lógica propia (por ejemplo panel.html).
+  window.LRApp = {
+    Auth,
+    openAuth,
+    closeAuth,
+    goPanel,
+    toast,
+    updateAuthUI,
+  };
 })();

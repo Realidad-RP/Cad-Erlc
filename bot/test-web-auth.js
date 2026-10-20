@@ -11,6 +11,32 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cad-web-test-'));
 const sentDMs = [];
 let clock = Date.now();
 
+const cadSnapshot = {
+  persons: [
+    {
+      id: 'PER-1',
+      name: 'Ana RP',
+      dni: '30123456',
+      dob: '1998-04-12',
+      license: '4471122',
+      licStatus: 'Válida',
+      notes: 'Sin antecedentes.',
+    },
+  ],
+  vehicles: [
+    { id: 'VEH-1', plate: 'ABC123', model: 'Bravado Banshee', color: 'Rojo', owner: 'Ana RP', status: 'Normal', notes: '' },
+  ],
+  fines: [
+    { id: 'MUL-1', person: 'Ana RP', amount: 500, reason: 'Exceso de velocidad', officer: 'Oficial Pérez', status: 'pendiente', ts: clock },
+  ],
+  warrants: [
+    { id: 'ORD-1', person: 'Ana RP', wkind: 'Arresto', reason: 'Robo', officer: 'Oficial Pérez', status: 'activa', ts: clock },
+  ],
+  calls: [],
+  units: [],
+  bolos: [],
+};
+
 const discordUsers = {
   ana: { id: '111111111111111111', username: 'ana', displayName: 'Ana RP', avatar: 'https://cdn.discordapp.com/avatars/111/ana.png' },
   pedro: { id: '222222222222222222', username: 'pedro', displayName: 'Pedro RP', avatar: 'https://cdn.discordapp.com/avatars/222/pedro.png' },
@@ -27,6 +53,8 @@ const webAuth = createWebAuth({
   sendDiscordDM: async (id, content) => {
     sentDMs.push({ id, content });
   },
+  getCadSnapshot: () => cadSnapshot,
+  getCadUpdatedAt: () => clock,
 });
 
 const checks = {};
@@ -127,6 +155,60 @@ function lastCode() {
   check('la clave vieja ya no sirve', oldLogin.status === 401);
   const newLogin = await api('/auth/login', { method: 'POST', body: { username: 'ana', password: 'nuevaClave9' } });
   check('la clave nueva funciona', newLogin.status === 200);
+  const citizenToken = newLogin.data.token;
+
+  // Panel de Ciudadano: vinculación con los registros del CAD
+  const citizenBefore = await api('/citizen/me', { token: citizenToken });
+  check('panel: cuenta sin DNI vinculado', citizenBefore.status === 200 && citizenBefore.data.linked === false);
+
+  const linkNoAuth = await api('/citizen/link', { method: 'POST', body: { dni: '30123456', name: 'Ana RP' } });
+  check('panel: vincular DNI exige sesión', linkNoAuth.status === 401);
+
+  const linkWrong = await api('/citizen/link', {
+    method: 'POST',
+    token: citizenToken,
+    body: { dni: '30123456', name: 'Nombre Falso' },
+  });
+  check('panel: rechaza un nombre que no coincide', linkWrong.status === 404);
+
+  const linkOk = await api('/citizen/link', {
+    method: 'POST',
+    token: citizenToken,
+    body: { dni: '30.123.456', name: 'ana rp' },
+  });
+  check('panel: vincula DNI y nombre (sin distinguir formato)', linkOk.status === 200 && linkOk.data.linked === true);
+  check('panel: devuelve los datos del ciudadano', linkOk.data.citizen && linkOk.data.citizen.name === 'Ana RP');
+  check('panel: cuenta multas, vehículos y órdenes', linkOk.data.citizen
+    && linkOk.data.citizen.totals.fines === 1
+    && linkOk.data.citizen.vehicles.length === 1
+    && linkOk.data.citizen.totals.warrants === 1);
+
+  const meWithDni = await api('/auth/me', { token: citizenToken });
+  check('panel: el DNI queda guardado en la cuenta', meWithDni.data.user.dni === '30123456');
+
+  const citizenAfter = await api('/citizen/me', { token: citizenToken });
+  check('panel: consulta el perfil ya vinculado', citizenAfter.status === 200
+    && citizenAfter.data.linked === true
+    && citizenAfter.data.citizen.dni === '30123456');
+
+  const originalName = cadSnapshot.persons[0].name;
+  cadSnapshot.persons[0].name = 'Ana RP Renombrada';
+  const citizenRenamed = await api('/citizen/me', { token: citizenToken });
+  check('panel: si el nombre cambia no muestra otro registro y pide revincular',
+    citizenRenamed.data.missing === true && !citizenRenamed.data.citizen);
+  cadSnapshot.persons[0].name = originalName;
+
+  const unlink = await api('/citizen/unlink', { method: 'POST', token: citizenToken });
+  check('panel: desvincula el DNI', unlink.status === 200 && unlink.data.user.dni === '');
+  const citizenUnlinked = await api('/citizen/me', { token: citizenToken });
+  check('panel: después de desvincular no muestra datos', citizenUnlinked.data.linked === false);
+
+  const linkAgain = await api('/citizen/link', {
+    method: 'POST',
+    token: citizenToken,
+    body: { dni: '30123456', name: 'Ana RP' },
+  });
+  check('panel: se puede volver a vincular', linkAgain.status === 200 && linkAgain.data.linked === true);
 
   // Casos de error
   clock += 46000;
@@ -148,6 +230,7 @@ function lastCode() {
   // Persistencia en archivo
   const store = JSON.parse(fs.readFileSync(path.join(dir, 'web.json'), 'utf8'));
   check('cuenta guardada en disco', !!store.accounts.ana && store.accounts.ana.hash.length === 128);
+  check('panel: DNI vinculado guardado en disco', store.accounts.ana.dni === '30123456');
   check('reseñas guardadas en disco', store.reviews.length === 2);
   check('no guarda contraseñas en texto plano', !JSON.stringify(store).includes('nuevaClave9'));
 

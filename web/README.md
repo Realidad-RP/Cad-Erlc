@@ -64,20 +64,31 @@ iniciales en un círculo de color, así nunca queda un hueco vacío.
 - También podés usar una foto propia: creá `web/assets/equipo/`, guardala ahí y poné
   `foto: "assets/equipo/nombre.png"` (esa foto tiene prioridad sobre Roblox).
 
-## 🪪 Cuentas y reseñas compartidas
+## 🪪 Cuentas, Panel de Ciudadano y reseñas compartidas
 
-El botón **Cuenta** (cabecera y menú lateral) abre el **Panel de Ciudadano**:
+El botón **Cuenta** (cabecera y menú lateral) abre el acceso. Después de ingresar, el botón
+**Abrir mi panel** (o el avatar de la cabecera) lleva a `panel.html`:
 
 1. La persona escribe su **usuario de Discord**, una contraseña y la confirma.
 2. El bot la busca en el servidor y le manda un **código de 6 dígitos por MD**.
 3. Al ingresar el código, la cuenta queda creada con su **nombre y foto de Discord**.
 4. Puede volver a entrar con usuario + contraseña, o recuperarla por código si la olvidó.
-5. Las reseñas se guardan en el servidor y **se ven desde cualquier dispositivo**; si hay
+5. La primera vez, el panel pide **vincular el DNI**: hay que escribir el DNI y el **nombre
+   exacto del personaje** tal como están cargados en el CAD. Se permite **un DNI por cuenta**.
+6. El dashboard muestra, en modo **solo lectura**, el resumen, la credencial del DNI, la
+   licencia, los vehículos, las multas y las órdenes que el CAD envía al bot. También tiene un
+   acceso directo a la **central 911**. El DNI se puede desvincular desde **Ajustes**.
+7. Las reseñas se guardan en el servidor y **se ven desde cualquier dispositivo**; si hay
    sesión, llevan el nombre y el avatar de Discord.
 
-El bot guarda las cuentas y las reseñas en el canal privado **#panel-ciudadano** de Discord
-(las contraseñas van cifradas con scrypt, nunca en texto plano). Así los datos sobreviven a
-los reinicios de Render. La guía de configuración está en [`../bot/README.md`](../bot/README.md).
+El panel no procesa pagos ni modifica registros: las multas se abonan en el juego y cualquier
+corrección se pide al staff. Si el CAD todavía no envió datos al bot, el panel conserva el DNI
+vinculado y muestra un estado de espera.
+
+El bot guarda las cuentas, el DNI vinculado y las reseñas en el canal privado
+**#panel-ciudadano** de Discord (las contraseñas van cifradas con scrypt, nunca en texto plano).
+Así los datos sobreviven a los reinicios de Render. La guía de configuración está en
+[`../bot/README.md`](../bot/README.md).
 
 > 💡 Si abrís la web con doble clic en tu PC, usa el bot local en `http://127.0.0.1:8790`.
 > Si no está corriendo, el muro muestra la última copia cacheada y las cuentas avisan que no
@@ -109,10 +120,13 @@ los reinicios de Render. La guía de configuración está en [`../bot/README.md`
 |---|---|
 | `index.html` | Portada: hero, cómo unirse, servidores, reseñas, nosotros, equipo |
 | `resenas.html` | Muro de reseñas + formulario con estrellas |
+| `panel.html` | Panel de Ciudadano: resumen, DNI, licencia, vehículos, multas, órdenes y ajustes |
+| `panel.css` | Estilos del dashboard (tarjetas, credencial, responsive e impresión del DNI) |
+| `panel.js` | Lógica del panel: vinculación del DNI, pestañas, estados y actualización |
 | `normativa.html` | Reglas de la comunidad + tabla de sanciones |
 | `terminos.html` | Términos y condiciones |
 | `privacidad.html` | Política de privacidad |
-| `styles.css` | Estilos (tema oscuro, neón, animaciones y fotos) |
+| `styles.css` | Estilos base (tema oscuro, neón, animaciones y fotos) |
 | `app.js` | Menú, estadísticas, cuentas Discord, reseñas compartidas, equipo, fotos y partículas |
 | `config.js` | ⚙️ Tu configuración (lo único que hace falta editar) |
 | `assets/` | Escudo, fotos LCPD/CHP/LCFD, fondo ER:LC y escudos LAPD (color y marca de agua) |

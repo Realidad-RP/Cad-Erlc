@@ -81,6 +81,7 @@ let statusMessageId = null;   // mensaje de estado que se edita solo (canal esta
 let lastCommandAt = 0;        // control del límite de 1 comando cada ~5 s de la API
 let discordReady = false;
 let discordLoginError = '';   // se muestra en /web/status si Discord no conecta
+let cadUpdatedAt = 0;         // última vez que el CAD envió su estado
 
 // ============================================================
 // 2b. Cuentas de la web (Panel de Ciudadano)
@@ -162,6 +163,8 @@ const webAuth = createWebAuth({
   sendDiscordDM,
   isDiscordReady: () => discordReady,
   getDiscordError: () => discordLoginError,
+  getCadSnapshot: () => mirror.get(),
+  getCadUpdatedAt: () => cadUpdatedAt,
   log: console.log,
 });
 
@@ -199,9 +202,15 @@ async function sendEmbed(channelId, { color, title, lines }, tag = '[BOT]') {
 // ============================================================
 
 async function onCadSnapshot(snapshot) {
+  cadUpdatedAt = Date.now();
   const { announcements, firstSync } = mirror.update(snapshot);
   if (firstSync) {
-    console.log('[CAD] Primera sincronización recibida (no se anuncia nada todavía).');
+    const count = (value) => (Array.isArray(value) ? value.length : 0);
+    console.log(
+      '[CAD] Primera sincronización recibida (no se anuncia nada todavía): ' +
+      `${count(snapshot.persons)} personas, ${count(snapshot.vehicles)} vehículos, ` +
+      `${count(snapshot.fines)} multas, ${count(snapshot.warrants)} órdenes.`
+    );
     return 0;
   }
   for (const a of announcements) {

@@ -64,6 +64,24 @@ function cleanMultiline(value, max) {
   return String(value == null ? '' : value).replace(/\r\n?/g, '\n').trim().slice(0, max);
 }
 
+function normalizeDni(value) {
+  return String(value == null ? '' : value).trim().toLowerCase().replace(/[\s.\-]/g, '');
+}
+
+function normalizeName(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function sameCitizenName(a, b) {
+  const na = normalizeName(a);
+  return !!na && na === normalizeName(b);
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -108,6 +126,8 @@ function publicUser(account) {
     avatar: account.avatar || '',
     role: account.role || 'Ciudadano',
     createdAt: account.createdAt || 0,
+    dni: account.dni || '',
+    citizenName: account.citizenName || '',
   };
 }
 
@@ -120,7 +140,18 @@ function publicUser(account) {
  * @param {(username:string)=>Promise<object|null>} opts.resolveDiscordUser
  * @param {(discordId:string, content:string)=>Promise<any>} opts.sendDiscordDM
  */
-function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDiscordReady = () => true, getDiscordError = () => '', log = console.log, now = () => Date.now() } = {}) {
+function createWebAuth({
+  store,
+  dataDir,
+  resolveDiscordUser,
+  sendDiscordDM,
+  isDiscordReady = () => true,
+  getDiscordError = () => '',
+  getCadSnapshot = () => null,
+  getCadUpdatedAt = () => 0,
+  log = console.log,
+  now = () => Date.now(),
+} = {}) {
   const dataStore = store || createFileStore(dataDir);
   const db = { accounts: {}, pending: {}, resets: {}, sessions: {}, reviews: [] };
   let loaded = false;
@@ -159,6 +190,92 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
 
   const lastCodeAt = new Map();
   const lastReviewAt = new Map();
+
+  // ============================================================
+  // Panel de Ciudadano: datos del CAD
+  // ============================================================
+  // El CAD envía un espejo de sus registros al bot (POST /cad/snapshot).
+  // Para la web no guardamos una copia aparte: consultamos ese espejo
+  // cada vez, así el panel muestra siempre lo último que sabe el CAD.
+
+  function cadSnapshotSafe() {
+    try { return getCadSnapshot() || null; } catch { return null; }
+  }
+
+  function cadUpdatedAtSafe() {
+    try { return Number(getCadUpdatedAt()) || 0; } catch { return 0; }
+  }
+
+  function findPersonsByDni(snapshot, dni) {
+    const q = normalizeDni(dni);
+    if (!snapshot || !q) return [];
+    return (snapshot.persons || []).filter((p) => normalizeDni(p && p.dni) === q);
+  }
+
+  function buildCitizenProfile(snapshot, person) {
+    const ownerName = String(person && person.name || '');
+    const sameOwner = (value) => sameCitizenName(value, ownerName);
+
+    const fines = (snapshot.fines || [])
+      .filter((f) => f && sameOwner(f.person))
+      .map((f) => ({
+        id: String(f.id || ''),
+        amount: Math.max(0, Number(f.amount) || 0),
+        reason: String(f.reason || ''),
+        officer: String(f.officer || ''),
+        status: String(f.status || 'pendiente'),
+        ts: Number(f.ts) || 0,
+      }))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 100);
+
+    const warrants = (snapshot.warrants || [])
+      .filter((w) => w && sameOwner(w.person))
+      .map((w) => ({
+        id: String(w.id || ''),
+        wkind: String(w.wkind || 'Orden'),
+        reason: String(w.reason || ''),
+        officer: String(w.officer || ''),
+        status: String(w.status || 'activa'),
+        ts: Number(w.ts) || 0,
+      }))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 100);
+
+    const vehicles = (snapshot.vehicles || [])
+      .filter((v) => v && sameOwner(v.owner))
+      .map((v) => ({
+        id: String(v.id || ''),
+        plate: String(v.plate || ''),
+        model: String(v.model || ''),
+        color: String(v.color || ''),
+        status: String(v.status || 'Normal'),
+        notes: String(v.notes || ''),
+      }))
+      .sort((a, b) => a.plate.localeCompare(b.plate))
+      .slice(0, 100);
+
+    const pendingFines = fines.filter((f) => normalizeName(f.status) !== 'pagada');
+    const activeWarrants = warrants.filter((w) => normalizeName(w.status) === 'activa');
+
+    return {
+      dni: String(person.dni || ''),
+      name: ownerName,
+      dob: String(person.dob || ''),
+      license: String(person.license || ''),
+      licStatus: String(person.licStatus || 'Válida'),
+      notes: String(person.notes || ''),
+      fines,
+      warrants,
+      vehicles,
+      totals: {
+        fines: pendingFines.length,
+        finesAmount: pendingFines.reduce((sum, f) => sum + f.amount, 0),
+        warrants: activeWarrants.length,
+        vehicles: vehicles.length,
+      },
+    };
+  }
 
   function prunePending() {
     const t = now();
@@ -459,6 +576,140 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
     return { ok: true, token, user: publicUser(account) };
   }
 
+  // ---------------- Panel de Ciudadano ----------------
+  function requireSession(req) {
+    const session = accountFromReq(req);
+    if (!session) throw httpError(401, 'Sesión vencida. Iniciá sesión de nuevo.');
+    return session;
+  }
+
+  function restoreCitizenFields(account, previous) {
+    for (const key of ['dni', 'citizenName', 'citizenLinkedAt']) {
+      if (previous[key] === undefined) delete account[key];
+      else account[key] = previous[key];
+    }
+  }
+
+  function citizenBase(account) {
+    return {
+      ok: true,
+      linked: !!account.dni,
+      dni: account.dni || '',
+      name: account.citizenName || '',
+      user: publicUser(account),
+      cadReady: !!cadSnapshotSafe(),
+      cadUpdatedAt: cadUpdatedAtSafe(),
+      serverNow: now(),
+    };
+  }
+
+  async function citizenMe(req) {
+    const { account } = requireSession(req);
+    const base = citizenBase(account);
+    if (!account.dni) return base;
+
+    const snapshot = cadSnapshotSafe();
+    if (!snapshot) return { ...base, waiting: true };
+
+    const matches = findPersonsByDni(snapshot, account.dni);
+    const person = matches.find((p) => sameCitizenName(p.name, account.citizenName));
+    // Si el DNI existe pero el nombre cambió, no mostramos el registro de otra
+    // persona: pedimos volver a vincular para confirmar la identidad.
+    if (!person) return { ...base, missing: true };
+
+    return {
+      ...base,
+      dni: String(person.dni || account.dni),
+      name: String(person.name || account.citizenName || ''),
+      citizen: buildCitizenProfile(snapshot, person),
+    };
+  }
+
+  async function citizenLink(req, body) {
+    const { account } = requireSession(req);
+    const dniInput = cleanText(body.dni, 40);
+    const nameInput = cleanText(body.name, 80);
+    const dni = normalizeDni(dniInput);
+
+    if (dni.length < 3) throw httpError(400, 'Escribí tu DNI (mínimo 3 caracteres).');
+    if (nameInput.length < 2) throw httpError(400, 'Escribí tu nombre completo tal como figura en el CAD.');
+
+    const snapshot = cadSnapshotSafe();
+    if (!snapshot) {
+      throw httpError(503, 'El CAD todavía no envió datos. Abrí la app del CAD, esperá unos segundos y probá de nuevo.');
+    }
+
+    const matches = findPersonsByDni(snapshot, dni);
+    if (!matches.length) {
+      throw httpError(404, 'No encontré ese DNI en los registros del CAD. Revisalo o pedile al staff que te registre.');
+    }
+
+    const person = matches.find((p) => sameCitizenName(p.name, nameInput));
+    if (!person) {
+      throw httpError(404, 'El DNI existe, pero el nombre no coincide con el registro del CAD.');
+    }
+
+    if (account.dni && normalizeDni(account.dni) !== normalizeDni(person.dni || dniInput)) {
+      throw httpError(409, 'Ya tenés un DNI vinculado. Desvinculalo desde Ajustes antes de vincular otro.');
+    }
+
+    const normalizedPersonDni = normalizeDni(person.dni || dniInput);
+    for (const [key, other] of Object.entries(db.accounts)) {
+      if (!other || other.username === account.username) continue;
+      if (normalizeDni(other.dni) === normalizedPersonDni) {
+        throw httpError(409, 'Ese DNI ya está vinculado a otra cuenta. Si es un error, hablá con el staff.');
+      }
+    }
+
+    const previous = {
+      dni: account.dni,
+      citizenName: account.citizenName,
+      citizenLinkedAt: account.citizenLinkedAt,
+    };
+    account.dni = String(person.dni || dniInput).trim();
+    account.citizenName = String(person.name || nameInput).trim();
+    account.citizenLinkedAt = now();
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      restoreCitizenFields(account, previous);
+      log('[Web] No se pudo vincular el DNI:', err.message);
+      throw httpError(503, 'No se pudo guardar el DNI en el servidor. Probá de nuevo en unos segundos.');
+    }
+
+    log(`[Web] DNI ${account.dni} vinculado a @${account.username}`);
+    return {
+      ...citizenBase(account),
+      citizen: buildCitizenProfile(snapshot, person),
+    };
+  }
+
+  async function citizenUnlink(req) {
+    const { account } = requireSession(req);
+    if (!account.dni) return { ok: true, user: publicUser(account) };
+
+    const previous = {
+      dni: account.dni,
+      citizenName: account.citizenName,
+      citizenLinkedAt: account.citizenLinkedAt,
+    };
+    delete account.dni;
+    delete account.citizenName;
+    delete account.citizenLinkedAt;
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      restoreCitizenFields(account, previous);
+      log('[Web] No se pudo desvincular el DNI:', err.message);
+      throw httpError(503, 'No se pudo desvincular el DNI. Probá de nuevo en unos segundos.');
+    }
+
+    log(`[Web] DNI desvinculado de @${account.username}`);
+    return { ok: true, user: publicUser(account) };
+  }
+
   // ---------------- Reseñas ----------------
   function getReviews() {
     const list = db.reviews
@@ -541,7 +792,7 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
 
   // ---------------- Router ----------------
   async function handle(req, res, url) {
-    if (!url.startsWith('/auth/') && !url.startsWith('/reviews')) return false;
+    if (!url.startsWith('/auth/') && !url.startsWith('/reviews') && !url.startsWith('/citizen/')) return false;
 
     try {
       await ensureLoaded();
@@ -587,6 +838,18 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
         sendJson(res, 200, { ok: true, user: publicUser(session.account) });
         return true;
       }
+      if (url === '/citizen/me' && req.method === 'GET') {
+        sendJson(res, 200, await citizenMe(req));
+        return true;
+      }
+      if (url === '/citizen/link' && req.method === 'POST') {
+        sendJson(res, 200, await citizenLink(req, await readJsonBody(req)));
+        return true;
+      }
+      if (url === '/citizen/unlink' && req.method === 'POST') {
+        sendJson(res, 200, await citizenUnlink(req));
+        return true;
+      }
       if (url === '/reviews' && req.method === 'GET') {
         sendJson(res, 200, getReviews());
         return true;
@@ -624,8 +887,11 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
       discordError: getDiscordError(),
       lastError: lastLoadError,
       accounts: Object.keys(db.accounts).length,
+      linkedAccounts: Object.values(db.accounts).filter((a) => a && a.dni).length,
       reviews: db.reviews.length,
       sessions: Object.keys(db.sessions).length,
+      cadReady: !!cadSnapshotSafe(),
+      cadUpdatedAt: cadUpdatedAtSafe(),
     }),
     check: async () => {
       try { await ensureLoaded(); } catch (err) {
@@ -639,8 +905,11 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
         discordError: getDiscordError(),
         lastError: lastLoadError,
         accounts: Object.keys(db.accounts).length,
+        linkedAccounts: Object.values(db.accounts).filter((a) => a && a.dni).length,
         reviews: db.reviews.length,
         sessions: Object.keys(db.sessions).length,
+        cadReady: !!cadSnapshotSafe(),
+        cadUpdatedAt: cadUpdatedAtSafe(),
       };
     },
   };

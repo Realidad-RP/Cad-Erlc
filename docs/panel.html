@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Ciudadano — La Realidad RP</title>
+  <meta name="description" content="Panel de Ciudadano de La Realidad RP: consultá tu DNI, licencia, vehículos, multas y órdenes del CAD de Los Angeles.">
+  <meta name="theme-color" content="#050a10">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body class="panel-page">
+
+  <!-- ===================== CABECERA ===================== -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
+        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+      </a>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#como-jugar">Cómo unirse</a>
+        <a href="resenas.html">Reseñas</a>
+        <a href="normativa.html">Normativa</a>
+        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Discord
+        </a>
+      </nav>
+
+      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="citizen-page">
+    <div class="citizen-bg" aria-hidden="true">
+      <div class="citizen-bg-grid"></div>
+      <div class="citizen-bg-glow"></div>
+    </div>
+
+    <div class="container citizen-container">
+
+      <!-- ===================== ENCABEZADO ===================== -->
+      <section class="citizen-hero">
+        <div class="citizen-hero-copy">
+          <span class="eyebrow">Área privada · La Realidad RP</span>
+          <h1>Panel de <span class="grad">Ciudadano</span></h1>
+          <p>Tu identidad, licencia y antecedentes conectados al CAD de Los Angeles.</p>
+        </div>
+        <div class="citizen-live" id="citizenLive" hidden>
+          <span class="citizen-live-dot" id="citizenLiveDot"></span>
+          <div class="citizen-live-text">
+            <b id="citizenLiveTitle">CAD conectado</b>
+            <small id="citizenLiveSub">Consultando registros…</small>
+          </div>
+          <button class="citizen-refresh" id="citizenRefresh" type="button" title="Actualizar datos" aria-label="Actualizar datos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ===================== ACCESO ===================== -->
+      <section class="citizen-gate" id="citizenGate" hidden>
+        <div class="citizen-gate-card">
+          <img class="citizen-gate-logo" src="assets/logo.png" alt="">
+          <span class="eyebrow">Acceso privado</span>
+          <h2>Ingresá a tu panel</h2>
+          <p>Entrá con tu cuenta de Discord para ver tu DNI, licencia, vehículos, multas y órdenes del CAD.</p>
+          <button class="btn btn-primary btn-lg" type="button" data-open-auth>Ingresar con Discord</button>
+          <a class="btn btn-ghost" href="index.html">Volver al inicio</a>
+          <small>¿Todavía no tenés cuenta? Podés crearla desde el mismo acceso con tu usuario de Discord.</small>
+        </div>
+      </section>
+
+      <!-- ===================== DASHBOARD ===================== -->
+      <div class="citizen-layout" id="citizenApp" hidden>
+
+        <aside class="citizen-side">
+          <div class="citizen-side-profile" id="citizenSideProfile"></div>
+
+          <nav class="citizen-nav" id="citizenNav" aria-label="Secciones del panel">
+            <button type="button" class="on" data-panel-tab="resumen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span>Resumen</span>
+            </button>
+            <button type="button" data-panel-tab="dni">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2.2"/><path d="M5.5 16c.6-1.6 1.7-2.3 3-2.3s2.4.7 3 2.3M14 10h4M14 13h4M14 16h2.5"/></svg>
+              <span>Mi DNI</span>
+            </button>
+            <button type="button" data-panel-tab="licencia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5.5c0 4.4-3 7.4-7 9.5-4-2.1-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+              <span>Licencia</span>
+            </button>
+            <button type="button" data-panel-tab="vehiculos">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 16v-3l1.7-4.2A2 2 0 0 1 7.5 7.5h9a2 2 0 0 1 1.8 1.3L20 13v3"/><path d="M3 16h18v3h-3v-2H6v2H3v-3z"/><circle cx="7" cy="14" r="1"/><circle cx="17" cy="14" r="1"/></svg>
+              <span>Vehículos</span>
+            </button>
+            <button type="button" data-panel-tab="multas">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+              <span>Multas</span>
+            </button>
+            <button type="button" data-panel-tab="ordenes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M8 21h8M5 7h14M6 7l-2 5a3 3 0 0 0 4 0L6 7zM18 7l-2 5a3 3 0 0 0 4 0l-2-5z"/></svg>
+              <span>Órdenes</span>
+            </button>
+            <button type="button" data-panel-tab="ajustes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+              <span>Ajustes</span>
+            </button>
+          </nav>
+
+          <div class="citizen-side-foot">
+            <a class="citizen-911" id="citizen911" href="#" target="_blank" rel="noopener">
+              <span class="citizen-911-ico">911</span>
+              <span><b>Llamar al 911</b><small>Central de emergencias</small></span>
+            </a>
+            <button class="citizen-logout" id="citizenLogout" type="button">Cerrar sesión</button>
+          </div>
+        </aside>
+
+        <section class="citizen-content" id="citizenContent" aria-live="polite">
+          <div class="citizen-loading">
+            <span class="citizen-spinner"></span>
+            <p>Cargando tu panel…</p>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer panel-footer">
+    <div class="container">
+      <div class="foot-bottom">
+        <p>© <span id="anio">2026</span> La Realidad RP · Panel de Ciudadano</p>
+        <p class="panel-footer-links">
+          <a href="terminos.html">Términos</a>
+          <span>·</span>
+          <a href="privacidad.html">Privacidad</a>
+          <span>·</span>
+          <a href="index.html">Volver al inicio</a>
+        </p>
+      </div>
+      <p class="disclaimer">
+        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
+        Police Roleplay Community, Emergency Response: Liberty County ni el Departamento de Policía de Los Ángeles (LAPD).
+        Todas las marcas pertenecen a sus respectivos propietarios.
+      </p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

@@ -5,8 +5,8 @@
 //   GET  /              → texto informativo
 //   POST /cad/snapshot  → lo llama el CAD con su estado (llamadas/unidades/BOLOs)
 //   POST /erlc/webhook  → eventos en tiempo real del juego (firmados con Ed25519)
-//   /auth/*  y  /reviews → cuentas del Panel de Ciudadano y reseñas compartidas
-//                          (las maneja lib/web-auth.js)
+//   /auth/*, /reviews y /citizen/* → cuentas, reseñas y dashboard del
+//                          Panel de Ciudadano (los maneja lib/web-auth.js)
 //
 // Todo responde con CORS abierto para que el CAD (app de escritorio)
 // y la web puedan enviar desde cualquier origen.
