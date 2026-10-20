@@ -97,7 +97,12 @@ async function resolveDiscordUser(query) {
   let guild = null;
   try {
     if (cfg.guildId) {
-      guild = client.guilds.cache.get(cfg.guildId) || await client.guilds.fetch(cfg.guildId);
+      guild = client.guilds.cache.get(cfg.guildId)
+        || await client.guilds.fetch(cfg.guildId).catch(() => null);
+      if (!guild && client.guilds.cache.size === 1) {
+        console.warn('[Web] No encontré el servidor configurado; uso el único servidor del bot.');
+        guild = client.guilds.cache.first();
+      }
     } else {
       guild = client.guilds.cache.first() || null;
     }
