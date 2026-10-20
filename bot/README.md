@@ -113,7 +113,9 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
 2. En Render: tu Blueprint → **Sync** (lee el nuevo servicio `cad-erlc-bot` del `render.yaml`).
 3. Completá las variables de entorno del servicio:
    `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `ERLC_SERVER_KEY`, `CAD_KEY` y los canales (`CH_DESPACHO`, `CH_BOLO`, `CH_ERLC`, `CH_ESTADO`, opcional `CH_PANEL`).
+   **`DISCORD_TOKEN` es obligatorio**: sin él el bot no conecta a Discord y las cuentas de la web quedan en 503.
 4. Cuando termine el deploy, en el CAD poné como dirección del bot: `https://cad-erlc-bot.onrender.com`.
+   Para revisar las cuentas web abrí `https://cad-erlc-bot.onrender.com/web/status`.
 
 > 💡 En el plan gratuito el servicio se duerme tras un rato sin tráfico HTTP;
 > el bot de Discord mantiene la conexión despierta mientras hay movimiento.
@@ -138,6 +140,8 @@ La web tiene un botón **Cuenta** (arriba a la derecha y en el menú lateral). E
 
 - Activar **SERVER MEMBERS INTENT** en el Developer Portal (Parte 1). Sin esto, la web no puede encontrar el usuario por nombre.
 - Que el bot esté en el servidor y que la persona tenga los **MD abiertos** (si no, no puede recibir el código).
+- En **#panel-ciudadano**, el bot necesita *Ver canal*, *Enviar mensajes* y *Leer historial*.
+  *Gestionar mensajes* es opcional: solo sirve para borrar sesiones vencidas.
 - Un lugar privado para guardar los datos:
   - lo ideal es dejar que el bot cree **#panel-ciudadano** (necesita *Gestionar canales*), o
   - crear el canal a mano, darle acceso al bot y poner su ID en `CH_PANEL`.

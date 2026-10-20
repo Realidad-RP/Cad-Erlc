@@ -25,6 +25,8 @@ services:
 
   # Bot de Discord: enlaza el CAD y el servidor de RP de ER:LC con tu Discord.
   # Paso a paso: bot/README.md
+  # DISCORD_TOKEN es obligatorio: sin él el bot no conecta (la web de cuentas
+  # queda en 503). Después del deploy revisá /web/status.
   - type: web
     name: cad-erlc-bot
     runtime: node

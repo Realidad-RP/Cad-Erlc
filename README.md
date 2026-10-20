@@ -106,6 +106,16 @@ Tus civiles (incluso **sin el CAD instalado**) pueden llamar al 911 desde el cel
 
 Hay un límite anti-spam de 20 segundos entre llamadas por persona. (La página deja bien claro que es para **roleplay**, no para emergencias reales.)
 
+## 🌐 Página web y Panel de Ciudadano
+
+La web pública está en **https://realidad-rp.github.io/Cad-Erlc/** (el código fuente vive en `web/` y se publica desde `docs/`):
+
+- Portada con fotos de **LCPD, CHP y LCFD**, animaciones, neón y partículas.
+- **Panel de Ciudadano**: registro con usuario de Discord, contraseña y un **código de 6 dígitos por MD**; al entrar se muestra el nombre y el avatar de Discord. También tiene inicio de sesión y recuperación de contraseña.
+- **Muro de reseñas compartido**: se guarda en el servidor, no solo en el navegador, y se ve desde cualquier dispositivo.
+
+Para que las cuentas y las reseñas funcionen, el bot de Discord tiene que estar conectado en Render y tener un canal privado **#panel-ciudadano** (lo crea solo si tiene *Gestionar canales*). Revisá el diagnóstico en `https://cad-erlc-bot.onrender.com/web/status`; si `discordReady` es `false`, falta configurar **`DISCORD_TOKEN`** en Render. La guía completa está en [`bot/README.md`](bot/README.md) y [`web/README.md`](web/README.md).
+
 ## 🟢 Servidor ER:LC en vivo (pestaña ER:LC)
 
 Si tu servidor privado tiene el pack **ERLC API** (se compra con Robux), la app puede ver el juego en vivo:
