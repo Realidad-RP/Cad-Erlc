@@ -120,7 +120,7 @@ function publicUser(account) {
  * @param {(username:string)=>Promise<object|null>} opts.resolveDiscordUser
  * @param {(discordId:string, content:string)=>Promise<any>} opts.sendDiscordDM
  */
-function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDiscordReady = () => true, log = console.log, now = () => Date.now() } = {}) {
+function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDiscordReady = () => true, getDiscordError = () => '', log = console.log, now = () => Date.now() } = {}) {
   const dataStore = store || createFileStore(dataDir);
   const db = { accounts: {}, pending: {}, resets: {}, sessions: {}, reviews: [] };
   let loaded = false;
@@ -621,6 +621,7 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
       loading: !!loading,
       store: dataStore.describe ? dataStore.describe() : 'almacén',
       discordReady: !!isDiscordReady(),
+      discordError: getDiscordError(),
       lastError: lastLoadError,
       accounts: Object.keys(db.accounts).length,
       reviews: db.reviews.length,
@@ -635,6 +636,7 @@ function createWebAuth({ store, dataDir, resolveDiscordUser, sendDiscordDM, isDi
         loading: !!loading,
         store: dataStore.describe ? dataStore.describe() : 'almacén',
         discordReady: !!isDiscordReady(),
+        discordError: getDiscordError(),
         lastError: lastLoadError,
         accounts: Object.keys(db.accounts).length,
         reviews: db.reviews.length,

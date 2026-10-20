@@ -80,6 +80,7 @@ const mirror = createCadMirror();
 let statusMessageId = null;   // mensaje de estado que se edita solo (canal estado)
 let lastCommandAt = 0;        // control del límite de 1 comando cada ~5 s de la API
 let discordReady = false;
+let discordLoginError = '';   // se muestra en /web/status si Discord no conecta
 
 // ============================================================
 // 2b. Cuentas de la web (Panel de Ciudadano)
@@ -155,6 +156,7 @@ const webAuth = createWebAuth({
   resolveDiscordUser,
   sendDiscordDM,
   isDiscordReady: () => discordReady,
+  getDiscordError: () => discordLoginError,
   log: console.log,
 });
 
@@ -483,6 +485,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.ClientReady, async (c) => {
   discordReady = true;
+  discordLoginError = '';
   console.log(`[Bot] Conectado como ${c.user.tag} · ${c.guilds.cache.size} servidor(es) de Discord`);
   try {
     await registerCommands(c);
@@ -521,6 +524,7 @@ client.on(Events.ClientReady, async (c) => {
   }
 
   if (!cfg.discordToken) {
+    discordLoginError = 'Falta DISCORD_TOKEN en las variables de entorno (o en bot/config.js).';
     console.log('[Bot] Falta el token de Discord. Completá bot/config.js (o la variable DISCORD_TOKEN) y reiniciá.');
     console.log('[Bot] Mientras tanto, el enlace con el CAD sigue activo.');
     return;
@@ -529,6 +533,7 @@ client.on(Events.ClientReady, async (c) => {
   try {
     await client.login(cfg.discordToken);
   } catch (err) {
+    discordLoginError = 'No se pudo conectar a Discord: ' + err.message;
     console.error('[Bot] No se pudo conectar a Discord:', err.message);
     console.error('[Bot] Revisá que el token sea correcto y que el bot esté invitado a tu servidor.');
   }

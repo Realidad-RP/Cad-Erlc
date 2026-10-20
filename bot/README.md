@@ -189,7 +189,7 @@ node bot/self-test.js            # configuración y utilidades del bot
 | El bot no publica pero no da error | Revisá que los IDs de canales sean correctos y que el bot tenga permiso de *Enviar mensajes* en ese canal |
 | La web dice **“No encuentro ese usuario en el servidor”** | Activá **SERVER MEMBERS INTENT** en el Developer Portal y reiniciá el bot |
 | La web dice **“No pude enviarte un MD”** | La persona no está en el servidor o tiene los MD cerrados (Privacidad → Mensajes directos) |
-| La web dice **“El sistema de cuentas está iniciando”** | El bot todavía no terminó de conectar o no puede leer/crear **#panel-ciudadano**. Dale *Leer historial* y *Gestionar canales*, o creá el canal y configurá `CH_PANEL` |
+| La web dice **“El sistema de cuentas está iniciando”** | Abrí `https://cad-erlc-bot.onrender.com/web/status`. Si `discordReady` es `false` y `discordError` dice que falta el token, cargá **`DISCORD_TOKEN`** en Render → *Environment* y reiniciá. Si `lastError` menciona el panel, dale al bot *Ver canal*, *Enviar mensajes* y *Leer historial* en **#panel-ciudadano** (o creá el canal y poné su ID en `CH_PANEL`) |
 | Las reseñas no se comparten entre dispositivos | El bot no está guardando en Discord: revisá los permisos del canal del panel y los logs de Render |
 
 ## Seguridad 🔒
