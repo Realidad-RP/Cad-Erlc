@@ -431,13 +431,15 @@ function setupOverlayIPC() {
   });
 
   // Flechita: guarda la radio como una pestañita chica y la vuelve a sacar
-  ipcMain.handle('overlay-collapse', () => {
+  // (se pide el estado deseado para que nunca quede "atorada" plegada)
+  ipcMain.handle('overlay-collapse', (_e, data) => {
+    const want = data && typeof data.collapsed === 'boolean' ? !!data.collapsed : !overlayCollapsed;
     if (!overlayWindow || overlayWindow.isDestroyed()) {
-      overlayCollapsed = !overlayCollapsed;
+      overlayCollapsed = want;
       return { collapsed: overlayCollapsed };
     }
     const b = overlayWindow.getBounds();
-    overlayCollapsed = !overlayCollapsed;
+    overlayCollapsed = want;
     if (overlayCollapsed) {
       overlayWindow.setBounds(clampToWorkArea({
         x: b.x + b.width - OVERLAY_MINI_W,

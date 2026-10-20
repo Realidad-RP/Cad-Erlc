@@ -120,8 +120,8 @@
 
   /* Modo guardado (pestañita con la flechita) */
   .mini { display: none; }
-  body.mini .antenna, body.mini .body { display: none; }
-  body.mini .mini {
+  body.stowed .antenna, body.stowed .body { display: none; }
+  body.stowed .mini {
     display: flex; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 5px;
     background: linear-gradient(180deg, #23272e, #0c0e12); border: 1px solid #39414c; border-radius: 13px;
     box-shadow: 0 10px 24px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .08); cursor: pointer;
@@ -249,19 +249,19 @@
   setInterval(tick, 15000);
 
   // ---------- Guardar / sacar la radio con la flechita ----------
-  const setMini = (v) => document.body.classList.toggle('mini', !!v);
+  const setMini = (v) => document.body.classList.toggle('stowed', !!v);
 
-  async function toggleCollapse(want) {
-    if (typeof want === 'boolean') setMini(want);
+  async function setCollapsed(want) {
+    setMini(want);
     if (!(window.cadNative && cadNative.overlayCollapse)) return;
     try {
-      const r = await cadNative.overlayCollapse();
+      const r = await cadNative.overlayCollapse(!!want);
       setMini(!!(r && r.collapsed));
     } catch {}
   }
 
-  $('collapse').addEventListener('click', () => { closePanicCard(); toggleCollapse(true); });
-  $('mini').addEventListener('click', () => toggleCollapse(false));
+  $('collapse').addEventListener('click', () => { closePanicCard(); setCollapsed(true); });
+  $('mini').addEventListener('click', () => setCollapsed(false));
   if (window.cadNative && cadNative.onOverlayCollapsed) {
     cadNative.onOverlayCollapsed((d) => setMini(d && d.collapsed));
   }
