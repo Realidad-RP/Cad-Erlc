@@ -19,7 +19,7 @@ El bot une las tres piezas de tu comunidad:
 | 📡 **Avisos del juego** | Recibe las **llamadas de emergencia** del juego y los comandos con `;` en tiempo real (webhooks) |
 | 💬 **Comandos** | `/estado` · `/jugadores` · `/cad` · `/juego` (ejecuta comandos dentro del juego, solo admins) |
 | 🪪 **Cuentas web** | Crea cuentas para el **Panel de Ciudadano** con usuario de Discord, contraseña, **usuario de Roblox** y **código por MD**. Guarda las **reseñas compartidas** para que se vean desde cualquier dispositivo |
-| 🚗 **Licencias desde el panel** | El ciudadano completa un cuestionario en la web; el bot lo publica en **#solicitudes-licencia** y los mods aprueban o rechazan con botones. El CAD ya no administra licencias |
+| 🚗 **Licencias desde el panel** | El ciudadano completa un cuestionario en la web; el bot lo publica en **#solicitudes-licencia**. LAPD, Central y los rangos desde **Moderador en Prueba** lo ven; los moderadores aprueban o rechazan con botones. El CAD ya no administra licencias |
 
 ---
 
@@ -57,6 +57,8 @@ El bot une las tres piezas de tu comunidad:
    - `licencias` — **privado**, donde llegan las solicitudes de licencia del panel.
      Si no lo creás, el bot crea **#solicitudes-licencia** dentro de la categoría
      **Realidad RP Bot** (o la que indiques en `CH_LICENCIAS_CATEGORIA`).
+     Es visible para **LAPD**, **Central** y todos los rangos desde
+     **Moderador en Prueba** hacia arriba; solo estos últimos pueden aprobar o rechazar.
 
 ### Parte 3 — Configurar
 
@@ -119,8 +121,11 @@ Desde ese momento, las llamadas de emergencia y los comandos `;algo` aparecen en
    `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `ERLC_SERVER_KEY`, `CAD_KEY` y los canales
    (`CH_DESPACHO`, `CH_BOLO`, `CH_ERLC`, `CH_ESTADO`, opcional `CH_PANEL`,
    opcional `CH_LICENCIAS`). Para licencias también podés definir
-   `CH_LICENCIAS_CATEGORIA` (por defecto `Realidad RP Bot`) y `CH_LICENCIAS_ROL`
-   (ID del rol de moderadores que puede ver y revisar las solicitudes).
+   `CH_LICENCIAS_CATEGORIA` (por defecto `Realidad RP Bot`), `CH_LICENCIAS_ROL`
+   (ID de un rol extra que puede revisar), `CH_LICENCIAS_LAPD` y
+   `CH_LICENCIAS_CENTRAL` (roles que solo ven el canal) y `CH_LICENCIAS_DESDE`
+   (rol mínimo que puede revisar; por defecto **Moderador en Prueba**).
+   Si no los definís, se usan los IDs de La Realidad RP.
    **`DISCORD_TOKEN` es obligatorio**: sin él el bot no conecta a Discord y las cuentas de la web quedan en 503.
 4. Cuando termine el deploy, en el CAD poné como dirección del bot: `https://cad-erlc-bot.onrender.com`.
    Para revisar las cuentas web abrí `https://cad-erlc-bot.onrender.com/web/status`.
@@ -170,11 +175,16 @@ Todas usan `Authorization: Bearer <token>` y CORS abierto, igual que `/auth/*` y
 - En **#panel-ciudadano**, el bot necesita *Ver canal*, *Enviar mensajes* y *Leer historial*.
   *Gestionar mensajes* es opcional: solo sirve para borrar sesiones vencidas.
 - En **#solicitudes-licencia**, el bot necesita *Ver canal*, *Enviar mensajes*, *Insertar enlaces* y *Leer historial*.
-  *Gestionar canales* es necesario si querés que el bot cree la categoría y el canal solo.
-- Para que los mods vean y revisen licencias:
-  - definí `CH_LICENCIAS_ROL` con el ID del rol de moderadores, o
-  - dejalo vacío y el bot buscará un rol llamado **Moderador**, **Staff** o **Administrador**;
-  - si no encuentra ninguno, el canal queda visible solo para administradores y el bot.
+  *Gestionar canales* es necesario para crear la categoría y el canal.
+  *Gestionar roles* es necesario para aplicar los permisos de LAPD, Central y los moderadores;
+  el rol del bot debe estar **por encima** de esos roles en la jerarquía.
+- El canal queda visible para **LAPD**, **Central** y todos los roles desde **Moderador en Prueba**
+  hacia arriba. LAPD y Central solo leen; los moderadores pueden aprobar o rechazar.
+  - Si querés que otro rol también revise, poné su ID en `CH_LICENCIAS_ROL`.
+  - Para cambiar los roles de acceso: `CH_LICENCIAS_LAPD`, `CH_LICENCIAS_CENTRAL` y
+    `CH_LICENCIAS_DESDE` (rol mínimo). Si quedan vacíos, se usan los IDs de La Realidad RP.
+  - Sin *Gestionar roles* el bot no puede crear el canal privado ni aplicar los permisos.
+    Concedele ese permiso (con su rol por encima de LAPD/Central/mods) y reiniciá el bot.
 - Un lugar privado para guardar los datos:
   - lo ideal es dejar que el bot cree **#panel-ciudadano** (necesita *Gestionar canales*), o
   - crear el canal a mano, darle acceso al bot y poner su ID en `CH_PANEL`.

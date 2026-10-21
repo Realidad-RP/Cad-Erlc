@@ -7,7 +7,8 @@
 // También se puede configurar todo con variables de entorno
 // (útil para Render: DISCORD_TOKEN, DISCORD_GUILD_ID, ERLC_SERVER_KEY,
 //  CAD_KEY, PORT, CH_DESPACHO, CH_BOLO, CH_ERLC, CH_ESTADO, CH_PANEL,
-//  CH_LICENCIAS, CH_LICENCIAS_CATEGORIA, CH_LICENCIAS_ROL, POLL_SECONDS).
+//  CH_LICENCIAS, CH_LICENCIAS_CATEGORIA, CH_LICENCIAS_ROL,
+//  CH_LICENCIAS_LAPD, CH_LICENCIAS_CENTRAL, CH_LICENCIAS_DESDE, POLL_SECONDS).
 //
 // Guía paso a paso: bot/README.md
 
@@ -42,9 +43,14 @@ module.exports = {
     licencias: '', // solicitudes de licencia (si vacío, el bot crea #solicitudes-licencia)
   },
 
-  // Categoría donde se crea #solicitudes-licencia y rol que puede revisar.
-  // Si el rol queda vacío, el bot busca Moderador/Staff/Administrador.
+  // Categoría donde se crea #solicitudes-licencia.
+  // LAPD y Central solo ven el canal; desde licenseMinRoleId hacia arriba
+  // pueden revisar. Si quedan vacíos, se usan los IDs de La Realidad RP.
   licenseCategory: 'Realidad RP Bot',
+  licenseLapdRoleId: '',
+  licenseCentralRoleId: '',
+  licenseMinRoleId: '',
+  // Rol extra que también puede revisar (opcional).
   licenseRoleId: '',
 
   // Cada cuántos segundos consultar el estado del juego (mínimo 30)

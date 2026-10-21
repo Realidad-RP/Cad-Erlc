@@ -60,3 +60,9 @@ services:
         sync: false
       - key: CH_LICENCIAS_ROL
         sync: false
+      - key: CH_LICENCIAS_LAPD
+        sync: false
+      - key: CH_LICENCIAS_CENTRAL
+        sync: false
+      - key: CH_LICENCIAS_DESDE
+        sync: false

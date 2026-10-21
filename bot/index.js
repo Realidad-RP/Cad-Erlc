@@ -40,6 +40,14 @@ const { getServerStatus, getPlayers, runCommand } = require('./lib/erlc');
 // 1. Configuración (bot/config.js o variables de entorno)
 // ============================================================
 
+// IDs del servidor de La Realidad RP. Se pueden pisar con variables de
+// entorno si algún día cambian los roles.
+const LICENSE_ROLE_DEFAULTS = {
+  lapd: '1553781631695720488',
+  central: '1553786287121498244',
+  min: '1553779127436181534',
+};
+
 function loadConfig() {
   let file = {};
   try { file = require('./config.js'); } catch {}
@@ -71,7 +79,12 @@ function loadConfig() {
       licencias: pick('CH_LICENCIAS', channels.licencias || ''), // solicitudes de licencia
     },
     licenseCategory: clean(process.env.CH_LICENCIAS_CATEGORIA || file.licenseCategory || '') || 'Realidad RP Bot',
+    // Rol extra que también puede revisar (compatibilidad con CH_LICENCIAS_ROL).
     licenseRoleId: pick('CH_LICENCIAS_ROL', file.licenseRoleId || ''),
+    // LAPD y Central solo ven el canal; desde licenseMinRoleId hacia arriba revisan.
+    licenseLapdRoleId: pick('CH_LICENCIAS_LAPD', file.licenseLapdRoleId || '') || LICENSE_ROLE_DEFAULTS.lapd,
+    licenseCentralRoleId: pick('CH_LICENCIAS_CENTRAL', file.licenseCentralRoleId || '') || LICENSE_ROLE_DEFAULTS.central,
+    licenseMinRoleId: pick('CH_LICENCIAS_DESDE', file.licenseMinRoleId || '') || LICENSE_ROLE_DEFAULTS.min,
   };
 }
 
@@ -218,12 +231,26 @@ async function getGuild() {
   }
 }
 
+function findRoleByIdOrName(guild, roleId, namePattern) {
+  if (!guild) return null;
+  if (roleId) {
+    const byId = guild.roles.cache.get(String(roleId));
+    if (byId) return byId;
+  }
+  if (namePattern) {
+    return guild.roles.cache.find((role) =>
+      role.id !== guild.id &&
+      !role.managed &&
+      namePattern.test(role.name)
+    ) || null;
+  }
+  return null;
+}
+
 function findLicenseRole(guild) {
   if (!guild) return null;
-  if (cfg.licenseRoleId) {
-    const configured = guild.roles.cache.get(cfg.licenseRoleId);
-    if (configured) return configured;
-  }
+  const configured = findRoleByIdOrName(guild, cfg.licenseRoleId, null);
+  if (configured) return configured;
   const byName = guild.roles.cache.find((role) =>
     role.id !== guild.id &&
     !role.managed &&
@@ -237,7 +264,44 @@ function findLicenseRole(guild) {
   ) || null;
 }
 
-function buildLicenseOverwrites(guild, staffRole) {
+function getLicenseRoleSets(guild) {
+  if (!guild) return { viewers: [], reviewers: [] };
+
+  const lapd = findRoleByIdOrName(guild, cfg.licenseLapdRoleId, /\blapd\b|los angeles police/i);
+  const central = findRoleByIdOrName(guild, cfg.licenseCentralRoleId, /\bcentral\b/i);
+  const minRole = findRoleByIdOrName(guild, cfg.licenseMinRoleId, /moderador(?:a)?\s+en\s+prueba/i);
+  const configuredReviewer = findRoleByIdOrName(guild, cfg.licenseRoleId, null);
+
+  const reviewers = new Map();
+  const addReviewer = (role) => {
+    if (role && role.id !== guild.id && !role.managed) reviewers.set(role.id, role);
+  };
+
+  if (minRole) {
+    for (const role of guild.roles.cache.values()) {
+      if (role.id !== guild.id && !role.managed && role.position >= minRole.position) {
+        addReviewer(role);
+      }
+    }
+  }
+  addReviewer(configuredReviewer);
+
+  // Si no encontramos el rol de referencia, mantenemos el comportamiento
+  // anterior: buscar Moderador/Staff/Administrador o un rol con ManageGuild.
+  if (!reviewers.size) addReviewer(findLicenseRole(guild));
+
+  const viewers = new Map();
+  const addViewer = (role) => {
+    if (role && role.id !== guild.id) viewers.set(role.id, role);
+  };
+  addViewer(lapd);
+  addViewer(central);
+  for (const role of reviewers.values()) addViewer(role);
+
+  return { viewers: [...viewers.values()], reviewers: [...reviewers.values()] };
+}
+
+function buildLicenseOverwrites(guild, roleSets) {
   const overwrites = [
     {
       id: guild.roles.everyone.id,
@@ -254,15 +318,31 @@ function buildLicenseOverwrites(guild, staffRole) {
       ],
     },
   ];
-  if (staffRole) {
+
+  // Los revisores mandan sobre los que solo pueden ver.
+  const access = new Map();
+  for (const role of roleSets.viewers) access.set(role.id, 'view');
+  for (const role of roleSets.reviewers) access.set(role.id, 'review');
+
+  const botTop = guild.members.me && guild.members.me.roles
+    ? guild.members.me.roles.highest.position
+    : Infinity;
+  for (const [id, level] of access) {
+    const role = guild.roles.cache.get(id);
+    if (!role || role.position >= botTop) continue;
     overwrites.push({
-      id: staffRole.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.EmbedLinks,
-        PermissionFlagsBits.ReadMessageHistory,
-      ],
+      id,
+      allow: level === 'review'
+        ? [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.ReadMessageHistory,
+          ]
+        : [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.ReadMessageHistory,
+          ],
     });
   }
   return overwrites;
@@ -276,18 +356,21 @@ async function ensureLicenseChannel() {
     return null;
   }
 
+  let channel = null;
   if (cfg.channels.licencias) {
     const configured = await client.channels.fetch(cfg.channels.licencias).catch(() => null);
     if (configured && configured.type === ChannelType.GuildText) {
-      licenseChannelId = configured.id;
-      return configured;
+      channel = configured;
+    } else {
+      console.warn('[Licencias] El ID de CH_LICENCIAS no existe o no es un canal de texto; busco o creo #solicitudes-licencia.');
     }
-    console.warn('[Licencias] El ID de CH_LICENCIAS no existe o no es un canal de texto; busco o creo #solicitudes-licencia.');
   }
 
-  let channel = guild.channels.cache.find((ch) =>
-    ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
-  ) || null;
+  if (!channel) {
+    channel = guild.channels.cache.find((ch) =>
+      ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
+    ) || null;
+  }
 
   let category = guild.channels.cache.find((ch) =>
     ch.type === ChannelType.GuildCategory && channelName(ch.name) === channelName(cfg.licenseCategory)
@@ -310,8 +393,9 @@ async function ensureLicenseChannel() {
     }
   }
 
-  const staffRole = findLicenseRole(guild);
-  const overwrites = buildLicenseOverwrites(guild, staffRole);
+  const roleSets = getLicenseRoleSets(guild);
+  const overwrites = buildLicenseOverwrites(guild, roleSets);
+  const accessText = `${roleSets.viewers.length} rol(es) con acceso, ${roleSets.reviewers.length} revisor(es)`;
 
   if (channel) {
     if (category && channel.parentId !== category.id) {
@@ -324,13 +408,13 @@ async function ensureLicenseChannel() {
     try {
       await channel.permissionOverwrites.set(overwrites);
     } catch (err) {
-      console.warn('[Licencias] No pude asegurar que #solicitudes-licencia sea privado:', err.message);
+      console.warn('[Licencias] No pude aplicar los permisos del canal (revisá que el bot tenga Gestionar roles):', err.message);
     }
     licenseChannelId = channel.id;
     console.log(
       `[Licencias] Reutilizo #${channel.name}` +
       (category ? ` en ${category.name}` : '') +
-      (staffRole ? ` · visible para ${staffRole.name}` : ' · solo administradores')
+      ` · ${accessText}`
     );
     return channel;
   }
@@ -349,11 +433,11 @@ async function ensureLicenseChannel() {
     console.log(
       `[Licencias] Canal creado: #${channel.name}` +
       (category ? ` en ${category.name}` : '') +
-      (staffRole ? ` · visible para ${staffRole.name}` : ' · solo administradores')
+      ` · ${accessText}`
     );
     return channel;
   } catch (err) {
-    console.warn('[Licencias] No pude crear #solicitudes-licencia:', err.message);
+    console.warn('[Licencias] No pude crear #solicitudes-licencia (revisá Gestionar canales y Gestionar roles):', err.message);
     channel = guild.channels.cache.find((ch) =>
       ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
     ) || null;
@@ -446,16 +530,15 @@ async function handleLicenseButton(interaction) {
   const username = rest.join(':');
   if (!action || !username) return;
 
+  const guild = interaction.guild || await getGuild();
+  const reviewerIds = new Set(getLicenseRoleSets(guild).reviewers.map((role) => role.id));
   const memberRoles = interaction.member && interaction.member.roles && interaction.member.roles.cache;
-  const hasStaffRole = !!(memberRoles && memberRoles.some((role) =>
-    (cfg.licenseRoleId && role.id === cfg.licenseRoleId) ||
-    (!cfg.licenseRoleId && /^(moderador|moderadora|moderaci[oó]n|staff|administrador|administraci[oó]n|admin)/i.test(role.name))
-  ));
+  const hasReviewerRole = !!(memberRoles && memberRoles.some((role) => reviewerIds.has(role.id)));
   const canReview = (interaction.memberPermissions &&
-    interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) || hasStaffRole;
+    interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) || hasReviewerRole;
   if (!canReview) {
     return interaction.reply({
-      content: '⛔ Solo moderadores pueden aprobar o rechazar licencias.',
+      content: '⛔ Solo los rangos de moderación (desde Moderador en Prueba) pueden aprobar o rechazar licencias.',
       flags: MessageFlags.Ephemeral,
     });
   }
