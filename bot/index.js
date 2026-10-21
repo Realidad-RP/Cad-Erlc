@@ -301,6 +301,25 @@ function getLicenseRoleSets(guild) {
   return { viewers: [...viewers.values()], reviewers: [...reviewers.values()] };
 }
 
+function licenseChannelIsPrivate(channel, guild) {
+  const everyoneId = guild.roles.everyone.id;
+  const deniedView = (overwrite) => {
+    if (!overwrite || !overwrite.deny) return false;
+    if (typeof overwrite.deny.has === 'function') {
+      return overwrite.deny.has(PermissionFlagsBits.ViewChannel);
+    }
+    return (BigInt(overwrite.deny.bitfield || 0) & PermissionFlagsBits.ViewChannel) ===
+      PermissionFlagsBits.ViewChannel;
+  };
+  const cache = channel.permissionOverwrites && channel.permissionOverwrites.cache;
+  if (!cache) return false;
+  const own = cache.get(everyoneId);
+  if (own) return deniedView(own);
+  const parent = channel.parent;
+  const parentCache = parent && parent.permissionOverwrites && parent.permissionOverwrites.cache;
+  return parentCache ? deniedView(parentCache.get(everyoneId)) : false;
+}
+
 function buildLicenseOverwrites(guild, roleSets) {
   const overwrites = [
     {
@@ -413,6 +432,13 @@ async function ensureLicenseChannel() {
         console.warn('[Licencias] No pude aplicar los permisos del canal (revisá Gestionar canales/roles y la jerarquía):', err.message);
       }
     }
+    if (!licenseChannelIsPrivate(channel, guild)) {
+      console.warn(
+        '[Licencias] El canal #' + channel.name + ' no es privado. ' +
+        'El bot necesita Gestionar canales/roles para ocultarlo; no lo uso para licencias.'
+      );
+      return null;
+    }
     licenseChannelId = channel.id;
     console.log(
       `[Licencias] Reutilizo #${channel.name}` +
@@ -432,6 +458,10 @@ async function ensureLicenseChannel() {
     };
     if (category) options.parent = category.id;
     channel = await guild.channels.create(options);
+    if (!licenseChannelIsPrivate(channel, guild)) {
+      console.warn('[Licencias] El canal se creó pero no quedó privado; no lo uso para licencias.');
+      return null;
+    }
     licenseChannelId = channel.id;
     console.log(
       `[Licencias] Canal creado: #${channel.name}` +
