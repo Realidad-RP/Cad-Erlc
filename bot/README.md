@@ -175,16 +175,14 @@ Todas usan `Authorization: Bearer <token>` y CORS abierto, igual que `/auth/*` y
 - En **#panel-ciudadano**, el bot necesita *Ver canal*, *Enviar mensajes* y *Leer historial*.
   *Gestionar mensajes* es opcional: solo sirve para borrar sesiones vencidas.
 - En **#solicitudes-licencia**, el bot necesita *Ver canal*, *Enviar mensajes*, *Insertar enlaces* y *Leer historial*.
-  *Gestionar canales* es necesario para crear la categoría y el canal.
-  *Gestionar roles* es necesario para aplicar los permisos de LAPD, Central y los moderadores;
-  el rol del bot debe estar **por encima** de esos roles en la jerarquía.
+  *Gestionar canales* es necesario para crear la categoría/canal con sus permisos iniciales.
+  *Gestionar roles* es opcional: permite al bot actualizar los permisos si cambian los roles.
+  El rol del bot debe estar **por encima** de esos roles en la jerarquía.
 - El canal queda visible para **LAPD**, **Central** y todos los roles desde **Moderador en Prueba**
   hacia arriba. LAPD y Central solo leen; los moderadores pueden aprobar o rechazar.
   - Si querés que otro rol también revise, poné su ID en `CH_LICENCIAS_ROL`.
   - Para cambiar los roles de acceso: `CH_LICENCIAS_LAPD`, `CH_LICENCIAS_CENTRAL` y
     `CH_LICENCIAS_DESDE` (rol mínimo). Si quedan vacíos, se usan los IDs de La Realidad RP.
-  - Sin *Gestionar roles* el bot no puede crear el canal privado ni aplicar los permisos.
-    Concedele ese permiso (con su rol por encima de LAPD/Central/mods) y reiniciá el bot.
 - Un lugar privado para guardar los datos:
   - lo ideal es dejar que el bot cree **#panel-ciudadano** (necesita *Gestionar canales*), o
   - crear el canal a mano, darle acceso al bot y poner su ID en `CH_PANEL`.

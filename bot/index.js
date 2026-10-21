@@ -314,7 +314,6 @@ function buildLicenseOverwrites(guild, roleSets) {
         PermissionFlagsBits.SendMessages,
         PermissionFlagsBits.EmbedLinks,
         PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.ManageMessages,
       ],
     },
   ];
@@ -396,6 +395,8 @@ async function ensureLicenseChannel() {
   const roleSets = getLicenseRoleSets(guild);
   const overwrites = buildLicenseOverwrites(guild, roleSets);
   const accessText = `${roleSets.viewers.length} rol(es) con acceso, ${roleSets.reviewers.length} revisor(es)`;
+  const canManageRoles = !!(guild.members.me && guild.members.me.permissions &&
+    guild.members.me.permissions.has(PermissionFlagsBits.ManageRoles));
 
   if (channel) {
     if (category && channel.parentId !== category.id) {
@@ -405,10 +406,12 @@ async function ensureLicenseChannel() {
         console.warn('[Licencias] No pude mover #solicitudes-licencia a la categoría:', err.message);
       }
     }
-    try {
-      await channel.permissionOverwrites.set(overwrites);
-    } catch (err) {
-      console.warn('[Licencias] No pude aplicar los permisos del canal (revisá que el bot tenga Gestionar roles):', err.message);
+    if (canManageRoles) {
+      try {
+        await channel.permissionOverwrites.set(overwrites);
+      } catch (err) {
+        console.warn('[Licencias] No pude aplicar los permisos del canal (revisá Gestionar canales/roles y la jerarquía):', err.message);
+      }
     }
     licenseChannelId = channel.id;
     console.log(
@@ -423,7 +426,7 @@ async function ensureLicenseChannel() {
     const options = {
       name: 'solicitudes-licencia',
       type: ChannelType.GuildText,
-      topic: 'Solicitudes de licencia del Panel de Ciudadano · solo staff',
+      topic: 'Solicitudes de licencia del Panel de Ciudadano · LAPD, Central y staff',
       permissionOverwrites: overwrites,
       reason: 'Canal privado para revisar las licencias solicitadas desde el panel',
     };
@@ -437,7 +440,7 @@ async function ensureLicenseChannel() {
     );
     return channel;
   } catch (err) {
-    console.warn('[Licencias] No pude crear #solicitudes-licencia (revisá Gestionar canales y Gestionar roles):', err.message);
+    console.warn('[Licencias] No pude crear #solicitudes-licencia (revisá Gestionar canales):', err.message);
     channel = guild.channels.cache.find((ch) =>
       ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
     ) || null;
