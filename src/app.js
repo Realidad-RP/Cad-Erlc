@@ -2295,6 +2295,64 @@ function linkPushSoon() {
   linkTimer = setTimeout(linkPush, 400);
 }
 
+// Trae al CAD los DNI creados desde el Panel de Ciudadano. Así el staff
+// puede buscarlos por nombre y agregarles multas u órdenes.
+let lastWebSync = 0;
+function dniKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+async function syncWebCitizens({ silent = true } = {}) {
+  if (!linkCfg.url || !linkCfg.key) return 0;
+  if (Date.now() - lastWebSync < 15000) return 0;
+  lastWebSync = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const res = await fetch(linkCfg.url + '/citizen/directory', {
+      headers: { 'x-cad-key': linkCfg.key },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const list = Array.isArray(data.citizens) ? data.citizens : [];
+    let added = 0;
+    for (const item of list) {
+      const dni = String(item && item.dni || '').trim();
+      const name = String(item && item.name || '').trim();
+      if (!dni || !name) continue;
+      const key = dniKey(dni);
+      if (!key || db.persons.some((p) => dniKey(p.dni) === key)) continue;
+      db.persons.unshift({
+        id: nextId('PER'),
+        name,
+        dni,
+        dob: String(item.dob || ''),
+        license: '',
+        licStatus: 'Sin licencia',
+        notes: 'DNI creado desde el Panel de Ciudadano.',
+        source: 'web',
+        createdAt: Number(item.createdAt) || Date.now(),
+      });
+      added++;
+    }
+    if (added > 0) {
+      addLog('🪪 ' + added + ' DNI importado(s) desde el Panel de Ciudadano');
+      renderAll();
+      saveDb();
+      if (!silent) flash('✅ ' + added + ' DNI importado(s) desde el panel');
+    } else if (!silent) {
+      flash('No hay DNI nuevos en el panel.');
+    }
+    return added;
+  } catch (err) {
+    if (!silent) flash('No se pudieron importar los DNI web: ' + (err.name === 'AbortError' ? 'sin respuesta' : err.message));
+    return 0;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function wireLink() {
   $('#link-save').addEventListener('click', async () => {
     saveLinkPrefs();
@@ -2302,7 +2360,15 @@ function wireLink() {
     if (!linkCfg.key) { flash('Escribe la clave del enlace.'); renderLinkStatus(); return; }
     flash('Probando enlace con el bot…');
     const ok = await linkPush();
-    flash(ok ? 'Enlace con el bot: OK ✅' : 'No se pudo enlazar con el bot ⚠️');
+    if (ok) {
+      flash('Enlace con el bot: OK ✅');
+      await syncWebCitizens({ silent: false });
+    } else {
+      flash('No se pudo enlazar con el bot ⚠️');
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (linkCfg.url && linkCfg.key) syncWebCitizens({ silent: true });
   });
   updateLinkVisibility();
 }
@@ -3341,6 +3407,7 @@ function init() {
   renderMembers([]);
 
   linkPushSoon(); // si hay enlace configurado, el bot recibe el estado al arrancar
+  setTimeout(() => syncWebCitizens({ silent: true }), 1500); // importar DNI web
 }
 
 init();

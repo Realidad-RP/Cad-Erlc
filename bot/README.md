@@ -134,19 +134,21 @@ La web tiene un botón **Cuenta** (arriba a la derecha y en el menú lateral). E
 2. El bot busca ese usuario **en tu servidor**, le manda un **MD con un código de 6 dígitos** y la web pide el código.
 3. Al ingresarlo, la cuenta queda creada y la persona entra automáticamente, con su **nombre y foto de Discord**.
 4. Para volver a entrar: usuario + contraseña. Si la olvidó, pide un código por MD y elige una nueva.
-5. La primera vez, `panel.html` pide **vincular el DNI**: la persona escribe el **DNI** y el **nombre exacto del personaje** que el staff cargó en el CAD. El bot normaliza mayúsculas, acentos, espacios, puntos y guiones. Se permite **un DNI por cuenta web**.
-6. El panel muestra en **solo lectura** el resumen, la credencial del DNI, la licencia, los vehículos, las multas y las órdenes que el CAD envió al bot. También incluye un enlace a la central 911 y permite **desvincular el DNI** desde Ajustes.
+5. La primera vez, `panel.html` ofrece **crear el DNI** o **vincular uno existente**. Para crear, la persona completa nombre, apellido y fecha de nacimiento; el bot calcula la edad y genera un DNI `CA-########`. Para vincular, escribe el **DNI** y el **nombre exacto del personaje** que el staff cargó en el CAD. El bot normaliza mayúsculas, acentos, espacios, puntos y guiones. Se permite **un DNI por cuenta web**.
+6. El panel muestra en **solo lectura** el resumen, la credencial del DNI, la licencia, los vehículos, las multas y las órdenes que el CAD envió al bot. También incluye un enlace a la central 911. El DNI se puede desvincular desde Ajustes, excepto si fue creado en la web (queda asociado a la cuenta).
 7. Las **reseñas** que publique quedan guardadas en el servidor y se ven desde cualquier dispositivo, con su foto de Discord.
 
 > ⚠️ El panel **no modifica** el CAD ni procesa pagos. Las multas se abonan en el juego y las correcciones de datos se piden al staff.
 
-**Cómo llegan los datos al panel:** el CAD envía un espejo de sus registros con `POST /cad/snapshot` al iniciar y cada vez que guarda la base. El bot lo mantiene **en memoria**; si Render reinicia el bot, el panel muestra “CAD sin datos” hasta que el CAD vuelva a enviar el espejo. Las rutas del panel son:
+**Cómo llegan los datos al panel:** el CAD envía un espejo de sus registros con `POST /cad/snapshot` al iniciar y cada vez que guarda la base. El bot lo mantiene **en memoria**; si Render reinicia el bot, el panel muestra “CAD sin datos” hasta que el CAD vuelva a enviar el espejo. Los DNI creados en la web se guardan en la cuenta y el CAD los importa desde `GET /citizen/directory` (con la `CAD_KEY`) para que el staff los busque y les agregue causas. Las rutas del panel son:
 
 | Ruta | Qué hace |
 |---|---|
 | `GET /citizen/me` | Devuelve la cuenta, el estado del vínculo y el perfil del ciudadano (`waiting` si no hay snapshot, `missing` si el DNI ya no existe) |
+| `POST /citizen/create` | Crea `{ firstName, lastName, dob }`, calcula la edad y genera un DNI de California; requiere sesión |
 | `POST /citizen/link` | Vincula `{ dni, name }` a la cuenta autenticada; exige coincidencia exacta con el CAD |
 | `POST /citizen/unlink` | Quita el DNI de la cuenta web; no borra nada del CAD |
+| `GET /citizen/directory` | Lista los DNI creados en la web; requiere el header `x-cad-key` |
 
 Todas usan `Authorization: Bearer <token>` y CORS abierto, igual que `/auth/*` y `/reviews`.
 

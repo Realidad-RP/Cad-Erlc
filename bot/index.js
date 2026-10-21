@@ -165,6 +165,7 @@ const webAuth = createWebAuth({
   getDiscordError: () => discordLoginError,
   getCadSnapshot: () => mirror.get(),
   getCadUpdatedAt: () => cadUpdatedAt,
+  cadKey: cfg.cadKey || '',
   log: console.log,
 });
 

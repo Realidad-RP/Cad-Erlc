@@ -10,6 +10,7 @@ const { createBotServer } = require('./lib/server');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cad-web-test-'));
 const sentDMs = [];
 let clock = Date.now();
+let pedroDni = '';
 
 const cadSnapshot = {
   persons: [
@@ -55,6 +56,7 @@ const webAuth = createWebAuth({
   },
   getCadSnapshot: () => cadSnapshot,
   getCadUpdatedAt: () => clock,
+  cadKey: 'test-cad-key',
 });
 
 const checks = {};
@@ -79,8 +81,8 @@ function lastCode() {
   });
   const base = 'http://127.0.0.1:' + server.port;
 
-  async function api(pathname, { method = 'GET', body, token } = {}) {
-    const headers = {};
+  async function api(pathname, { method = 'GET', body, token, headers: extraHeaders } = {}) {
+    const headers = Object.assign({}, extraHeaders || {});
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (token) headers.authorization = 'Bearer ' + token;
     const r = await fetch(base + pathname, {
@@ -210,6 +212,69 @@ function lastCode() {
   });
   check('panel: se puede volver a vincular', linkAgain.status === 200 && linkAgain.data.linked === true);
 
+  // Panel: crear un DNI nuevo desde la web
+  clock += 46000;
+  const regPedro = await api('/auth/register', { method: 'POST', body: { username: 'pedro', password: 'pedro123' } });
+  check('panel: segunda cuenta pide código', regPedro.status === 200 && regPedro.data.pending === true);
+  const codePedro = lastCode();
+  const verifyPedro = await api('/auth/verify', { method: 'POST', body: { username: 'pedro', code: codePedro } });
+  check('panel: segunda cuenta verificada', verifyPedro.status === 200 && !!verifyPedro.data.token);
+  const pedroToken = verifyPedro.data.token;
+
+  const createNoAuth = await api('/citizen/create', {
+    method: 'POST',
+    body: { firstName: 'Pedro', lastName: 'Gómez', dob: '2000-05-10' },
+  });
+  check('panel: crear DNI exige sesión', createNoAuth.status === 401);
+
+  const createBadDob = await api('/citizen/create', {
+    method: 'POST',
+    token: pedroToken,
+    body: { firstName: 'Pedro', lastName: 'Gómez', dob: '2026-02-30' },
+  });
+  check('panel: rechaza fecha de nacimiento inválida', createBadDob.status === 400);
+
+  const createPedro = await api('/citizen/create', {
+    method: 'POST',
+    token: pedroToken,
+    body: { firstName: 'Pedro', lastName: 'Gómez', dob: '2000-05-10' },
+  });
+  check('panel: crea el DNI desde la web', createPedro.status === 200
+    && createPedro.data.linked === true
+    && createPedro.data.citizen
+    && createPedro.data.citizen.source === 'web');
+  check('panel: el DNI tiene formato de California', /^CA-\d{8}$/.test(createPedro.data.citizen.dni));
+  check('panel: calcula la edad desde la fecha de nacimiento', createPedro.data.citizen.age >= 18);
+  check('panel: guarda nombre y apellido', createPedro.data.citizen.name === 'Pedro Gómez');
+  pedroDni = createPedro.data.citizen.dni;
+
+  const pedroMe = await api('/citizen/me', { token: pedroToken });
+  check('panel: consulta el DNI creado sin depender del CAD', pedroMe.status === 200
+    && pedroMe.data.linked === true
+    && pedroMe.data.citizen
+    && pedroMe.data.citizen.source === 'web'
+    && pedroMe.data.citizen.totals.fines === 0);
+
+  const dirNoKey = await api('/citizen/directory');
+  check('panel: el directorio del CAD exige clave', dirNoKey.status === 401);
+  const dirBadKey = await api('/citizen/directory', { headers: { 'x-cad-key': 'mala' } });
+  check('panel: el directorio rechaza una clave incorrecta', dirBadKey.status === 401);
+  const directoryRes = await api('/citizen/directory', { headers: { 'x-cad-key': 'test-cad-key' } });
+  check('panel: el directorio entrega los DNI web al CAD', directoryRes.status === 200
+    && directoryRes.data.count === 1
+    && directoryRes.data.citizens[0].dni === pedroDni
+    && directoryRes.data.citizens[0].name === 'Pedro Gómez');
+
+  const createAgain = await api('/citizen/create', {
+    method: 'POST',
+    token: pedroToken,
+    body: { firstName: 'Otro', lastName: 'Nombre', dob: '1990-01-01' },
+  });
+  check('panel: no permite crear dos DNI en la misma cuenta', createAgain.status === 409);
+
+  const unlinkWeb = await api('/citizen/unlink', { method: 'POST', token: pedroToken });
+  check('panel: el DNI creado en la web no se puede desvincular', unlinkWeb.status === 409);
+
   // Casos de error
   clock += 46000;
   const dup = await api('/auth/register', { method: 'POST', body: { username: 'ana', password: 'otraClave' } });
@@ -231,6 +296,10 @@ function lastCode() {
   const store = JSON.parse(fs.readFileSync(path.join(dir, 'web.json'), 'utf8'));
   check('cuenta guardada en disco', !!store.accounts.ana && store.accounts.ana.hash.length === 128);
   check('panel: DNI vinculado guardado en disco', store.accounts.ana.dni === '30123456');
+  check('panel: DNI web guardado en disco', !!store.accounts.pedro.webCitizen
+    && store.accounts.pedro.webCitizen.dni === pedroDni
+    && store.accounts.pedro.webCitizen.name === 'Pedro Gómez'
+    && store.accounts.pedro.webCitizen.age >= 18);
   check('reseñas guardadas en disco', store.reviews.length === 2);
   check('no guarda contraseñas en texto plano', !JSON.stringify(store).includes('nuevaClave9'));
 

@@ -82,6 +82,36 @@ function sameCitizenName(a, b) {
   return !!na && na === normalizeName(b);
 }
 
+const DNI_PREFIX = 'CA-';
+
+function parseDob(value) {
+  const dob = String(value == null ? '' : value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
+  const date = new Date(dob + 'T12:00:00Z');
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().slice(0, 10) !== dob) return null;
+  return date;
+}
+
+function ageFromDob(dob, today = Date.now()) {
+  const date = parseDob(dob);
+  if (!date) return 0;
+  const nowDate = new Date(today);
+  let age = nowDate.getUTCFullYear() - date.getUTCFullYear();
+  const month = nowDate.getUTCMonth() - date.getUTCMonth();
+  if (month < 0 || (month === 0 && nowDate.getUTCDate() < date.getUTCDate())) age--;
+  return age;
+}
+
+function generateDni(taken) {
+  for (let i = 0; i < 50; i++) {
+    const number = String(crypto.randomInt(10000000, 100000000));
+    const dni = DNI_PREFIX + number;
+    if (!taken.has(normalizeDni(dni))) return dni;
+  }
+  throw httpError(503, 'No pude generar un DNI libre. Probá de nuevo en unos segundos.');
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -149,6 +179,7 @@ function createWebAuth({
   getDiscordError = () => '',
   getCadSnapshot = () => null,
   getCadUpdatedAt = () => 0,
+  cadKey = '',
   log = console.log,
   now = () => Date.now(),
 } = {}) {
@@ -213,10 +244,11 @@ function createWebAuth({
   }
 
   function buildCitizenProfile(snapshot, person) {
+    const snap = snapshot || {};
     const ownerName = String(person && person.name || '');
     const sameOwner = (value) => sameCitizenName(value, ownerName);
 
-    const fines = (snapshot.fines || [])
+    const fines = (snap.fines || [])
       .filter((f) => f && sameOwner(f.person))
       .map((f) => ({
         id: String(f.id || ''),
@@ -229,7 +261,7 @@ function createWebAuth({
       .sort((a, b) => b.ts - a.ts)
       .slice(0, 100);
 
-    const warrants = (snapshot.warrants || [])
+    const warrants = (snap.warrants || [])
       .filter((w) => w && sameOwner(w.person))
       .map((w) => ({
         id: String(w.id || ''),
@@ -242,7 +274,7 @@ function createWebAuth({
       .sort((a, b) => b.ts - a.ts)
       .slice(0, 100);
 
-    const vehicles = (snapshot.vehicles || [])
+    const vehicles = (snap.vehicles || [])
       .filter((v) => v && sameOwner(v.owner))
       .map((v) => ({
         id: String(v.id || ''),
@@ -262,6 +294,8 @@ function createWebAuth({
       dni: String(person.dni || ''),
       name: ownerName,
       dob: String(person.dob || ''),
+      age: ageFromDob(person.dob),
+      source: 'cad',
       license: String(person.license || ''),
       licStatus: String(person.licStatus || 'Válida'),
       notes: String(person.notes || ''),
@@ -584,7 +618,7 @@ function createWebAuth({
   }
 
   function restoreCitizenFields(account, previous) {
-    for (const key of ['dni', 'citizenName', 'citizenLinkedAt']) {
+    for (const key of ['dni', 'citizenName', 'citizenLinkedAt', 'webCitizen']) {
       if (previous[key] === undefined) delete account[key];
       else account[key] = previous[key];
     }
@@ -597,10 +631,55 @@ function createWebAuth({
       dni: account.dni || '',
       name: account.citizenName || '',
       user: publicUser(account),
+      canUnlink: !account.webCitizen,
       cadReady: !!cadSnapshotSafe(),
       cadUpdatedAt: cadUpdatedAtSafe(),
       serverNow: now(),
     };
+  }
+
+  function citizenDirectory(req) {
+    const expected = String(cadKey || '');
+    if (!expected) throw httpError(503, 'El CAD_KEY del bot no está configurado.');
+    const received = String(req.headers['x-cad-key'] || '');
+    if (received !== expected) throw httpError(401, 'Clave del CAD incorrecta.');
+
+    const citizens = [];
+    for (const account of Object.values(db.accounts)) {
+      const web = account && account.webCitizen;
+      if (!web || !web.dni || !web.name) continue;
+      citizens.push({
+        dni: String(web.dni),
+        name: String(web.name),
+        firstName: String(web.firstName || ''),
+        lastName: String(web.lastName || ''),
+        dob: String(web.dob || ''),
+        age: Number(web.age) || ageFromDob(web.dob),
+        createdAt: Number(web.createdAt) || 0,
+        source: 'web',
+      });
+    }
+    citizens.sort((a, b) => b.createdAt - a.createdAt);
+    return { ok: true, citizens, count: citizens.length, serverNow: now() };
+  }
+
+  function buildWebCitizenProfile(webCitizen, snapshot) {
+    const person = {
+      name: webCitizen.name,
+      dni: webCitizen.dni,
+      dob: webCitizen.dob,
+      license: webCitizen.license || '',
+      licStatus: webCitizen.licStatus || 'Sin licencia',
+      notes: webCitizen.notes || '',
+    };
+    const profile = buildCitizenProfile(snapshot || {}, person);
+    profile.dni = webCitizen.dni;
+    profile.name = webCitizen.name;
+    profile.dob = webCitizen.dob;
+    profile.age = Number(webCitizen.age) || ageFromDob(webCitizen.dob);
+    profile.source = 'web';
+    if (!profile.license) profile.licStatus = webCitizen.licStatus || 'Sin licencia';
+    return profile;
   }
 
   async function citizenMe(req) {
@@ -609,24 +688,119 @@ function createWebAuth({
     if (!account.dni) return base;
 
     const snapshot = cadSnapshotSafe();
-    if (!snapshot) return { ...base, waiting: true };
+    const webCitizen = account.webCitizen;
+    if (!snapshot) {
+      if (webCitizen) {
+        return {
+          ...base,
+          citizen: buildWebCitizenProfile(webCitizen, null),
+          source: 'web',
+          cadMissing: true,
+        };
+      }
+      return { ...base, waiting: true };
+    }
 
     const matches = findPersonsByDni(snapshot, account.dni);
     const person = matches.find((p) => sameCitizenName(p.name, account.citizenName));
     // Si el DNI existe pero el nombre cambió, no mostramos el registro de otra
     // persona: pedimos volver a vincular para confirmar la identidad.
-    if (!person) return { ...base, missing: true };
+    if (!person) {
+      if (webCitizen) {
+        return {
+          ...base,
+          citizen: buildWebCitizenProfile(webCitizen, snapshot),
+          source: 'web',
+          cadMissing: true,
+        };
+      }
+      return { ...base, missing: true };
+    }
 
     return {
       ...base,
       dni: String(person.dni || account.dni),
       name: String(person.name || account.citizenName || ''),
+      source: 'cad',
       citizen: buildCitizenProfile(snapshot, person),
+    };
+  }
+
+  async function citizenCreate(req, body) {
+    const { account } = requireSession(req);
+    if (account.dni) throw httpError(409, 'Ya tenés un DNI vinculado. Desvinculalo desde Ajustes antes de crear otro.');
+    if (account.webCitizen) throw httpError(409, 'Ya creaste tu DNI en el panel. Ese DNI queda asociado a tu cuenta.');
+
+    const firstName = cleanText(body.firstName, 40);
+    const lastName = cleanText(body.lastName, 40);
+    const dob = String(body.dob == null ? '' : body.dob).trim();
+    const nameRe = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
+
+    if (firstName.length < 2 || !nameRe.test(firstName)) {
+      throw httpError(400, 'Escribí tu nombre (mínimo 2 letras, sin números).');
+    }
+    if (lastName.length < 2 || !nameRe.test(lastName)) {
+      throw httpError(400, 'Escribí tu apellido (mínimo 2 letras, sin números).');
+    }
+    if (!parseDob(dob)) throw httpError(400, 'Elegí una fecha de nacimiento válida.');
+
+    const age = ageFromDob(dob, now());
+    if (age < 0 || age > 120) throw httpError(400, 'La fecha de nacimiento no es válida.');
+
+    const name = firstName + ' ' + lastName;
+    const taken = new Set();
+    for (const other of Object.values(db.accounts)) {
+      if (!other) continue;
+      if (other.dni) taken.add(normalizeDni(other.dni));
+      if (other.webCitizen && other.webCitizen.dni) taken.add(normalizeDni(other.webCitizen.dni));
+    }
+    const dni = generateDni(taken);
+
+    const webCitizen = {
+      dni,
+      firstName,
+      lastName,
+      name,
+      dob,
+      age,
+      license: '',
+      licStatus: 'Sin licencia',
+      notes: '',
+      source: 'web',
+      createdAt: now(),
+    };
+
+    const previous = {
+      dni: account.dni,
+      citizenName: account.citizenName,
+      citizenLinkedAt: account.citizenLinkedAt,
+      webCitizen: account.webCitizen,
+    };
+    account.webCitizen = webCitizen;
+    account.dni = dni;
+    account.citizenName = name;
+    account.citizenLinkedAt = now();
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      restoreCitizenFields(account, previous);
+      log('[Web] No se pudo crear el DNI:', err.message);
+      throw httpError(503, 'No se pudo guardar el DNI en el servidor. Probá de nuevo en unos segundos.');
+    }
+
+    log(`[Web] DNI ${dni} creado desde el panel por @${account.username}`);
+    return {
+      ...citizenBase(account),
+      source: 'web',
+      cadMissing: !cadSnapshotSafe(),
+      citizen: buildWebCitizenProfile(webCitizen, cadSnapshotSafe()),
     };
   }
 
   async function citizenLink(req, body) {
     const { account } = requireSession(req);
+    if (account.webCitizen) throw httpError(409, 'Tu DNI fue creado en el panel. No hace falta vincularlo de nuevo.');
     const dniInput = cleanText(body.dni, 40);
     const nameInput = cleanText(body.name, 80);
     const dni = normalizeDni(dniInput);
@@ -688,6 +862,9 @@ function createWebAuth({
   async function citizenUnlink(req) {
     const { account } = requireSession(req);
     if (!account.dni) return { ok: true, user: publicUser(account) };
+    if (account.webCitizen) {
+      throw httpError(409, 'Tu DNI fue creado en el panel y queda asociado a tu cuenta. Si necesitás cambiarlo, hablá con el staff.');
+    }
 
     const previous = {
       dni: account.dni,
@@ -840,6 +1017,14 @@ function createWebAuth({
       }
       if (url === '/citizen/me' && req.method === 'GET') {
         sendJson(res, 200, await citizenMe(req));
+        return true;
+      }
+      if (url === '/citizen/create' && req.method === 'POST') {
+        sendJson(res, 200, await citizenCreate(req, await readJsonBody(req)));
+        return true;
+      }
+      if (url === '/citizen/directory' && req.method === 'GET') {
+        sendJson(res, 200, citizenDirectory(req));
         return true;
       }
       if (url === '/citizen/link' && req.method === 'POST') {

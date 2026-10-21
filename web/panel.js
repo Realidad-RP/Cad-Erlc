@@ -30,6 +30,17 @@
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
+  const ageFromDob = (value) => {
+    const dob = String(value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
+    const d = new Date(dob + 'T12:00:00');
+    if (Number.isNaN(d.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    return age >= 0 && age <= 120 ? age : null;
+  };
   const relative = (ts) => {
     if (!ts) return 'sin datos';
     const s = Math.max(0, Math.floor((Date.now() - Number(ts)) / 1000));
@@ -77,6 +88,9 @@
     error: '',
     tab: 'resumen',
     unlinkConfirm: false,
+    canUnlink: true,
+    source: '',
+    cadMissing: false,
   };
 
   let unlinkTimer = null;
@@ -250,14 +264,38 @@
     const user = currentUser();
     return '' +
       '<div class="citizen-section-head">' +
-        '<div><span class="eyebrow">Primer paso</span><h2>Vinculá tu DNI</h2>' +
-        '<p>Conectá tu cuenta de Discord con tu personaje del CAD. Es una sola vez.</p></div>' +
+        '<div><span class="eyebrow">Primer paso</span><h2>Creá tu identidad</h2>' +
+        '<p>Podés generar tu DNI desde la web o vincular uno que ya exista en el CAD.</p></div>' +
+      '</div>' +
+      '<div class="citizen-form-head citizen-onboard-account">' + avatarMarkup('citizen-form-avatar') +
+        '<div><b>' + esc(user.displayName || user.username) + '</b><span>@' + esc(user.username) + ' · Los Angeles, California</span></div>' +
       '</div>' +
       '<div class="citizen-grid-2 citizen-link-grid">' +
+        '<article class="citizen-card citizen-create-card">' +
+          '<span class="eyebrow">Nuevo ciudadano</span>' +
+          '<h3>Crear mi DNI</h3>' +
+          '<p class="citizen-fine">La edad se calcula sola con tu fecha de nacimiento. El número de DNI se genera automáticamente con formato de California.</p>' +
+          '<form class="citizen-form" id="citizenCreateForm" novalidate>' +
+            '<div class="citizen-name-grid">' +
+              '<label>Nombre' +
+                '<input name="firstName" autocomplete="given-name" placeholder="Ej: Juan" maxlength="40" required>' +
+              '</label>' +
+              '<label>Apellido' +
+                '<input name="lastName" autocomplete="family-name" placeholder="Ej: Pérez" maxlength="40" required>' +
+              '</label>' +
+            '</div>' +
+            '<label>Fecha de nacimiento' +
+              '<input name="dob" type="date" autocomplete="bday" required>' +
+            '</label>' +
+            '<div class="citizen-age-line">Edad calculada <b id="citizenAge">—</b></div>' +
+            '<button class="btn btn-primary citizen-form-submit" type="submit">Crear mi DNI</button>' +
+            '<div class="citizen-form-msg" id="citizenCreateMsg"></div>' +
+          '</form>' +
+        '</article>' +
         '<article class="citizen-card citizen-link-card">' +
-          '<div class="citizen-form-head">' + avatarMarkup('citizen-form-avatar') +
-            '<div><b>' + esc(user.displayName || user.username) + '</b><span>@' + esc(user.username) + '</span></div>' +
-          '</div>' +
+          '<span class="eyebrow">Ya tengo DNI</span>' +
+          '<h3>Vincular mi DNI</h3>' +
+          '<p class="citizen-fine">Si el staff ya cargó tu personaje en el CAD, conectalo con tu cuenta.</p>' +
           '<form class="citizen-form" id="citizenLinkForm" novalidate>' +
             '<label>DNI del personaje' +
               '<input name="dni" inputmode="numeric" autocomplete="off" placeholder="Ej: 30123456" required>' +
@@ -269,21 +307,17 @@
             '<div class="citizen-form-msg" id="citizenLinkMsg"></div>' +
           '</form>' +
         '</article>' +
-        '<aside class="citizen-card citizen-help">' +
-          '<span class="eyebrow">Cómo funciona</span>' +
-          '<h3>Tu identidad en la ciudad</h3>' +
-          '<ol>' +
-            '<li>Tu personaje tiene que estar registrado en el CAD.</li>' +
-            '<li>Escribí el DNI y el nombre <b>tal como los cargó el staff</b>.</li>' +
-            '<li>Si los datos no coinciden, pedile al staff que los revise.</li>' +
-          '</ol>' +
-          '<p class="citizen-fine">Solo se puede vincular un DNI por cuenta. Podés desvincularlo cuando quieras desde Ajustes.</p>' +
-        '</aside>' +
       '</div>' +
-      '<article class="citizen-card citizen-note">' +
-        '<b>¿Todavía no tenés DNI?</b>' +
-        '<p>Pasá por el Discord y pedí tu registro. Cuando el CAD tenga tus datos, volvé acá y vinculalos.</p>' +
-      '</article>';
+      '<aside class="citizen-card citizen-help">' +
+        '<span class="eyebrow">¿Cuál elijo?</span>' +
+        '<h3>Tu identidad en la ciudad</h3>' +
+        '<ol>' +
+          '<li><b>Crear mi DNI:</b> si sos nuevo y todavía no tenés registro en el CAD.</li>' +
+          '<li><b>Vincular mi DNI:</b> si el staff ya cargó tu personaje y tenés el número.</li>' +
+          '<li>El nombre de la cuenta y el del personaje pueden ser distintos.</li>' +
+        '</ol>' +
+        '<p class="citizen-fine">Un DNI por cuenta. El DNI creado en la web queda asociado a tu cuenta.</p>' +
+      '</aside>';
   }
 
   function renderWaiting() {
@@ -317,6 +351,10 @@
   function renderOverview(c) {
     const license = licenseTone(c.licStatus);
     const alerts = [];
+    if (state.cadMissing) {
+      alerts.push(banner('gold', 'DNI creado en la web',
+        'Tu identidad ya está activa en el panel. El CAD todavía no la importó; cuando el staff la sincronice, tus multas y órdenes van a aparecer acá.'));
+    }
     if (c.totals.warrants > 0) {
       alerts.push(banner('red', 'Tenés una orden activa',
         'Acercate a una unidad policial o hablá con el staff para resolverla.',
@@ -590,15 +628,20 @@
           '</div>' +
         '</article>' +
       '</div>' +
-      '<article class="citizen-card citizen-danger-zone">' +
-        '<div><b>Desvincular DNI</b><p>El DNI se quita de tu cuenta. Los datos del CAD no se borran.</p></div>' +
-        (state.unlinkConfirm
-          ? '<div class="citizen-confirm-actions">' +
-              '<button class="btn citizen-red-btn" type="button" data-action="unlink-confirm">Sí, desvincular</button>' +
-              '<button class="btn btn-ghost" type="button" data-action="unlink-cancel">Cancelar</button>' +
-            '</div>'
-          : '<button class="btn btn-ghost citizen-red-btn" type="button" data-action="unlink">Desvincular DNI</button>') +
-      '</article>' +
+      (state.canUnlink
+        ? '<article class="citizen-card citizen-danger-zone">' +
+            '<div><b>Desvincular DNI</b><p>El DNI se quita de tu cuenta. Los datos del CAD no se borran.</p></div>' +
+            (state.unlinkConfirm
+              ? '<div class="citizen-confirm-actions">' +
+                  '<button class="btn citizen-red-btn" type="button" data-action="unlink-confirm">Sí, desvincular</button>' +
+                  '<button class="btn btn-ghost" type="button" data-action="unlink-cancel">Cancelar</button>' +
+                '</div>'
+              : '<button class="btn btn-ghost citizen-red-btn" type="button" data-action="unlink">Desvincular DNI</button>') +
+          '</article>'
+        : '<article class="citizen-card citizen-note">' +
+            '<b>DNI creado en el panel</b>' +
+            '<p>Este DNI queda asociado a tu cuenta. Si necesitás cambiarlo, hablá con el staff.</p>' +
+          '</article>') +
       '<article class="citizen-card citizen-note">' +
         '<b>Privacidad</b>' +
         '<p>Tu cuenta solo muestra el DNI que vinculaste. No se puede consultar el DNI de otra persona desde el panel.</p>' +
@@ -709,6 +752,9 @@
       state.linked = !!(d && d.linked);
       state.waiting = !!(d && d.waiting);
       state.missing = !!(d && d.missing);
+      state.cadMissing = !!(d && d.cadMissing);
+      state.canUnlink = !d || d.canUnlink !== false;
+      state.source = (d && d.source) || '';
       state.citizen = (d && d.citizen) || null;
       state.cadUpdatedAt = Number(d && d.cadUpdatedAt) || 0;
       state.serverNow = Number(d && d.serverNow) || Date.now();
@@ -729,6 +775,150 @@
       if (silent) app.toast('No se pudo actualizar: ' + state.error);
     } finally {
       state.requestInFlight = false;
+    }
+  }
+
+  function startTutorial(citizen) {
+    if (!citizen) return;
+    const steps = [
+      {
+        icon: '🪪',
+        title: 'Tu DNI ya existe',
+        text: 'Este es tu documento de Los Angeles, California. Tu número es ' + citizen.dni + '. Guardalo: lo vas a usar para trámites y para que el staff te busque en el CAD.',
+      },
+      {
+        icon: '🚗',
+        title: 'Tu licencia',
+        text: 'Cuando el staff cargue tu licencia en el CAD, va a aparecer acá con su número y estado. Si todavía no tenés, se muestra “Sin licencia”.',
+      },
+      {
+        icon: '🚨',
+        title: 'Multas y órdenes',
+        text: 'Si la policía te pone una multa o emite una orden, la vas a ver en las pestañas Multas y Órdenes. El panel es solo de consulta.',
+      },
+      {
+        icon: '🏦',
+        title: 'Bank of America',
+        text: 'Tu banco va a vivir en este panel. Los sueldos y movimientos se manejan desde Discord; acá vas a poder consultar tu saldo.',
+      },
+      {
+        icon: '✅',
+        title: 'Todo listo',
+        text: 'Usá el menú de la izquierda para entrar a Mi DNI, Licencia, Vehículos, Multas y Órdenes. Podés volver al resumen cuando quieras.',
+      },
+    ];
+    let index = 0;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'citizen-tutorial';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Tutorial del Panel de Ciudadano');
+    document.body.appendChild(overlay);
+    document.body.classList.add('tutorial-open');
+
+    function close() {
+      overlay.remove();
+      document.body.classList.remove('tutorial-open');
+    }
+
+    function draw() {
+      const step = steps[index];
+      const last = index === steps.length - 1;
+      overlay.innerHTML = '' +
+        '<div class="citizen-tutorial-box">' +
+          '<div class="citizen-tutorial-top">' +
+            '<span class="citizen-tutorial-step">Paso ' + (index + 1) + ' de ' + steps.length + '</span>' +
+            '<button class="citizen-tutorial-skip" type="button" data-tutorial-action="skip">Saltar tutorial</button>' +
+          '</div>' +
+          '<div class="citizen-tutorial-icon">' + step.icon + '</div>' +
+          '<h2>' + esc(step.title) + '</h2>' +
+          '<p>' + esc(step.text) + '</p>' +
+          '<div class="citizen-tutorial-dots">' +
+            steps.map((_, i) => '<i class="' + (i === index ? 'on' : '') + '"></i>').join('') +
+          '</div>' +
+          '<div class="citizen-tutorial-actions">' +
+            (index > 0 ? '<button class="btn btn-ghost" type="button" data-tutorial-action="back">Atrás</button>' : '<span></span>') +
+            '<button class="btn btn-primary" type="button" data-tutorial-action="next">' + (last ? 'Empezar' : 'Siguiente') + '</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    overlay.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-tutorial-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-tutorial-action');
+      if (action === 'skip') { close(); return; }
+      if (action === 'back') { index = Math.max(0, index - 1); draw(); return; }
+      if (action === 'next') {
+        if (index >= steps.length - 1) { close(); return; }
+        index++;
+        draw();
+      }
+    });
+
+    draw();
+  }
+
+  async function handleCreateSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    if (!form || form.id !== 'citizenCreateForm') return;
+    const app = LR();
+    if (!app) return;
+    const firstName = String(form.firstName.value || '').trim();
+    const lastName = String(form.lastName.value || '').trim();
+    const dob = String(form.dob.value || '').trim();
+    const msg = $('#citizenCreateMsg');
+    const btn = form.querySelector('button[type="submit"]');
+    const age = ageFromDob(dob);
+
+    if (!firstName || !lastName) {
+      if (msg) { msg.textContent = 'Completá tu nombre y apellido.'; msg.className = 'citizen-form-msg error'; }
+      return;
+    }
+    if (!dob || age === null) {
+      if (msg) { msg.textContent = 'Elegí una fecha de nacimiento válida.'; msg.className = 'citizen-form-msg error'; }
+      return;
+    }
+    if (age > 120) {
+      if (msg) { msg.textContent = 'Revisá la fecha de nacimiento.'; msg.className = 'citizen-form-msg error'; }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Creando DNI…'; }
+    if (msg) { msg.textContent = 'Generando tu identidad de Los Angeles…'; msg.className = 'citizen-form-msg'; }
+
+    try {
+      const d = await app.Auth.api('/citizen/create', {
+        method: 'POST',
+        json: { firstName, lastName, dob },
+      });
+      if (d && d.user) adoptUser(d.user);
+      state.linked = true;
+      state.waiting = false;
+      state.missing = false;
+      state.cadMissing = !!d.cadMissing;
+      state.canUnlink = d.canUnlink !== false;
+      state.source = d.source || 'web';
+      state.citizen = d.citizen || null;
+      state.cadUpdatedAt = Number(d.cadUpdatedAt) || 0;
+      state.serverNow = Number(d.serverNow) || Date.now();
+      state.loaded = true;
+      state.loading = false;
+      state.error = '';
+      state.tab = 'resumen';
+      render();
+      app.toast('✅ DNI creado. Tu identidad ya está lista.');
+      startTutorial(state.citizen);
+    } catch (err) {
+      if (err.status === 401) {
+        app.Auth.clear();
+        showGate();
+        return;
+      }
+      if (msg) { msg.textContent = '❌ ' + (err.message || 'No se pudo crear el DNI.'); msg.className = 'citizen-form-msg error'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Crear mi DNI'; }
     }
   }
 
@@ -757,6 +947,9 @@
       state.linked = true;
       state.waiting = false;
       state.missing = false;
+      state.cadMissing = false;
+      state.canUnlink = d.canUnlink !== false;
+      state.source = d.source || 'cad';
       state.citizen = d.citizen || null;
       state.cadUpdatedAt = Number(d.cadUpdatedAt) || 0;
       state.serverNow = Number(d.serverNow) || Date.now();
@@ -811,6 +1004,9 @@
       state.loaded = false;
       state.linked = false;
       state.citizen = null;
+      state.source = '';
+      state.cadMissing = false;
+      state.canUnlink = true;
       state.error = '';
       showGate();
       return;
@@ -828,6 +1024,87 @@
     } else {
       render();
     }
+  }
+
+  function setupIntro() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('intro') !== '1') return false;
+    const intro = $('#cineIntro');
+    if (!intro) return false;
+
+    intro.hidden = false;
+    document.body.classList.add('cine-open');
+
+    const audio = $('#cineAudio');
+    const muteBtn = $('#cineMute');
+    const skipBtn = $('#cineSkip');
+    const cfg = window.LR_CONFIG || {};
+    const src = String(cfg.introMusic || '').trim();
+    let finished = false;
+    let muted = false;
+    let timer = null;
+
+    const paintMute = () => {
+      if (!muteBtn) return;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+      muteBtn.setAttribute('aria-label', muted ? 'Activar música' : 'Silenciar música');
+      muteBtn.title = muted ? 'Activar música' : 'Silenciar música';
+    };
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (timer) clearTimeout(timer);
+      intro.classList.add('cine-out');
+      if (audio) audio.pause();
+      setTimeout(() => {
+        intro.hidden = true;
+        intro.classList.remove('cine-out');
+        document.body.classList.remove('cine-open');
+      }, 580);
+    };
+
+    if (muteBtn) {
+      muteBtn.addEventListener('click', () => {
+        if (!audio || !audio.src) return;
+        muted = !muted;
+        audio.muted = muted;
+        if (!muted) {
+          const p = audio.play();
+          if (p && p.catch) p.catch(() => {});
+        }
+        paintMute();
+      });
+    }
+    if (skipBtn) skipBtn.addEventListener('click', finish);
+
+    if (audio && src) {
+      audio.volume = Math.max(0, Math.min(1, Number(cfg.introMusicVolume) || 0.35));
+      audio.src = src;
+      audio.addEventListener('error', () => {
+        if (muteBtn) {
+          muteBtn.textContent = '🔇';
+          muteBtn.disabled = true;
+          muteBtn.title = 'Música no disponible: agregá el archivo en web/assets/audio/';
+          muteBtn.setAttribute('aria-label', 'Música no disponible');
+        }
+      });
+      const play = audio.play();
+      if (play && play.catch) {
+        play.catch(() => {
+          // El navegador puede bloquear el autoplay. El botón de mute
+          // permite activar el sonido con un clic.
+          if (muteBtn) muteBtn.title = 'Tocá para activar la música';
+        });
+      }
+    } else if (muteBtn) {
+      muteBtn.disabled = true;
+      muteBtn.title = 'Música no configurada';
+    }
+
+    paintMute();
+    timer = setTimeout(finish, 8500);
+    return true;
   }
 
   function setupEvents() {
@@ -879,7 +1156,18 @@
         if (action === 'unlink-confirm') { unlinkCitizen(); return; }
         if (action === 'relink') { unlinkCitizen(); return; }
       });
-      content.addEventListener('submit', handleLinkSubmit);
+      content.addEventListener('submit', (e) => {
+        if (e.target && e.target.id === 'citizenCreateForm') handleCreateSubmit(e);
+        else handleLinkSubmit(e);
+      });
+      content.addEventListener('input', (e) => {
+        if (!e.target || e.target.name !== 'dob') return;
+        const form = e.target.closest('#citizenCreateForm');
+        if (!form) return;
+        const age = ageFromDob(e.target.value);
+        const out = $('#citizenAge');
+        if (out) out.textContent = age === null ? '—' : String(age);
+      });
     }
 
     const c911 = $('#citizen911');
@@ -918,6 +1206,7 @@
       showGate();
       return;
     }
+    setupIntro();
     setupEvents();
     try {
       if (app.Auth.ready) await app.Auth.ready;

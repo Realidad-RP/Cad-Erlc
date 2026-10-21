@@ -36,6 +36,13 @@ window.LR_CONFIG = {
   // Si abrís la web en tu PC, la web usa automáticamente http://localhost:8790.
   apiBase: "https://cad-erlc-bot.onrender.com",
 
+  // Música de la cinemática del Panel de Ciudadano.
+  // Poné el archivo en web/assets/audio/ y escribí la ruta acá.
+  // Ejemplo: "assets/audio/one-more-time.mp3". Si no existe, la cinemática
+  // sigue sin sonido; no se descarga ninguna canción con derechos.
+  introMusic: "assets/audio/one-more-time.mp3",
+  introMusicVolume: 0.35,
+
   /* ---------- Números de la portada ----------
      Poné los números reales de tu comunidad.
      Si dejás miembros en 0, se muestra "—".                          */

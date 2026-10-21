@@ -1136,7 +1136,7 @@
       if (Auth.user) window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    location.href = 'panel.html';
+    location.href = 'panel.html?intro=1';
   }
 
   function openPanelOrLogin() {
@@ -1154,7 +1154,7 @@
     closeAuth();
     toast(message);
     if (wantedPanel && !isPanelPage()) {
-      setTimeout(() => { location.href = 'panel.html'; }, 600);
+      setTimeout(() => { location.href = 'panel.html?intro=1'; }, 600);
     }
   }
 

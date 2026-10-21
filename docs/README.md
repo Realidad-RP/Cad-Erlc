@@ -45,6 +45,7 @@ Casi todo se cambia en **`web/config.js`** (abrilo con el Bloc de notas):
 | Equipo (nombres, roles y avatares) | `equipo` — con `robloxId` el avatar y el nombre se cargan solos desde Roblox |
 | Reseñas fijas (opcional) | `resenasEjemplo` |
 | Servidor del bot (cuentas + reseñas) | `apiBase` — por defecto `https://cad-erlc-bot.onrender.com` |
+| Música de la cinemática | `introMusic` — por defecto `assets/audio/one-more-time.mp3` (poné ahí tu archivo con licencia) |
 
 ### 🤖 Avatares de Roblox (equipo)
 
@@ -73,17 +74,26 @@ El botón **Cuenta** (cabecera y menú lateral) abre el acceso. Después de ingr
 2. El bot la busca en el servidor y le manda un **código de 6 dígitos por MD**.
 3. Al ingresar el código, la cuenta queda creada con su **nombre y foto de Discord**.
 4. Puede volver a entrar con usuario + contraseña, o recuperarla por código si la olvidó.
-5. La primera vez, el panel pide **vincular el DNI**: hay que escribir el DNI y el **nombre
-   exacto del personaje** tal como están cargados en el CAD. Se permite **un DNI por cuenta**.
-6. El dashboard muestra, en modo **solo lectura**, el resumen, la credencial del DNI, la
-   licencia, los vehículos, las multas y las órdenes que el CAD envía al bot. También tiene un
-   acceso directo a la **central 911**. El DNI se puede desvincular desde **Ajustes**.
-7. Las reseñas se guardan en el servidor y **se ven desde cualquier dispositivo**; si hay
+5. La primera vez, el panel ofrece **crear el DNI** o **vincular uno existente**:
+   - **Crear mi DNI:** se completa nombre, apellido y fecha de nacimiento. La edad se calcula
+     sola y el número se genera con formato de California (`CA-########`). Se permite **un DNI
+     por cuenta** y queda asociado a la cuenta.
+   - **Vincular mi DNI:** si el staff ya cargó el personaje en el CAD, se escribe el DNI y el
+     **nombre exacto** del personaje.
+6. Al crear el DNI se muestra un **tutorial paso a paso**. El dashboard muestra, en modo
+   **solo lectura**, el resumen, la credencial del DNI, la licencia, los vehículos, las multas y
+   las órdenes que el CAD envía al bot. También tiene un acceso directo a la **central 911**.
+7. La cinemática de inicio se muestra al entrar desde **Panel de Ciudadano**. Incluye botones
+   para **silenciar** y **saltar**. La música se configura en `introMusic`; el archivo no se
+   incluye por derechos de autor.
+8. Las reseñas se guardan en el servidor y **se ven desde cualquier dispositivo**; si hay
    sesión, llevan el nombre y el avatar de Discord.
 
 El panel no procesa pagos ni modifica registros: las multas se abonan en el juego y cualquier
 corrección se pide al staff. Si el CAD todavía no envió datos al bot, el panel conserva el DNI
-vinculado y muestra un estado de espera.
+vinculado y muestra un estado de espera. Los DNI creados en la web se pueden importar al CAD
+(la app consulta `/citizen/directory` con la `CAD_KEY`) para que el staff los busque y les
+agregue causas.
 
 El bot guarda las cuentas, el DNI vinculado y las reseñas en el canal privado
 **#panel-ciudadano** de Discord (las contraseñas van cifradas con scrypt, nunca en texto plano).

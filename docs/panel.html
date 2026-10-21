@@ -15,6 +15,25 @@
 </head>
 <body class="panel-page">
 
+  <!-- ===================== CINEMÁTICA DE INICIO ===================== -->
+  <div class="cine-intro" id="cineIntro" hidden>
+    <div class="cine-intro-grid" aria-hidden="true"></div>
+    <div class="cine-intro-glow" aria-hidden="true"></div>
+    <div class="cine-intro-content">
+      <img class="cine-intro-logo" src="assets/logo-realidad.svg" alt="La Realidad RP">
+      <span class="cine-intro-kicker">LA REALIDAD RP · LOS ANGELES</span>
+      <h1>Tu ciudad.<br><span>Tu identidad.</span></h1>
+      <p>Panel de Ciudadano</p>
+      <div class="cine-intro-bar"><i></i></div>
+      <small>Preparando tu DNI de California…</small>
+    </div>
+    <div class="cine-intro-actions">
+      <button class="cine-intro-btn" id="cineMute" type="button" aria-label="Silenciar música">🔊</button>
+      <button class="cine-intro-btn cine-intro-skip" id="cineSkip" type="button">Saltar animación</button>
+    </div>
+    <audio id="cineAudio" preload="auto" loop></audio>
+  </div>
+
   <!-- ===================== CABECERA ===================== -->
   <header class="site-header">
     <div class="container header-inner">

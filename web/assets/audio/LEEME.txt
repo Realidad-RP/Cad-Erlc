@@ -1,0 +1,11 @@
+MÚSICA DE LA CINEMÁTICA — PANEL DE CIUDADANO
+
+1. Poné acá tu archivo de audio con licencia.
+2. El nombre por defecto es: one-more-time.mp3
+3. Si usás otro nombre, cambialo en web/config.js:
+   introMusic: "assets/audio/TU-ARCHIVO.mp3"
+
+La canción original "One More Time" tiene derechos de autor.
+No se incluye en el repositorio: usá un archivo propio o una pista
+con licencia. Si el archivo no existe, la cinemática funciona igual,
+pero sin sonido.
