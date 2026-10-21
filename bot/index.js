@@ -361,6 +361,7 @@ function buildLicenseOverwrites(guild, roleSets) {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.ReadMessageHistory,
           ],
+      ...(level === 'review' ? {} : { deny: [PermissionFlagsBits.SendMessages] }),
     });
   }
   return overwrites;
