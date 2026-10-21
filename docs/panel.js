@@ -30,6 +30,10 @@
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
+  const ageText = (citizen) => {
+    const age = Number(citizen && citizen.age) || ageFromDob(citizen && citizen.dob);
+    return age ? age + ' año' + (age === 1 ? '' : 's') : '—';
+  };
   const ageFromDob = (value) => {
     const dob = String(value || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
@@ -383,7 +387,7 @@
         '<div class="citizen-identity-info">' +
           chip('Ciudadano verificado', 'ok') +
           '<h3>' + esc(c.name) + '</h3>' +
-          '<p>DNI <b class="citizen-mono">' + esc(c.dni) + '</b><span class="citizen-dot-sep">·</span>Licencia <b>' + esc(c.license || 'sin registro') + '</b></p>' +
+          '<p>DNI <b class="citizen-mono">' + esc(c.dni) + '</b><span class="citizen-dot-sep">·</span><b>' + esc(ageText(c)) + '</b><span class="citizen-dot-sep">·</span>Licencia <b>' + esc(c.license || 'sin registro') + '</b></p>' +
           '<div class="citizen-identity-meta">' +
             '<span>@' + esc(currentUser().username) + '</span>' +
             '<span>Miembro desde ' + dateFmt(currentUser().createdAt) + '</span>' +
@@ -395,7 +399,7 @@
         '</div>' +
       '</article>' +
       '<div class="citizen-stats">' +
-        statCard('DNI', c.dni, 'Identidad vinculada', 'accent') +
+        statCard('DNI', c.dni, ageText(c) + ' · Identidad vinculada', 'accent') +
         statCard('Licencia', c.licStatus, c.license ? 'Nº ' + c.license : 'Sin número', license) +
         statCard('Multas', c.totals.fines, c.totals.fines ? money(c.totals.finesAmount) : 'Sin deudas', c.totals.fines ? 'gold' : 'ok') +
         statCard('Órdenes activas', c.totals.warrants, c.totals.warrants ? 'Requiere atención' : 'Todo en orden', c.totals.warrants ? 'red' : 'ok') +
@@ -452,7 +456,7 @@
           '<div class="cid-data">' +
             '<div><small>Nombre completo</small><b>' + esc(c.name) + '</b></div>' +
             '<div><small>DNI</small><b class="citizen-mono">' + esc(c.dni) + '</b></div>' +
-            '<div><small>Fecha de nacimiento</small><b>' + esc(dobFmt(c.dob)) + '</b></div>' +
+            '<div><small>Fecha de nacimiento</small><b>' + esc(dobFmt(c.dob)) + ' · ' + esc(ageText(c)) + '</b></div>' +
             '<div><small>Licencia de conducir</small><b>' + esc(c.license || 'Sin registro') + ' · ' + esc(c.licStatus) + '</b></div>' +
           '</div>' +
         '</div>' +
@@ -467,6 +471,7 @@
           '<div class="citizen-rows">' +
             '<div><span>DNI</span><b class="citizen-mono">' + esc(c.dni) + '</b></div>' +
             '<div><span>Nacimiento</span><b>' + esc(dobFmt(c.dob)) + '</b></div>' +
+            '<div><span>Edad</span><b>' + esc(ageText(c)) + '</b></div>' +
             '<div><span>Licencia</span><b>' + esc(c.license || 'Sin registro') + '</b></div>' +
             '<div><span>Estado</span>' + chip(c.licStatus, licenseTone(c.licStatus)) + '</div>' +
           '</div>' +
