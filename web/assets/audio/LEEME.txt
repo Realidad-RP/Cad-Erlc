@@ -1,11 +1,19 @@
 MÚSICA DE LA CINEMÁTICA — PANEL DE CIUDADANO
 
-1. Poné acá tu archivo de audio con licencia.
-2. El nombre por defecto es: one-more-time.mp3
-3. Si usás otro nombre, cambialo en web/config.js:
-   introMusic: "assets/audio/TU-ARCHIVO.mp3"
+Pista incluida:
+  "Rising Sun" — Diego Nava
+  Archivo: rising-sun.mp3
+  Licencia: Mixkit Stock Music Free License
+  https://mixkit.co/license/#musicFree
+  Fuente: https://mixkit.co/free-stock-music/rising-sun/
 
-La canción original "One More Time" tiene derechos de autor.
-No se incluye en el repositorio: usá un archivo propio o una pista
-con licencia. Si el archivo no existe, la cinemática funciona igual,
-pero sin sonido.
+La licencia permite usar la pista en proyectos comerciales y no comerciales
+(web, video, redes, etc.) sin atribución obligatoria. No se puede redistribuir
+como archivo de audio independiente ni venderla. La acreditación se incluye
+acá como cortesía.
+
+El nombre/ruta se configura en web/config.js:
+  introMusic: "assets/audio/rising-sun.mp3"
+  introMusicVolume: 0.35
+
+Si el archivo no existe, la cinemática funciona igual, pero sin sonido.

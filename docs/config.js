@@ -37,10 +37,9 @@ window.LR_CONFIG = {
   apiBase: "https://cad-erlc-bot.onrender.com",
 
   // Música de la cinemática del Panel de Ciudadano.
-  // Poné el archivo en web/assets/audio/ y escribí la ruta acá.
-  // Ejemplo: "assets/audio/one-more-time.mp3". Si no existe, la cinemática
-  // sigue sin sonido; no se descarga ninguna canción con derechos.
-  introMusic: "assets/audio/one-more-time.mp3",
+  // Pista: "Rising Sun" de Diego Nava (Mixkit Stock Music Free License).
+  // https://mixkit.co/license/#musicFree
+  introMusic: "assets/audio/rising-sun.mp3",
   introMusicVolume: 0.35,
 
   /* ---------- Números de la portada ----------

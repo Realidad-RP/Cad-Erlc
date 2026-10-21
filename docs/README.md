@@ -45,7 +45,7 @@ Casi todo se cambia en **`web/config.js`** (abrilo con el Bloc de notas):
 | Equipo (nombres, roles y avatares) | `equipo` — con `robloxId` el avatar y el nombre se cargan solos desde Roblox |
 | Reseñas fijas (opcional) | `resenasEjemplo` |
 | Servidor del bot (cuentas + reseñas) | `apiBase` — por defecto `https://cad-erlc-bot.onrender.com` |
-| Música de la cinemática | `introMusic` — por defecto `assets/audio/one-more-time.mp3` (poné ahí tu archivo con licencia) |
+| Música de la cinemática | `introMusic` — por defecto `assets/audio/rising-sun.mp3` (pista libre de Mixkit; ver `assets/audio/LEEME.txt`) |
 
 ### 🤖 Avatares de Roblox (equipo)
 
@@ -76,16 +76,17 @@ El botón **Cuenta** (cabecera y menú lateral) abre el acceso. Después de ingr
 4. Puede volver a entrar con usuario + contraseña, o recuperarla por código si la olvidó.
 5. La primera vez, el panel ofrece **crear el DNI** o **vincular uno existente**:
    - **Crear mi DNI:** se completa nombre, apellido y fecha de nacimiento. La edad se calcula
-     sola y el número se genera con formato de California (`CA-########`). Se permite **un DNI
-     por cuenta** y queda asociado a la cuenta.
+     sola y el número se genera con formato de California (`C#######`, una C y siete dígitos).
+     Se permite **un DNI por cuenta** y queda asociado a la cuenta.
    - **Vincular mi DNI:** si el staff ya cargó el personaje en el CAD, se escribe el DNI y el
      **nombre exacto** del personaje.
 6. Al crear el DNI se muestra un **tutorial paso a paso**. El dashboard muestra, en modo
    **solo lectura**, el resumen, la credencial del DNI, la licencia, los vehículos, las multas y
    las órdenes que el CAD envía al bot. También tiene un acceso directo a la **central 911**.
 7. La cinemática de inicio se muestra al entrar desde **Panel de Ciudadano**. Incluye botones
-   para **silenciar** y **saltar**. La música se configura en `introMusic`; el archivo no se
-   incluye por derechos de autor.
+   para **silenciar** y **saltar**. La música es **“Rising Sun” de Diego Nava**, incluida en
+   `assets/audio/` bajo la **Mixkit Stock Music Free License** (ver `assets/audio/LEEME.txt`).
+   Se configura en `introMusic` y `introMusicVolume`.
 8. Las reseñas se guardan en el servidor y **se ven desde cualquier dispositivo**; si hay
    sesión, llevan el nombre y el avatar de Discord.
 
