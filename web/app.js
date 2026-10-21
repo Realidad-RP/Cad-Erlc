@@ -1456,5 +1456,6 @@
     goPanel,
     toast,
     updateAuthUI,
+    apiBase: API,
   };
 })();

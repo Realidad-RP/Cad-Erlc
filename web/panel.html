@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel de Ciudadano — La Realidad RP</title>
-  <meta name="description" content="Panel de Ciudadano de La Realidad RP: creá tu DNI, solicitá tu licencia y revisá tus vehículos, multas y órdenes del CAD de Los Angeles.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>RLA OS — Panel de Ciudadano | La Realidad RP</title>
+  <meta name="description" content="RLA OS: el escritorio virtual del Panel de Ciudadano de La Realidad RP. Tu DNI de California, licencia, vehículos, multas y órdenes en un solo lugar.">
   <meta name="theme-color" content="#050a10">
   <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="pc.css">
 </head>
-<body class="panel-page">
+<body class="panel-page pc-body">
 
   <!-- ===================== CINEMÁTICA DE INICIO ===================== -->
   <div class="cine-intro" id="cineIntro" hidden>
@@ -23,9 +24,9 @@
       <img class="cine-intro-logo" src="assets/logo-realidad.svg" alt="La Realidad RP">
       <span class="cine-intro-kicker">LA REALIDAD RP · LOS ANGELES</span>
       <h1>Tu ciudad.<br><span>Tu identidad.</span></h1>
-      <p>Panel de Ciudadano</p>
+      <p>RLA OS · Panel de Ciudadano</p>
       <div class="cine-intro-bar"><i></i></div>
-      <small>Preparando tu DNI de California…</small>
+      <small>Preparando tu escritorio…</small>
     </div>
     <div class="cine-intro-actions">
       <button class="cine-intro-btn" id="cineMute" type="button" aria-label="Silenciar música">🔊</button>
@@ -34,147 +35,140 @@
     <audio id="cineAudio" preload="auto" loop></audio>
   </div>
 
-  <!-- ===================== CABECERA ===================== -->
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="brand" href="index.html">
-        <img class="brand-logo" src="assets/logo.png" alt="Escudo de La Realidad RP">
-        <span class="brand-name">LA REALIDAD <b>RP</b><small>Los Angeles · ER:LC</small></span>
+  <!-- ===================== PANTALLA DE BLOQUEO ===================== -->
+  <div class="pc-lock" id="pcLock" hidden>
+    <div class="pc-lock-bg" aria-hidden="true"></div>
+    <div class="pc-lock-shade" aria-hidden="true"></div>
+
+    <div class="pc-lock-top">
+      <a class="pc-lock-brand" href="index.html" title="Volver al inicio">
+        <img src="assets/logo.png" alt="La Realidad RP">
+        <span><b>RLA</b> OS<small>La Realidad RP</small></span>
       </a>
-
-      <nav class="nav-links" id="navLinks">
-        <a href="index.html">Inicio</a>
-        <a href="index.html#como-jugar">Cómo unirse</a>
-        <a href="resenas.html">Reseñas</a>
-        <a href="normativa.html">Normativa</a>
-        <a class="btn btn-primary btn-sm nav-discord" data-link="discord">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
-          Discord
-        </a>
-      </nav>
-
-      <button class="hamburger" id="btnMenu" aria-label="Abrir menú">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </header>
-
-  <main class="citizen-page">
-    <div class="citizen-bg" aria-hidden="true">
-      <div class="citizen-bg-grid"></div>
-      <div class="citizen-bg-glow"></div>
+      <div class="pc-lock-top-right">
+        <span class="pc-lock-net"><i></i> En línea</span>
+        <span class="pc-lock-place">Los Angeles · CA</span>
+      </div>
     </div>
 
-    <div class="container citizen-container">
+    <div class="pc-lock-clock" aria-live="polite">
+      <b id="pcLockTime">--:--</b>
+      <span id="pcLockDate">Cargando fecha…</span>
+    </div>
 
-      <!-- ===================== ENCABEZADO ===================== -->
-      <section class="citizen-hero">
-        <div class="citizen-hero-copy">
-          <span class="eyebrow">Área privada · La Realidad RP</span>
-          <h1>Panel de <span class="grad">Ciudadano</span></h1>
-          <p>Tu DNI de California, tu licencia y tus antecedentes conectados al CAD de Los Angeles.</p>
+    <div class="pc-lock-card">
+      <div class="pc-lock-avatar" id="pcLockAvatar">
+        <img src="assets/logo.png" alt="">
+      </div>
+      <span class="pc-lock-kicker">Panel de Ciudadano</span>
+      <h1>Bienvenido a <span>RLA OS</span></h1>
+      <p>Tu identidad, tu licencia y tus registros de Los Angeles en un escritorio hecho para la ciudad.</p>
+      <div class="pc-lock-actions">
+        <button class="pc-lock-btn" type="button" data-open-auth>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v9A2.5 2.5 0 0 1 19.5 18H9l-5 4v-4H4.5A2.5 2.5 0 0 1 2 15.5v-9A2.5 2.5 0 0 1 4.5 4z"/></svg>
+          Ingresar con Discord
+        </button>
+        <button class="pc-lock-link" type="button" data-pc-action="open-register">Crear cuenta</button>
+      </div>
+      <div class="pc-lock-features">
+        <span><b>01</b> DNI de California</span>
+        <span><b>02</b> Licencia y antecedentes</span>
+        <span><b>03</b> Apps de la ciudad</span>
+      </div>
+      <small>Entrá con tu usuario de Discord. Si todavía no tenés cuenta, podés crearla desde el mismo acceso.</small>
+    </div>
+
+    <div class="pc-lock-foot">
+      <span>Los Angeles, California · ER:LC</span>
+      <span>RLA Systems · v1.0</span>
+    </div>
+  </div>
+
+  <!-- ===================== ESCRITORIO ===================== -->
+  <div class="pc-shell" id="pcShell" hidden>
+    <div class="pc-wallpaper" id="pcWallpaper" aria-hidden="true"></div>
+    <div class="pc-wallpaper-grain" aria-hidden="true"></div>
+
+    <div class="pc-desktop" id="pcDesktop">
+      <header class="pc-topbar">
+        <button class="pc-top-user" id="pcTopUser" type="button" data-pc-action="open-app" data-app="profile" aria-label="Abrir perfil">
+          <span class="pc-top-avatar" id="pcTopAvatar">RLA</span>
+          <span class="pc-top-user-text">
+            <b id="pcTopName">Ciudadano</b>
+            <small id="pcTopRole">RLA OS</small>
+          </span>
+        </button>
+
+        <div class="pc-desktop-clock" aria-live="polite">
+          <b id="pcDeskTime">--:--</b>
+          <span id="pcDeskDate">Cargando…</span>
         </div>
-        <div class="citizen-live" id="citizenLive" hidden>
-          <span class="citizen-live-dot" id="citizenLiveDot"></span>
-          <div class="citizen-live-text">
-            <b id="citizenLiveTitle">CAD conectado</b>
-            <small id="citizenLiveSub">Consultando registros…</small>
-          </div>
-          <button class="citizen-refresh" id="citizenRefresh" type="button" title="Actualizar datos" aria-label="Actualizar datos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+
+        <div class="pc-top-right">
+          <button class="pc-sync-chip" id="pcSyncBtn" type="button" data-pc-action="open-app" data-app="entornos" title="Estado de los servicios">
+            <i id="pcSyncDot"></i>
+            <span id="pcSyncText">Conectando…</span>
           </button>
+          <span class="pc-weather">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></svg>
+            <span>21°</span>
+          </span>
         </div>
-      </section>
+      </header>
 
-      <!-- ===================== ACCESO ===================== -->
-      <section class="citizen-gate" id="citizenGate" hidden>
-        <div class="citizen-gate-card">
-          <img class="citizen-gate-logo" src="assets/logo.png" alt="">
-          <span class="eyebrow">Acceso privado</span>
-          <h2>Ingresá a tu panel</h2>
-          <p>Entrá con tu cuenta de Discord para crear tu DNI, solicitar tu licencia y revisar vehículos, multas y órdenes.</p>
-          <button class="btn btn-primary btn-lg" type="button" data-open-auth>Ingresar con Discord</button>
-          <a class="btn btn-ghost" href="index.html">Volver al inicio</a>
-          <small>¿Todavía no tenés cuenta? Creala desde el mismo acceso con tu usuario de Discord y tu usuario de Roblox.</small>
+      <div class="pc-icons" id="pcIcons" aria-label="Aplicaciones del escritorio"></div>
+
+      <div class="pc-windows" id="pcWindows" aria-live="polite"></div>
+
+      <div class="pc-desktop-hint">
+        <span class="pc-desktop-hint-dot"></span>
+        Doble clic en un icono para abrir
+      </div>
+    </div>
+
+    <footer class="pc-taskbar" id="pcTaskbar">
+      <button class="pc-start" id="pcStart" type="button" aria-expanded="false" aria-controls="pcLauncher" title="Menú de inicio">
+        <span class="pc-start-mark">RLA</span>
+        <span class="pc-start-label">Inicio</span>
+      </button>
+
+      <button class="pc-task-search" id="pcSearchBtn" type="button" title="Buscar aplicaciones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span>Buscar</span>
+      </button>
+
+      <div class="pc-tasks" id="pcTasks" aria-label="Ventanas abiertas"></div>
+
+      <div class="pc-tray">
+        <button class="pc-tray-btn" id="pcTraySync" type="button" data-pc-action="open-app" data-app="entornos" title="Estado del CAD">
+          <i id="pcTrayDot"></i>
+          <span id="pcTrayText">CAD</span>
+        </button>
+        <span class="pc-tray-divider" aria-hidden="true"></span>
+        <button class="pc-tray-icon" type="button" data-pc-action="open-app" data-app="whatsapp" title="Mensajes" aria-label="Mensajes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.7 9.7 0 0 1-4-.9L3 21l1.8-4.9A8.4 8.4 0 1 1 21 11.5z"/></svg>
+        </button>
+        <button class="pc-tray-icon" type="button" data-pc-action="open-app" data-app="settings" title="Ajustes" aria-label="Ajustes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+        </button>
+        <span class="pc-tray-divider" aria-hidden="true"></span>
+        <div class="pc-tray-clock" title="Fecha y hora">
+          <b id="pcTrayTime">--:--</b>
+          <span id="pcTrayDate">--/--</span>
         </div>
-      </section>
-
-      <!-- ===================== DASHBOARD ===================== -->
-      <div class="citizen-layout" id="citizenApp" hidden>
-
-        <aside class="citizen-side">
-          <div class="citizen-side-profile" id="citizenSideProfile"></div>
-
-          <nav class="citizen-nav" id="citizenNav" aria-label="Secciones del panel">
-            <button type="button" class="on" data-panel-tab="resumen">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-              <span>Resumen</span>
-            </button>
-            <button type="button" data-panel-tab="dni">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2.2"/><path d="M5.5 16c.6-1.6 1.7-2.3 3-2.3s2.4.7 3 2.3M14 10h4M14 13h4M14 16h2.5"/></svg>
-              <span>Mi DNI</span>
-            </button>
-            <button type="button" data-panel-tab="licencia">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5.5c0 4.4-3 7.4-7 9.5-4-2.1-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-              <span>Licencia</span>
-            </button>
-            <button type="button" data-panel-tab="vehiculos">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 16v-3l1.7-4.2A2 2 0 0 1 7.5 7.5h9a2 2 0 0 1 1.8 1.3L20 13v3"/><path d="M3 16h18v3h-3v-2H6v2H3v-3z"/><circle cx="7" cy="14" r="1"/><circle cx="17" cy="14" r="1"/></svg>
-              <span>Vehículos</span>
-            </button>
-            <button type="button" data-panel-tab="multas">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
-              <span>Multas</span>
-            </button>
-            <button type="button" data-panel-tab="ordenes">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M8 21h8M5 7h14M6 7l-2 5a3 3 0 0 0 4 0L6 7zM18 7l-2 5a3 3 0 0 0 4 0l-2-5z"/></svg>
-              <span>Órdenes</span>
-            </button>
-            <button type="button" data-panel-tab="ajustes">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
-              <span>Ajustes</span>
-            </button>
-          </nav>
-
-          <div class="citizen-side-foot">
-            <a class="citizen-911" id="citizen911" href="#" target="_blank" rel="noopener">
-              <span class="citizen-911-ico">911</span>
-              <span><b>Llamar al 911</b><small>Central de emergencias</small></span>
-            </a>
-            <button class="citizen-logout" id="citizenLogout" type="button">Cerrar sesión</button>
-          </div>
-        </aside>
-
-        <section class="citizen-content" id="citizenContent" aria-live="polite">
-          <div class="citizen-loading">
-            <span class="citizen-spinner"></span>
-            <p>Cargando tu panel…</p>
-          </div>
-        </section>
+        <button class="pc-show-desktop" id="pcShowDesktop" type="button" title="Mostrar escritorio" aria-label="Mostrar escritorio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+        </button>
       </div>
+    </footer>
 
-    </div>
-  </main>
+    <div class="pc-launcher" id="pcLauncher" hidden></div>
+    <div class="pc-context" id="pcContext" hidden></div>
+  </div>
 
-  <footer class="site-footer panel-footer">
-    <div class="container">
-      <div class="foot-bottom">
-        <p>© <span id="anio">2026</span> La Realidad RP · Panel de Ciudadano</p>
-        <p class="panel-footer-links">
-          <a href="terminos.html">Términos</a>
-          <span>·</span>
-          <a href="privacidad.html">Privacidad</a>
-          <span>·</span>
-          <a href="index.html">Volver al inicio</a>
-        </p>
-      </div>
-      <p class="disclaimer">
-        Servicio independiente. No estamos afiliados, asociados ni respaldados por Roblox Corporation,
-        Police Roleplay Community, Emergency Response: Liberty County ni el Departamento de Policía de Los Ángeles (LAPD).
-        Todas las marcas pertenecen a sus respectivos propietarios.
-      </p>
-    </div>
-  </footer>
+  <noscript>
+    <div class="pc-noscript">RLA OS necesita JavaScript para funcionar. Activá JavaScript en tu navegador.</div>
+  </noscript>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
