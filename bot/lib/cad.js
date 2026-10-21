@@ -229,32 +229,48 @@ function buildDniReply(snapshot, query) {
 
   const warrants = (snapshot.warrants || []).filter((w) => w.status === 'activa' && sameName(w.person, p.name));
   const fines = (snapshot.fines || []).filter((f) => f.status !== 'pagada' && sameName(f.person, p.name));
+  const reports = (snapshot.reports || []).filter((r) =>
+    sameName(r.officer, p.name) || String(r.involved || '').toLowerCase().includes(String(p.name || '').toLowerCase())
+  );
   const vehicles = (snapshot.vehicles || []).filter((v) => sameName(v.owner, p.name));
   const totalFines = fines.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+  const color = warrants.length ? 0xef4444 : fines.length ? 0xeab308 : 0x22c55e;
 
-  const lic = p.licStatus || 'Válida';
-  const color = warrants.length || lic === 'Revocada' ? 0xef4444 : lic === 'Suspendida' ? 0xeab308 : 0x22c55e;
+  const sexLabel = { M: 'Masculino (M)', F: 'Femenino (F)', X: 'No binario (X)' }[String(p.sex || '').toUpperCase()] || p.sex || '—';
+  const address = [p.address, p.city, [p.state, p.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const physical = [];
+  if (p.hair || p.eyes) physical.push(`💇 **Cabello / ojos:** ${p.hair || '—'} / ${p.eyes || '—'}`);
+  if (p.heightCm || p.weightKg) physical.push(`📏 **Altura / peso:** ${p.heightCm ? p.heightCm + ' cm' : '—'} / ${p.weightKg ? p.weightKg + ' kg' : '—'}`);
 
   const lines = [
     `🪪 **DNI:** ${p.dni || '—'}`,
-    `🎂 **Nacimiento:** ${p.dob || '—'}`,
-    `🚗 **Licencia:** ${p.license || '—'} · ${lic}`,
+    `👤 **Nombre:** ${p.name || '—'}`,
+    `🎂 **Nacimiento:** ${p.dob || '—'} · **Sexo:** ${sexLabel}`,
   ];
-  if (p.notes) lines.push(`📝 **Notas:** ${p.notes}`);
+  lines.push(...physical);
+  if (address) lines.push(`📍 **Dirección:** ${address}`);
+  if (p.issueDate || p.expires) lines.push(`📅 **Emitido / vence:** ${p.issueDate || '—'} / ${p.expires || '—'}`);
+  if (p.robloxUsername) lines.push(`🕹️ **Roblox:** @${p.robloxUsername}`);
 
+  lines.push('', '📋 **ANTECEDENTES**');
   if (warrants.length) {
-    lines.push('', `⚖️ **ÓRDENES ACTIVAS: ${warrants.length}** ⚠️`);
+    lines.push(`⚖️ **ÓRDENES ACTIVAS: ${warrants.length}** ⚠️`);
     for (const w of warrants.slice(0, 4)) lines.push(`> ${w.wkind || 'Orden'}: ${w.reason || ''}`);
-  } else {
-    lines.push('', '⚖️ Sin órdenes activas');
+  }
+  lines.push(fines.length
+    ? `🧾 Multas pendientes: **${fines.length}** (total $${totalFines})`
+    : '🧾 Sin multas pendientes');
+  if (reports.length) {
+    lines.push(`📝 Reportes: **${reports.length}**`);
+    for (const r of reports.slice(0, 3)) lines.push(`> ${r.title || 'Reporte'}${r.rkind ? ' · ' + r.rkind : ''}`);
+  }
+  if (p.notes) lines.push(`📝 Notas: ${p.notes}`);
+  if (!warrants.length && !fines.length && !reports.length && !p.notes) {
+    lines.push('✅ Sin antecedentes registrados');
   }
 
-  lines.push(fines.length
-    ? `🧾 Multas pendientes: **${fines.length}** (total ${totalFines})`
-    : '🧾 Sin multas pendientes');
-
   if (vehicles.length) {
-    lines.push('🚓 Vehículos a su nombre: ' +
+    lines.push('', '🚓 Vehículos a su nombre: ' +
       vehicles.slice(0, 5).map((v) => v.plate + (v.status === 'Robado' ? ' (⚠️ ROBADO)' : '')).join(', '));
   }
   if (matches.length > 1) lines.push('', `ℹ️ Hay ${matches.length - 1} persona(s) más con ese mismo DNI.`);

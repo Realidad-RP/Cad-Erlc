@@ -82,7 +82,15 @@ function sameCitizenName(a, b) {
   return !!na && na === normalizeName(b);
 }
 
-const DNI_PREFIX = 'CA-';
+const DNI_PREFIX = 'C';
+const ROBLOX_RE = /^[A-Za-z0-9_]{3,20}$/;
+const LICENSE_EXPERIENCE = ['Ninguna', 'Poca', 'Intermedia', 'Mucha'];
+const LICENSE_VEHICLES = ['Auto', 'Moto', 'Camión', 'Todos'];
+const LICENSE_TTL = 4 * 365.25 * 24 * 60 * 60 * 1000;
+
+function normalizeRoblox(value) {
+  return String(value == null ? '' : value).trim().replace(/^@+/, '');
+}
 
 function parseDob(value) {
   const dob = String(value == null ? '' : value).trim();
@@ -104,12 +112,57 @@ function ageFromDob(dob, today = Date.now()) {
 }
 
 function generateDni(taken) {
-  for (let i = 0; i < 50; i++) {
-    const number = String(crypto.randomInt(10000000, 100000000));
+  for (let i = 0; i < 80; i++) {
+    const number = String(crypto.randomInt(1000000, 10000000));
     const dni = DNI_PREFIX + number;
     if (!taken.has(normalizeDni(dni))) return dni;
   }
   throw httpError(503, 'No pude generar un DNI libre. Probá de nuevo en unos segundos.');
+}
+
+function generateLicenseNumber(taken) {
+  for (let i = 0; i < 80; i++) {
+    const number = 'L' + String(crypto.randomInt(1000000, 10000000));
+    if (!taken.has(number)) return number;
+  }
+  throw httpError(503, 'No pude generar un número de licencia. Probá de nuevo.');
+}
+
+function licensePublic(account) {
+  const lic = account && account.license;
+  if (!lic || !lic.status) {
+    return {
+      status: 'none',
+      label: 'Sin licencia',
+      number: '',
+      submittedAt: 0,
+      reviewedAt: 0,
+      reviewedBy: '',
+      issuedAt: 0,
+      expiresAt: 0,
+      rejectionReason: '',
+      application: null,
+    };
+  }
+  const labels = { pending: 'En revisión', approved: 'Válida', rejected: 'Rechazada', suspended: 'Suspendida', revoked: 'Revocada' };
+  return {
+    status: lic.status,
+    label: labels[lic.status] || 'Sin licencia',
+    number: String(lic.number || ''),
+    submittedAt: Number(lic.submittedAt) || 0,
+    reviewedAt: Number(lic.reviewedAt) || 0,
+    reviewedBy: String(lic.reviewedBy || ''),
+    issuedAt: Number(lic.issuedAt) || 0,
+    expiresAt: Number(lic.expiresAt) || 0,
+    rejectionReason: String(lic.rejectionReason || ''),
+    application: lic.application ? {
+      experience: String(lic.application.experience || ''),
+      vehicleType: String(lic.application.vehicleType || ''),
+      trafficRules: String(lic.application.trafficRules || ''),
+      reason: String(lic.application.reason || ''),
+      submittedAt: Number(lic.application.submittedAt) || 0,
+    } : null,
+  };
 }
 
 function readJsonBody(req) {
@@ -150,6 +203,7 @@ function sendJson(res, status, body) {
 }
 
 function publicUser(account) {
+  const license = licensePublic(account);
   return {
     username: account.username,
     displayName: account.displayName || account.username,
@@ -158,6 +212,11 @@ function publicUser(account) {
     createdAt: account.createdAt || 0,
     dni: account.dni || '',
     citizenName: account.citizenName || '',
+    robloxUsername: account.robloxUsername || '',
+    robloxId: account.robloxId || '',
+    robloxDisplayName: account.robloxDisplayName || '',
+    licenseStatus: license.label,
+    licenseNumber: license.number,
   };
 }
 
@@ -174,7 +233,9 @@ function createWebAuth({
   store,
   dataDir,
   resolveDiscordUser,
+  resolveRobloxUser,
   sendDiscordDM,
+  sendLicenseApplication,
   isDiscordReady = () => true,
   getDiscordError = () => '',
   getCadSnapshot = () => null,
@@ -296,8 +357,18 @@ function createWebAuth({
       dob: String(person.dob || ''),
       age: ageFromDob(person.dob),
       source: 'cad',
-      license: String(person.license || ''),
-      licStatus: String(person.licStatus || 'Válida'),
+      sex: String(person.sex || ''),
+      hair: String(person.hair || ''),
+      eyes: String(person.eyes || ''),
+      heightCm: Number(person.heightCm) || 0,
+      weightKg: Number(person.weightKg) || 0,
+      address: String(person.address || ''),
+      city: String(person.city || ''),
+      state: String(person.state || 'CA'),
+      zip: String(person.zip || ''),
+      issueDate: String(person.issueDate || ''),
+      expires: String(person.expires || ''),
+      robloxUsername: String(person.robloxUsername || ''),
       notes: String(person.notes || ''),
       fines,
       warrants,
@@ -398,6 +469,39 @@ function createWebAuth({
     }
   }
 
+  async function resolveRoblox(username) {
+    const name = normalizeRoblox(username);
+    if (!ROBLOX_RE.test(name)) {
+      throw httpError(400, 'Escribí tu usuario de Roblox (3 a 20 letras, números o guiones bajos).');
+    }
+    if (typeof resolveRobloxUser !== 'function') {
+      return { id: '', username: name, displayName: name };
+    }
+    try {
+      const found = await resolveRobloxUser(name);
+      if (!found) throw httpError(404, 'No encontré ese usuario en Roblox. Revisá cómo se escribe.');
+      return {
+        id: found.id ? String(found.id) : '',
+        username: cleanText(found.username || name, 20),
+        displayName: cleanText(found.displayName || found.username || name, 60),
+      };
+    } catch (err) {
+      if (err.status) throw err;
+      log('[Web] Error consultando Roblox:', err.message);
+      // Si Roblox está caído, no bloqueamos el registro: guardamos el nombre
+      // escrito por el usuario y se puede verificar más adelante.
+      return { id: '', username: name, displayName: name };
+    }
+  }
+
+  function applyLicense(profile, account) {
+    const lic = licensePublic(account);
+    profile.license = lic.number;
+    profile.licStatus = lic.label;
+    profile.licenseInfo = lic;
+    return profile;
+  }
+
   // ---------------- Registro ----------------
   async function register(body) {
     const usernameInput = normalizeUsername(body.username);
@@ -424,6 +528,7 @@ function createWebAuth({
       throw httpError(409, 'Ese usuario ya tiene cuenta. Iniciá sesión o recuperá tu contraseña.');
     }
 
+    const roblox = await resolveRoblox(body.robloxUsername);
     const salt = crypto.randomBytes(16).toString('hex');
     const code = newCode();
     db.pending[username] = {
@@ -431,6 +536,9 @@ function createWebAuth({
       displayName: cleanText(du.displayName || du.username, 60),
       avatar: String(du.avatar || '').slice(0, 500),
       discordId: String(du.id || ''),
+      robloxUsername: roblox.username,
+      robloxId: roblox.id,
+      robloxDisplayName: roblox.displayName,
       salt,
       hash: hashPassword(password, salt),
       codeHash: hashCode(username, code),
@@ -470,6 +578,9 @@ function createWebAuth({
       displayName: p.displayName || p.username,
       avatar: p.avatar || '',
       discordId: p.discordId || '',
+      robloxUsername: p.robloxUsername || '',
+      robloxId: p.robloxId || '',
+      robloxDisplayName: p.robloxDisplayName || p.robloxUsername || '',
       role: 'Ciudadano',
       salt: p.salt,
       hash: p.hash,
@@ -502,6 +613,31 @@ function createWebAuth({
     const candidate = hashPassword(password, account.salt);
     if (!safeEqualHex(candidate, account.hash)) {
       throw httpError(401, 'Usuario o contraseña incorrectos.');
+    }
+
+    // Las cuentas viejas no tienen Roblox: se completa una sola vez al
+    // iniciar sesión. Si ya está guardado, el campo es opcional y solo se
+    // usa para comprobar que no sea otra persona.
+    const robloxInput = normalizeRoblox(body.robloxUsername);
+    if (!account.robloxUsername) {
+      const roblox = await resolveRoblox(robloxInput);
+      const previous = {
+        robloxUsername: account.robloxUsername,
+        robloxId: account.robloxId,
+        robloxDisplayName: account.robloxDisplayName,
+      };
+      account.robloxUsername = roblox.username;
+      account.robloxId = roblox.id;
+      account.robloxDisplayName = roblox.displayName;
+      try {
+        await dataStore.putAccount(account);
+      } catch (err) {
+        Object.assign(account, previous);
+        log('[Web] No se pudo guardar el usuario de Roblox:', err.message);
+        throw httpError(503, 'No se pudo guardar tu usuario de Roblox. Probá de nuevo.');
+      }
+    } else if (robloxInput && robloxInput.toLowerCase() !== String(account.robloxUsername).toLowerCase()) {
+      throw httpError(401, 'El usuario de Roblox no coincide con el de tu cuenta.');
     }
 
     const token = await createSession(account);
@@ -655,6 +791,18 @@ function createWebAuth({
         lastName: String(web.lastName || ''),
         dob: String(web.dob || ''),
         age: Number(web.age) || ageFromDob(web.dob),
+        sex: String(web.sex || ''),
+        hair: String(web.hair || ''),
+        eyes: String(web.eyes || ''),
+        heightCm: Number(web.heightCm) || 0,
+        weightKg: Number(web.weightKg) || 0,
+        address: String(web.address || ''),
+        city: String(web.city || ''),
+        state: String(web.state || 'CA'),
+        zip: String(web.zip || ''),
+        issueDate: String(web.issueDate || ''),
+        expires: String(web.expires || ''),
+        robloxUsername: String(web.robloxUsername || ''),
         createdAt: Number(web.createdAt) || 0,
         source: 'web',
       });
@@ -668,8 +816,18 @@ function createWebAuth({
       name: webCitizen.name,
       dni: webCitizen.dni,
       dob: webCitizen.dob,
-      license: webCitizen.license || '',
-      licStatus: webCitizen.licStatus || 'Sin licencia',
+      sex: webCitizen.sex || '',
+      hair: webCitizen.hair || '',
+      eyes: webCitizen.eyes || '',
+      heightCm: webCitizen.heightCm || 0,
+      weightKg: webCitizen.weightKg || 0,
+      address: webCitizen.address || '',
+      city: webCitizen.city || '',
+      state: webCitizen.state || 'CA',
+      zip: webCitizen.zip || '',
+      issueDate: webCitizen.issueDate || '',
+      expires: webCitizen.expires || '',
+      robloxUsername: webCitizen.robloxUsername || '',
       notes: webCitizen.notes || '',
     };
     const profile = buildCitizenProfile(snapshot || {}, person);
@@ -678,7 +836,6 @@ function createWebAuth({
     profile.dob = webCitizen.dob;
     profile.age = Number(webCitizen.age) || ageFromDob(webCitizen.dob);
     profile.source = 'web';
-    if (!profile.license) profile.licStatus = webCitizen.licStatus || 'Sin licencia';
     return profile;
   }
 
@@ -693,7 +850,7 @@ function createWebAuth({
       if (webCitizen) {
         return {
           ...base,
-          citizen: buildWebCitizenProfile(webCitizen, null),
+          citizen: applyLicense(buildWebCitizenProfile(webCitizen, null), account),
           source: 'web',
           cadMissing: true,
         };
@@ -709,7 +866,7 @@ function createWebAuth({
       if (webCitizen) {
         return {
           ...base,
-          citizen: buildWebCitizenProfile(webCitizen, snapshot),
+          citizen: applyLicense(buildWebCitizenProfile(webCitizen, snapshot), account),
           source: 'web',
           cadMissing: true,
         };
@@ -722,7 +879,7 @@ function createWebAuth({
       dni: String(person.dni || account.dni),
       name: String(person.name || account.citizenName || ''),
       source: 'cad',
-      citizen: buildCitizenProfile(snapshot, person),
+      citizen: applyLicense(buildCitizenProfile(snapshot, person), account),
     };
   }
 
@@ -734,7 +891,16 @@ function createWebAuth({
     const firstName = cleanText(body.firstName, 40);
     const lastName = cleanText(body.lastName, 40);
     const dob = String(body.dob == null ? '' : body.dob).trim();
+    const sex = String(body.sex == null ? '' : body.sex).trim().toUpperCase();
+    const hair = cleanText(body.hair, 30);
+    const eyes = cleanText(body.eyes, 30);
+    const heightCm = Math.round(Number(body.heightCm));
+    const weightKg = Math.round(Number(body.weightKg) * 10) / 10;
+    const address = cleanText(body.address, 120);
+    const city = cleanText(body.city || 'Los Angeles', 60);
+    const zip = String(body.zip == null ? '' : body.zip).replace(/\s+/g, '');
     const nameRe = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
+    const shortTextRe = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9' .-]+$/;
 
     if (firstName.length < 2 || !nameRe.test(firstName)) {
       throw httpError(400, 'Escribí tu nombre (mínimo 2 letras, sin números).');
@@ -747,6 +913,31 @@ function createWebAuth({
     const age = ageFromDob(dob, now());
     if (age < 0 || age > 120) throw httpError(400, 'La fecha de nacimiento no es válida.');
 
+    if (!['M', 'F', 'X'].includes(sex)) {
+      throw httpError(400, 'Elegí tu sexo como figura en el DNI (M, F o X).');
+    }
+    if (hair.length < 2 || !shortTextRe.test(hair)) {
+      throw httpError(400, 'Escribí el color de tu cabello (mínimo 2 letras).');
+    }
+    if (eyes.length < 2 || !shortTextRe.test(eyes)) {
+      throw httpError(400, 'Escribí el color de tus ojos (mínimo 2 letras).');
+    }
+    if (!Number.isInteger(heightCm) || heightCm < 120 || heightCm > 230) {
+      throw httpError(400, 'La altura debe estar entre 120 y 230 cm.');
+    }
+    if (!Number.isFinite(weightKg) || weightKg < 30 || weightKg > 250) {
+      throw httpError(400, 'El peso debe estar entre 30 y 250 kg.');
+    }
+    if (address.length < 5 || address.length > 120) {
+      throw httpError(400, 'Escribí tu dirección (calle y número, mínimo 5 caracteres).');
+    }
+    if (city.length < 2 || !shortTextRe.test(city)) {
+      throw httpError(400, 'Escribí tu ciudad.');
+    }
+    if (!/^\d{5}$/.test(zip)) {
+      throw httpError(400, 'El código postal debe tener 5 números (ej: 90001).');
+    }
+
     const name = firstName + ' ' + lastName;
     const taken = new Set();
     for (const other of Object.values(db.accounts)) {
@@ -754,7 +945,20 @@ function createWebAuth({
       if (other.dni) taken.add(normalizeDni(other.dni));
       if (other.webCitizen && other.webCitizen.dni) taken.add(normalizeDni(other.webCitizen.dni));
     }
+    // También evitamos chocar con un DNI que el staff ya haya cargado en el CAD.
+    const snapshot = cadSnapshotSafe();
+    if (snapshot) {
+      for (const person of snapshot.persons || []) {
+        if (person && person.dni) taken.add(normalizeDni(person.dni));
+      }
+    }
     const dni = generateDni(taken);
+
+    const issuedOn = new Date(now());
+    const issueDate = issuedOn.toISOString().slice(0, 10);
+    const expiresOn = new Date(issuedOn);
+    expiresOn.setUTCFullYear(expiresOn.getUTCFullYear() + 4);
+    const expiresDate = expiresOn.toISOString().slice(0, 10);
 
     const webCitizen = {
       dni,
@@ -763,8 +967,18 @@ function createWebAuth({
       name,
       dob,
       age,
-      license: '',
-      licStatus: 'Sin licencia',
+      sex,
+      hair,
+      eyes,
+      heightCm,
+      weightKg,
+      address,
+      city,
+      state: 'CA',
+      zip,
+      issueDate,
+      expires: expiresDate,
+      robloxUsername: account.robloxUsername || '',
       notes: '',
       source: 'web',
       createdAt: now(),
@@ -794,7 +1008,7 @@ function createWebAuth({
       ...citizenBase(account),
       source: 'web',
       cadMissing: !cadSnapshotSafe(),
-      citizen: buildWebCitizenProfile(webCitizen, cadSnapshotSafe()),
+      citizen: applyLicense(buildWebCitizenProfile(webCitizen, cadSnapshotSafe()), account),
     };
   }
 
@@ -855,7 +1069,7 @@ function createWebAuth({
     log(`[Web] DNI ${account.dni} vinculado a @${account.username}`);
     return {
       ...citizenBase(account),
-      citizen: buildCitizenProfile(snapshot, person),
+      citizen: applyLicense(buildCitizenProfile(snapshot, person), account),
     };
   }
 
@@ -885,6 +1099,174 @@ function createWebAuth({
 
     log(`[Web] DNI desvinculado de @${account.username}`);
     return { ok: true, user: publicUser(account) };
+  }
+
+  // ---------------- Licencia de conducir ----------------
+  function buildLicenseApplication(account, body) {
+    const experience = cleanText(body.experience, 20);
+    const vehicleType = cleanText(body.vehicleType, 20);
+    const rulesRaw = cleanText(body.trafficRules, 8);
+    const trafficRules = /^s[ií]$/i.test(rulesRaw) ? 'Sí' : /^no$/i.test(rulesRaw) ? 'No' : '';
+    const reason = cleanMultiline(body.reason, 800);
+
+    if (!LICENSE_EXPERIENCE.includes(experience)) {
+      throw httpError(400, 'Elegí tu experiencia manejando.');
+    }
+    if (!LICENSE_VEHICLES.includes(vehicleType)) {
+      throw httpError(400, 'Elegí qué tipo de vehículo querés manejar.');
+    }
+    if (!trafficRules) {
+      throw httpError(400, 'Indicá si conocés las normas de tránsito.');
+    }
+    if (reason.length < 20) {
+      throw httpError(400, 'Contanos por qué querés la licencia (mínimo 20 caracteres).');
+    }
+    if (body.confirm !== true && body.confirm !== 'true' && body.confirm !== 'on') {
+      throw httpError(400, 'Confirmá que los datos son correctos y que la licencia es de roleplay.');
+    }
+
+    return {
+      username: account.username,
+      displayName: account.displayName || account.username,
+      discordId: account.discordId || '',
+      name: account.citizenName || (account.webCitizen && account.webCitizen.name) || '',
+      dni: account.dni || '',
+      robloxUsername: account.robloxUsername || '',
+      experience,
+      vehicleType,
+      trafficRules,
+      reason,
+      submittedAt: now(),
+    };
+  }
+
+  async function citizenLicenseApply(req, body) {
+    const { account } = requireSession(req);
+    if (!account.dni) {
+      throw httpError(400, 'Primero creá o vinculá tu DNI. La licencia se solicita después.');
+    }
+
+    const current = account.license;
+    if (current && current.status === 'pending') {
+      throw httpError(409, 'Tu solicitud ya está en revisión. Esperá la respuesta de los moderadores.');
+    }
+    if (current && current.status === 'approved') {
+      throw httpError(409, 'Ya tenés una licencia aprobada. Si necesitás renovarla, hablá con el staff.');
+    }
+    if (current && (current.status === 'suspended' || current.status === 'revoked')) {
+      throw httpError(409, 'Tu licencia no está habilitada. Hablá con el staff para regularizar tu situación.');
+    }
+
+    const application = buildLicenseApplication(account, body);
+    if (typeof sendLicenseApplication !== 'function') {
+      throw httpError(503, 'El canal de licencias del staff todavía no está configurado. Avisá a un moderador.');
+    }
+
+    let sent = null;
+    try {
+      sent = await sendLicenseApplication(application);
+    } catch (err) {
+      log('[Web] No se pudo enviar la solicitud de licencia:', err.message);
+      throw httpError(502, 'No pude enviar la solicitud al canal de mods. Probá de nuevo en unos minutos o avisá al staff.');
+    }
+
+    const previous = account.license;
+    account.license = {
+      status: 'pending',
+      application,
+      submittedAt: application.submittedAt,
+      messageId: sent && sent.id ? String(sent.id) : '',
+    };
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      account.license = previous;
+      log('[Web] No se pudo guardar la solicitud de licencia:', err.message);
+      throw httpError(503, 'No se pudo guardar la solicitud de licencia. Probá de nuevo en unos segundos.');
+    }
+
+    log(`[Web] Solicitud de licencia enviada por @${account.username} (DNI ${account.dni})`);
+    return {
+      ok: true,
+      license: licensePublic(account),
+      message: 'Solicitud enviada al canal de mods. Te avisamos cuando la revisen.',
+    };
+  }
+
+  async function reviewLicense(username, decision, reviewer, reason) {
+    const key = normalizeUsername(username);
+    const account = db.accounts[key];
+    if (!account) throw httpError(404, 'No encontré la cuenta del solicitante.');
+
+    const current = account.license;
+    if (!current || current.status !== 'pending') {
+      throw httpError(409, 'Esa solicitud ya no está pendiente.');
+    }
+
+    const approved = decision === 'approve' || decision === 'approved';
+    const rejected = decision === 'reject' || decision === 'rejected';
+    if (!approved && !rejected) throw httpError(400, 'Decisión de licencia inválida.');
+
+    const reviewedAt = now();
+    const previous = current;
+    const reviewerName = cleanText(
+      reviewer && (reviewer.displayName || reviewer.username || (reviewer.id ? 'Moderador ' + reviewer.id : '')) || 'Staff',
+      60
+    ) || 'Staff';
+
+    if (approved) {
+      const taken = new Set();
+      for (const other of Object.values(db.accounts)) {
+        if (other && other.license && other.license.number) taken.add(String(other.license.number));
+      }
+      const number = generateLicenseNumber(taken);
+      account.license = {
+        status: 'approved',
+        application: current.application || {},
+        submittedAt: current.submittedAt || reviewedAt,
+        reviewedAt,
+        reviewedBy: reviewerName,
+        reviewedById: reviewer && reviewer.id ? String(reviewer.id) : '',
+        number,
+        issuedAt: reviewedAt,
+        expiresAt: reviewedAt + LICENSE_TTL,
+        rejectionReason: '',
+      };
+    } else {
+      account.license = {
+        status: 'rejected',
+        application: current.application || {},
+        submittedAt: current.submittedAt || reviewedAt,
+        reviewedAt,
+        reviewedBy: reviewerName,
+        reviewedById: reviewer && reviewer.id ? String(reviewer.id) : '',
+        rejectionReason: cleanText(reason, 300) || 'Solicitud rechazada por el staff.',
+        number: '',
+        expiresAt: 0,
+      };
+    }
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      account.license = previous;
+      log('[Web] No se pudo guardar la revisión de licencia:', err.message);
+      throw httpError(503, 'No se pudo guardar la revisión de licencia. Probá de nuevo.');
+    }
+
+    log(`[Web] Licencia ${approved ? 'aprobada' : 'rechazada'} para @${account.username} por ${reviewerName}`);
+    return {
+      ok: true,
+      decision: approved ? 'approved' : 'rejected',
+      username: account.username,
+      name: account.citizenName || (account.webCitizen && account.webCitizen.name) || '',
+      dni: account.dni || '',
+      discordId: account.discordId || '',
+      robloxUsername: account.robloxUsername || '',
+      application: account.license.application,
+      license: licensePublic(account),
+    };
   }
 
   // ---------------- Reseñas ----------------
@@ -1031,6 +1413,10 @@ function createWebAuth({
         sendJson(res, 200, await citizenLink(req, await readJsonBody(req)));
         return true;
       }
+      if (url === '/citizen/license/apply' && req.method === 'POST') {
+        sendJson(res, 200, await citizenLicenseApply(req, await readJsonBody(req)));
+        return true;
+      }
       if (url === '/citizen/unlink' && req.method === 'POST') {
         sendJson(res, 200, await citizenUnlink(req));
         return true;
@@ -1058,6 +1444,7 @@ function createWebAuth({
 
   return {
     handle,
+    reviewLicense,
     get file() { return dataStore.describe ? dataStore.describe() : 'almacén'; },
     stats: () => ({
       accounts: Object.keys(db.accounts).length,

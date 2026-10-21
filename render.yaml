@@ -54,3 +54,9 @@ services:
         sync: false
       - key: CH_PANEL
         sync: false
+      - key: CH_LICENCIAS
+        sync: false
+      - key: CH_LICENCIAS_CATEGORIA
+        sync: false
+      - key: CH_LICENCIAS_ROL
+        sync: false

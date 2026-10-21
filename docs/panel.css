@@ -2857,3 +2857,410 @@ body.cine-open { overflow: hidden; }
 @media print {
   .cine-intro { display: none !important; }
 }
+
+/* ============================================================
+   DNI DE CALIFORNIA + CUESTIONARIO DE LICENCIA
+   ============================================================ */
+.citizen-id-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.citizen-form select,
+.citizen-form textarea {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--border-2);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(5, 10, 16, .55);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+  resize: vertical;
+}
+
+.citizen-form select:focus,
+.citizen-form textarea:focus {
+  border-color: rgba(46, 230, 205, .65);
+  background: rgba(5, 10, 16, .8);
+  box-shadow: 0 0 0 3px rgba(46, 230, 205, .1);
+}
+
+.citizen-form textarea::placeholder {
+  color: #526b7e;
+}
+
+.citizen-form .citizen-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+.citizen-form .citizen-check input {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  margin-top: 1px;
+  accent-color: var(--accent);
+}
+
+.citizen-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.citizen-form-actions .btn {
+  flex: 1;
+  min-width: 160px;
+}
+
+.citizen-license-form {
+  margin-top: 16px;
+  border-color: rgba(46, 230, 205, .24);
+  background:
+    radial-gradient(430px 210px at 100% 0%, rgba(46, 230, 205, .08), transparent 68%),
+    rgba(9, 17, 27, .74);
+}
+
+.citizen-license-form .citizen-form {
+  margin-top: 16px;
+}
+
+.citizen-license.neutral {
+  border-color: rgba(122, 145, 166, .3);
+  background:
+    radial-gradient(360px 150px at 88% 0%, rgba(122, 145, 166, .1), transparent 72%),
+    linear-gradient(110deg, rgba(16, 29, 43, .9), rgba(8, 16, 25, .94));
+}
+
+.citizen-license.neutral .citizen-license-mark {
+  border-color: rgba(122, 145, 166, .34);
+  background: rgba(122, 145, 166, .08);
+  color: #9eb4c6;
+}
+
+.citizen-license.neutral .citizen-license-info h2 {
+  color: #b7c8d6;
+}
+
+/* --- Tarjeta estilo California --- */
+.cid-card.ca-id {
+  max-width: 780px;
+  padding: 18px 22px 15px;
+  border: 1px solid #b9d0e6;
+  border-radius: 20px;
+  background:
+    radial-gradient(540px 240px at 100% -10%, rgba(56, 132, 196, .2), transparent 68%),
+    radial-gradient(380px 220px at 0% 110%, rgba(210, 160, 55, .1), transparent 70%),
+    linear-gradient(135deg, #fbfdff 0%, #edf6fd 52%, #ddecf9 100%);
+  box-shadow: 0 26px 55px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .9);
+  color: #16344e;
+}
+
+.cid-card.ca-id::before {
+  height: 5px;
+  background: linear-gradient(90deg, #1d4f82 0%, #3579ae 45%, #d2a337 100%);
+  opacity: 1;
+}
+
+.cid-card.ca-id::after {
+  top: auto;
+  right: -130px;
+  bottom: -190px;
+  width: 400px;
+  height: 400px;
+  border-color: rgba(29, 79, 130, .07);
+  box-shadow: 0 0 0 36px rgba(29, 79, 130, .018), 0 0 0 78px rgba(29, 79, 130, .012);
+}
+
+.ca-id-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(29, 79, 130, .16);
+}
+
+.ca-id-state {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.ca-id-state span {
+  color: #1d4f82;
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.ca-id-state small {
+  margin-top: 5px;
+  color: #54728d;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .24em;
+}
+
+.ca-id-seal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #9c7419;
+}
+
+.ca-id-seal span {
+  font-size: 25px;
+  line-height: 1;
+}
+
+.ca-id-seal small {
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.ca-id-main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 145px;
+  gap: 22px;
+  padding: 15px 0 13px;
+}
+
+.ca-id-fields {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.ca-id-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(29, 79, 130, .16);
+}
+
+.ca-id-name small,
+.ca-id-grid small,
+.ca-id-address small,
+.ca-id-bottom small {
+  color: #5f7d96;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.ca-id-name b {
+  overflow: hidden;
+  color: #12304a;
+  font-size: clamp(16px, 2.5vw, 20px);
+  font-weight: 850;
+  letter-spacing: .02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ca-id-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px 14px;
+}
+
+.ca-id-grid > div,
+.ca-id-address {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ca-id-grid b,
+.ca-id-address b {
+  overflow: hidden;
+  color: #173a58;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-id-address {
+  padding-top: 8px;
+  border-top: 1px solid rgba(29, 79, 130, .16);
+}
+
+.ca-id-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.ca-id-avatar {
+  width: 132px;
+  height: 158px;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  background: #d8e8f5;
+  color: #1d4f82;
+  font-size: 34px;
+  box-shadow: 0 8px 20px rgba(29, 79, 130, .24);
+}
+
+.ca-id-photo-label {
+  color: #54728d;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ca-id-bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(29, 79, 130, .16);
+}
+
+.ca-id-sign {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ca-id-sign b {
+  overflow: hidden;
+  color: #1d4f82;
+  font-family: "Brush Script MT", "Segoe Script", cursive;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-id-number {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex: none;
+}
+
+.ca-id-number b {
+  color: #12304a;
+  font-size: clamp(18px, 3vw, 23px);
+  font-weight: 900;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+
+@media (max-width: 720px) {
+  .cid-card.ca-id {
+    padding: 15px 15px 13px;
+    border-radius: 17px;
+  }
+
+  .ca-id-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .ca-id-photo {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .ca-id-avatar {
+    width: 88px;
+    height: 106px;
+    font-size: 24px;
+  }
+
+  .ca-id-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ca-id-name b {
+    white-space: normal;
+  }
+
+  .citizen-id-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .panel-page .cid-card.ca-id {
+    background: #fff;
+    border-color: #0a1a26;
+    box-shadow: none;
+    color: #0a1a26;
+  }
+
+  .panel-page .cid-card.ca-id::before {
+    background: #0a1a26;
+  }
+
+  .panel-page .ca-id-top,
+  .panel-page .ca-id-name,
+  .panel-page .ca-id-address,
+  .panel-page .ca-id-bottom {
+    border-color: #8da5b5;
+  }
+
+  .panel-page .ca-id-state span,
+  .panel-page .ca-id-name b,
+  .panel-page .ca-id-grid b,
+  .panel-page .ca-id-address b,
+  .panel-page .ca-id-number b,
+  .panel-page .ca-id-sign b {
+    color: #0a1a26;
+  }
+
+  .panel-page .ca-id-state small,
+  .panel-page .ca-id-name small,
+  .panel-page .ca-id-grid small,
+  .panel-page .ca-id-address small,
+  .panel-page .ca-id-bottom small,
+  .panel-page .ca-id-photo-label {
+    color: #496273;
+  }
+
+  .panel-page .ca-id-avatar {
+    border-color: #8da5b5;
+    background: #eef3f6;
+    color: #0a1a26;
+    box-shadow: none;
+  }
+}

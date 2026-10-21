@@ -1610,6 +1610,14 @@ main { position: relative; z-index: 1; }
 }
 .auth-sub b { color: var(--text); }
 
+.auth-optional {
+  color: #6f879a;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
 .auth-form label {
   display: block;
   margin-bottom: 14px;

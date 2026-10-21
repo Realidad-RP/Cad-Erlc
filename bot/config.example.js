@@ -6,7 +6,8 @@
 //
 // También se puede configurar todo con variables de entorno
 // (útil para Render: DISCORD_TOKEN, DISCORD_GUILD_ID, ERLC_SERVER_KEY,
-//  CAD_KEY, PORT, CH_DESPACHO, CH_BOLO, CH_ERLC, CH_ESTADO, POLL_SECONDS).
+//  CAD_KEY, PORT, CH_DESPACHO, CH_BOLO, CH_ERLC, CH_ESTADO, CH_PANEL,
+//  CH_LICENCIAS, CH_LICENCIAS_CATEGORIA, CH_LICENCIAS_ROL, POLL_SECONDS).
 //
 // Guía paso a paso: bot/README.md
 
@@ -38,7 +39,13 @@ module.exports = {
     erlc: '',     // avisos en vivo del juego (webhooks)
     estado: '',   // mensaje que se actualiza solo con el estado del servidor
     panel: '',    // datos privados de la web (si vacío, el bot crea #panel-ciudadano)
+    licencias: '', // solicitudes de licencia (si vacío, el bot crea #solicitudes-licencia)
   },
+
+  // Categoría donde se crea #solicitudes-licencia y rol que puede revisar.
+  // Si el rol queda vacío, el bot busca Moderador/Staff/Administrador.
+  licenseCategory: 'Realidad RP Bot',
+  licenseRoleId: '',
 
   // Cada cuántos segundos consultar el estado del juego (mínimo 30)
   pollSeconds: 60,

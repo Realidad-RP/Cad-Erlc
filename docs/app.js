@@ -839,6 +839,9 @@
               <label>Contraseña
                 <input name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
               </label>
+              <label>Usuario de Roblox <span class="auth-optional">(si tu cuenta todavía no lo tiene)</span>
+                <input name="robloxUsername" autocomplete="off" placeholder="tu_usuario_roblox" spellcheck="false">
+              </label>
               <button class="btn btn-primary auth-submit" type="submit">Ingresar</button>
               <div class="auth-links">
                 <button type="button" data-auth-goto="reset">¿Olvidaste tu contraseña?</button>
@@ -862,6 +865,10 @@
                   <input name="confirm" type="password" autocomplete="new-password" placeholder="Otra vez" required>
                 </label>
               </div>
+              <label>Usuario de Roblox
+                <input name="robloxUsername" autocomplete="off" placeholder="tu_usuario_roblox" spellcheck="false" required>
+              </label>
+              <p class="auth-fine">Lo usamos para identificarte en la ciudad. Tiene que ser tu usuario real de Roblox.</p>
               <button class="btn btn-primary auth-submit" type="submit">Poner código</button>
               <div class="auth-msg" data-auth-msg></div>
               <p class="auth-fine">¿Ya tenés cuenta? <button type="button" data-auth-goto="login">Ingresá</button></p>
@@ -932,7 +939,8 @@
               <span class="auth-role" id="authAccountRole">Ciudadano</span>
               <span id="authAccountSince"></span>
             </div>
-            <p class="auth-sub auth-account-text">Tu cuenta está conectada al Discord. En tu panel vas a ver el DNI, la licencia, los vehículos, las multas y las órdenes que tenga tu personaje en el CAD.</p>
+            <p class="auth-sub auth-account-text" id="authAccountRoblox"></p>
+            <p class="auth-sub auth-account-text">Tu cuenta está conectada al Discord. En tu panel vas a ver el DNI, la licencia solicitada al staff, los vehículos, las multas y las órdenes de tu personaje.</p>
             <button class="btn btn-primary auth-submit" type="button" id="authOpenPanel">Abrir mi panel</button>
             <button class="btn btn-ghost auth-submit" type="button" data-auth-close>Volver al sitio</button>
             <button class="btn btn-ghost auth-submit" type="button" id="authLogout">Cerrar sesión</button>
@@ -963,13 +971,14 @@
       e.preventDefault();
       const username = loginForm.username.value.trim().replace(/^@+/, '');
       const password = loginForm.password.value;
+      const robloxUsername = loginForm.robloxUsername.value.trim().replace(/^@+/, '');
       if (!username || !password) return setAuthMsg('login', 'Completá tu usuario y contraseña.', 'error');
 
       const btn = $('[type="submit"]', loginForm);
       setBusy(btn, true);
       setAuthMsg('login', 'Conectando… si el servidor está despertando puede tardar unos segundos.');
       try {
-        const d = await Auth.api('/auth/login', { method: 'POST', json: { username, password } });
+        const d = await Auth.api('/auth/login', { method: 'POST', json: { username, password, robloxUsername } });
         Auth.setSession(d.token, d.user);
         rememberUser(d.user.username);
         afterAuth('✅ Entraste como ' + (d.user.displayName || d.user.username));
@@ -987,17 +996,21 @@
       const username = regForm.username.value.trim().replace(/^@+/, '');
       const password = regForm.password.value;
       const confirm = regForm.confirm.value;
+      const robloxUsername = regForm.robloxUsername.value.trim().replace(/^@+/, '');
 
       if (!username) return setAuthMsg('register', 'Escribí tu usuario de Discord.', 'error');
       if (password.length < 6) return setAuthMsg('register', 'La contraseña debe tener al menos 6 caracteres.', 'error');
       if (password !== confirm) return setAuthMsg('register', 'Las contraseñas no coinciden.', 'error');
+      if (!/^[A-Za-z0-9_]{3,20}$/.test(robloxUsername)) {
+        return setAuthMsg('register', 'Escribí tu usuario de Roblox (3 a 20 letras, números o guiones bajos).', 'error');
+      }
 
       const btn = $('[type="submit"]', regForm);
       setBusy(btn, true);
       setAuthMsg('register', 'Buscando tu usuario en Discord…');
       try {
-        const d = await Auth.api('/auth/register', { method: 'POST', json: { username, password } });
-        pendingAuth = { username: d.username, password };
+        const d = await Auth.api('/auth/register', { method: 'POST', json: { username, password, robloxUsername } });
+        pendingAuth = { username: d.username, password, robloxUsername };
         rememberUser(d.username);
 
         const pane = $('[data-auth-pane="verify"]', modal);
@@ -1244,6 +1257,7 @@
       const uname = $('#authAccountUser');
       const role = $('#authAccountRole');
       const since = $('#authAccountSince');
+      const roblox = $('#authAccountRoblox');
       const avatar = $('#authAvatar');
       if (name) name.textContent = user.displayName || user.username;
       if (uname) uname.textContent = '@' + user.username;
@@ -1252,6 +1266,11 @@
         since.textContent = user.createdAt
           ? 'Miembro desde ' + new Date(user.createdAt).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
           : '';
+      }
+      if (roblox) {
+        roblox.textContent = user.robloxUsername
+          ? 'Roblox: @' + user.robloxUsername
+          : 'Tu cuenta todavía no tiene un usuario de Roblox. Se pide al iniciar sesión.';
       }
       if (avatar) {
         avatar.innerHTML = user.avatar

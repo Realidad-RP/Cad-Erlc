@@ -22,6 +22,10 @@ const {
   Routes,
   SlashCommandBuilder,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
   MessageFlags,
   PermissionFlagsBits,
 } = require('discord.js');
@@ -64,7 +68,10 @@ function loadConfig() {
       erlc: pick('CH_ERLC', channels.erlc || ''),
       estado: pick('CH_ESTADO', channels.estado || ''),
       panel: pick('CH_PANEL', channels.panel || ''), // datos privados de la web
+      licencias: pick('CH_LICENCIAS', channels.licencias || ''), // solicitudes de licencia
     },
+    licenseCategory: clean(process.env.CH_LICENCIAS_CATEGORIA || file.licenseCategory || '') || 'Realidad RP Bot',
+    licenseRoleId: pick('CH_LICENCIAS_ROL', file.licenseRoleId || ''),
   };
 }
 
@@ -82,6 +89,7 @@ let lastCommandAt = 0;        // control del límite de 1 comando cada ~5 s de l
 let discordReady = false;
 let discordLoginError = '';   // se muestra en /web/status si Discord no conecta
 let cadUpdatedAt = 0;         // última vez que el CAD envió su estado
+let licenseChannelId = null;  // canal privado #solicitudes-licencia
 
 // ============================================================
 // 2b. Cuentas de la web (Panel de Ciudadano)
@@ -148,6 +156,343 @@ async function sendDiscordDM(discordId, content) {
   await user.send(content);
 }
 
+function cleanText(value, max) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+// Busca el usuario de Roblox para guardar también su ID y nombre visible.
+// Si Roblox no responde, no bloqueamos el registro: se guarda el nombre
+// escrito y se puede completar después.
+async function resolveRobloxUser(username) {
+  const name = String(username || '').trim().replace(/^@+/, '');
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(name)) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    let res;
+    try {
+      res = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ usernames: [name], excludeBannedUsers: true }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      console.warn(`[Web] Roblox respondió HTTP ${res.status}; guardo el nombre sin verificar.`);
+      return { id: '', username: name, displayName: name };
+    }
+    const data = await res.json();
+    const user = Array.isArray(data && data.data) ? data.data[0] : null;
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: cleanText(user.name || name, 20),
+      displayName: cleanText(user.displayName || user.name || name, 60),
+    };
+  } catch (err) {
+    console.warn('[Web] No pude consultar Roblox:', err.message);
+    return { id: '', username: name, displayName: name };
+  }
+}
+
+function channelName(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+async function getGuild() {
+  if (!discordReady) return null;
+  try {
+    let guild = null;
+    if (cfg.guildId) {
+      guild = client.guilds.cache.get(cfg.guildId) || await client.guilds.fetch(cfg.guildId).catch(() => null);
+      if (!guild && client.guilds.cache.size === 1) guild = client.guilds.cache.first();
+    } else {
+      guild = client.guilds.cache.first() || null;
+    }
+    return guild || null;
+  } catch {
+    return null;
+  }
+}
+
+function findLicenseRole(guild) {
+  if (!guild) return null;
+  if (cfg.licenseRoleId) {
+    const configured = guild.roles.cache.get(cfg.licenseRoleId);
+    if (configured) return configured;
+  }
+  const byName = guild.roles.cache.find((role) =>
+    role.id !== guild.id &&
+    !role.managed &&
+    /^(moderador|moderadora|moderaci[oó]n|staff|administrador|administraci[oó]n|admin)/i.test(role.name)
+  );
+  if (byName) return byName;
+  return guild.roles.cache.find((role) =>
+    role.id !== guild.id &&
+    !role.managed &&
+    role.permissions.has(PermissionFlagsBits.ManageGuild)
+  ) || null;
+}
+
+function buildLicenseOverwrites(guild, staffRole) {
+  const overwrites = [
+    {
+      id: guild.roles.everyone.id,
+      deny: [PermissionFlagsBits.ViewChannel],
+    },
+    {
+      id: client.user.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.ManageMessages,
+      ],
+    },
+  ];
+  if (staffRole) {
+    overwrites.push({
+      id: staffRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.ReadMessageHistory,
+      ],
+    });
+  }
+  return overwrites;
+}
+
+async function ensureLicenseChannel() {
+  if (!discordReady) return null;
+  const guild = await getGuild();
+  if (!guild) {
+    console.warn('[Licencias] No encontré el servidor de Discord; no puedo crear el canal.');
+    return null;
+  }
+
+  if (cfg.channels.licencias) {
+    const configured = await client.channels.fetch(cfg.channels.licencias).catch(() => null);
+    if (configured && configured.type === ChannelType.GuildText) {
+      licenseChannelId = configured.id;
+      return configured;
+    }
+    console.warn('[Licencias] El ID de CH_LICENCIAS no existe o no es un canal de texto; busco o creo #solicitudes-licencia.');
+  }
+
+  let channel = guild.channels.cache.find((ch) =>
+    ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
+  ) || null;
+
+  let category = guild.channels.cache.find((ch) =>
+    ch.type === ChannelType.GuildCategory && channelName(ch.name) === channelName(cfg.licenseCategory)
+  ) || guild.channels.cache.find((ch) =>
+    ch.type === ChannelType.GuildCategory &&
+    channelName(ch.name).includes('realidad') &&
+    channelName(ch.name).includes('bot')
+  ) || null;
+
+  if (!category) {
+    try {
+      category = await guild.channels.create({
+        name: cfg.licenseCategory,
+        type: ChannelType.GuildCategory,
+        reason: 'Sección para los canales privados del bot',
+      });
+      console.log(`[Licencias] Categoría creada: ${category.name}`);
+    } catch (err) {
+      console.warn('[Licencias] No pude crear la categoría "' + cfg.licenseCategory + '":', err.message);
+    }
+  }
+
+  const staffRole = findLicenseRole(guild);
+  const overwrites = buildLicenseOverwrites(guild, staffRole);
+
+  if (channel) {
+    if (category && channel.parentId !== category.id) {
+      try {
+        await channel.setParent(category.id, { lockPermissions: false });
+      } catch (err) {
+        console.warn('[Licencias] No pude mover #solicitudes-licencia a la categoría:', err.message);
+      }
+    }
+    try {
+      await channel.permissionOverwrites.set(overwrites);
+    } catch (err) {
+      console.warn('[Licencias] No pude asegurar que #solicitudes-licencia sea privado:', err.message);
+    }
+    licenseChannelId = channel.id;
+    console.log(
+      `[Licencias] Reutilizo #${channel.name}` +
+      (category ? ` en ${category.name}` : '') +
+      (staffRole ? ` · visible para ${staffRole.name}` : ' · solo administradores')
+    );
+    return channel;
+  }
+
+  try {
+    const options = {
+      name: 'solicitudes-licencia',
+      type: ChannelType.GuildText,
+      topic: 'Solicitudes de licencia del Panel de Ciudadano · solo staff',
+      permissionOverwrites: overwrites,
+      reason: 'Canal privado para revisar las licencias solicitadas desde el panel',
+    };
+    if (category) options.parent = category.id;
+    channel = await guild.channels.create(options);
+    licenseChannelId = channel.id;
+    console.log(
+      `[Licencias] Canal creado: #${channel.name}` +
+      (category ? ` en ${category.name}` : '') +
+      (staffRole ? ` · visible para ${staffRole.name}` : ' · solo administradores')
+    );
+    return channel;
+  } catch (err) {
+    console.warn('[Licencias] No pude crear #solicitudes-licencia:', err.message);
+    channel = guild.channels.cache.find((ch) =>
+      ch.type === ChannelType.GuildText && channelName(ch.name) === 'solicitudes-licencia'
+    ) || null;
+    if (channel) {
+      licenseChannelId = channel.id;
+      return channel;
+    }
+    return null;
+  }
+}
+
+function licenseField(name, value, inline = true) {
+  return {
+    name,
+    value: String(value == null || value === '' ? '—' : value).slice(0, 1024),
+    inline,
+  };
+}
+
+function buildLicenseEmbed(application, review = null) {
+  const app = application || {};
+  const embed = new EmbedBuilder()
+    .setFooter({ text: 'Panel de Ciudadano · Licencias' })
+    .setTimestamp(new Date(review ? (review.license && review.license.reviewedAt) || Date.now() : app.submittedAt || Date.now()));
+
+  if (!review) {
+    embed
+      .setColor(0xf0b429)
+      .setTitle('📝 Nueva solicitud de licencia')
+      .setDescription(`**${app.name || 'Ciudadano'}** (\`${app.dni || 'sin DNI'}\`) solicitó una licencia desde el panel.`)
+      .addFields(
+        licenseField('Discord', app.username ? '@' + app.username : '—'),
+        licenseField('Roblox', app.robloxUsername || '—'),
+        licenseField('Experiencia', app.experience || '—'),
+        licenseField('Vehículo', app.vehicleType || '—'),
+        licenseField('Normas de tránsito', app.trafficRules || '—'),
+        licenseField('Motivo', app.reason || '—', false)
+      );
+    return embed;
+  }
+
+  const license = review.license || {};
+  const approved = review.decision === 'approved';
+  embed
+    .setColor(approved ? 0x35d07f : 0xf2545b)
+    .setTitle(approved ? '✅ Licencia aprobada' : '❌ Solicitud rechazada')
+    .setDescription(`**${app.name || 'Ciudadano'}** (\`${app.dni || 'sin DNI'}\`)`)
+    .addFields(
+      licenseField('Discord', app.username ? '@' + app.username : '—'),
+      licenseField('Roblox', app.robloxUsername || '—'),
+      licenseField('Estado', license.label || (approved ? 'Válida' : 'Rechazada')),
+      licenseField('Número', approved ? (license.number || '—') : '—'),
+      licenseField('Vence', approved ? new Date(license.expiresAt || Date.now()).toLocaleDateString('es-AR') : '—'),
+      licenseField('Revisado por', license.reviewedBy || '—'),
+      licenseField('Respuesta', approved ? 'Licencia emitida.' : (license.rejectionReason || 'Rechazada por el staff.'), false)
+    );
+  return embed;
+}
+
+async function sendLicenseApplication(application) {
+  if (!discordReady) throw new Error('El bot de Discord todavía no está conectado.');
+  let channel = licenseChannelId
+    ? await client.channels.fetch(licenseChannelId).catch(() => null)
+    : null;
+  if (!channel) channel = await ensureLicenseChannel();
+  if (!channel) {
+    throw new Error('No hay canal de licencias. Revisá que el bot pueda gestionar canales en Discord.');
+  }
+  const msg = await channel.send({
+    embeds: [buildLicenseEmbed(application)],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('lic:approve:' + application.username)
+          .setLabel('Aprobar y emitir')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('lic:reject:' + application.username)
+          .setLabel('Rechazar')
+          .setStyle(ButtonStyle.Danger)
+      ),
+    ],
+    allowedMentions: { parse: [] },
+  });
+  return { id: msg.id };
+}
+
+async function handleLicenseButton(interaction) {
+  const [, action, ...rest] = String(interaction.customId || '').split(':');
+  const username = rest.join(':');
+  if (!action || !username) return;
+
+  const memberRoles = interaction.member && interaction.member.roles && interaction.member.roles.cache;
+  const hasStaffRole = !!(memberRoles && memberRoles.some((role) =>
+    (cfg.licenseRoleId && role.id === cfg.licenseRoleId) ||
+    (!cfg.licenseRoleId && /^(moderador|moderadora|moderaci[oó]n|staff|administrador|administraci[oó]n|admin)/i.test(role.name))
+  ));
+  const canReview = (interaction.memberPermissions &&
+    interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) || hasStaffRole;
+  if (!canReview) {
+    return interaction.reply({
+      content: '⛔ Solo moderadores pueden aprobar o rechazar licencias.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  await interaction.deferUpdate();
+  try {
+    const result = await webAuth.reviewLicense(
+      username,
+      action,
+      {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        displayName: interaction.member && interaction.member.displayName
+          ? interaction.member.displayName
+          : interaction.user.globalName || interaction.user.username,
+      },
+      action === 'reject' ? 'Solicitud rechazada por el staff desde Discord.' : ''
+    );
+
+    await interaction.editReply({
+      embeds: [buildLicenseEmbed(result.application, result)],
+      components: [],
+    });
+
+    const dm = result.decision === 'approved'
+      ? `✅ **La Realidad RP · Licencia aprobada**\n\nTu licencia fue aprobada.\nNúmero: **${result.license.number}**\nVence: **${new Date(result.license.expiresAt).toLocaleDateString('es-AR')}**\n\nYa podés verla en el Panel de Ciudadano.`
+      : `❌ **La Realidad RP · Licencia rechazada**\n\n${result.license.rejectionReason || 'Solicitud rechazada por el staff.'}\n\nPodés volver a solicitar desde el Panel de Ciudadano.`;
+    if (result.discordId) sendDiscordDM(result.discordId, dm).catch(() => {});
+  } catch (err) {
+    console.warn('[Licencias] No se pudo revisar la solicitud:', err.message);
+    await interaction.followUp({
+      content: '⚠️ ' + err.message,
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+  }
+}
+
 // Cuentas y reseñas: se guardan en un canal privado de Discord para que
 // sobrevivan a los reinicios de Render (el disco gratuito es efímero).
 const webStore = createDiscordStore({
@@ -160,7 +505,9 @@ const webStore = createDiscordStore({
 const webAuth = createWebAuth({
   store: webStore,
   resolveDiscordUser,
+  resolveRobloxUser,
   sendDiscordDM,
+  sendLicenseApplication,
   isDiscordReady: () => discordReady,
   getDiscordError: () => discordLoginError,
   getCadSnapshot: () => mirror.get(),
@@ -485,6 +832,18 @@ async function handleCommand(interaction) {
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    if (!String(interaction.customId || '').startsWith('lic:')) return;
+    try {
+      await handleLicenseButton(interaction);
+    } catch (err) {
+      console.error('[BOT] Error atendiendo el botón de licencia:', err);
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.reply({ content: '⚠️ Ocurrió un error inesperado.', flags: MessageFlags.Ephemeral }).catch(() => {});
+      }
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   try {
     await handleCommand(interaction);
@@ -507,6 +866,11 @@ client.on(Events.ClientReady, async (c) => {
     console.log('[Bot] Comandos listos: /estado /jugadores /cad /dni /juego');
   } catch (err) {
     console.warn('[Bot] No se pudieron registrar los comandos:', err.message);
+  }
+  try {
+    await ensureLicenseChannel();
+  } catch (err) {
+    console.warn('[Licencias] No se pudo preparar el canal:', err.message);
   }
   console.log('[Web] Registro/login con código por MD activo (revisá SERVER MEMBERS INTENT).');
 

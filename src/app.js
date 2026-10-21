@@ -830,12 +830,16 @@ function recFormHtml(kind) {
   if (kind === 'person') {
     return `
       <div class="field wide"><label>Nombre completo *</label><input name="name" required placeholder="Ej: Juan Pérez" /></div>
-      <div class="field"><label>DNI *</label><input name="dni" required placeholder="Ej: 30123456" /></div>
+      <div class="field"><label>DNI *</label><input name="dni" required placeholder="Ej: C1234567 o CA-12345678" /></div>
       <div class="field"><label>Fecha de nacimiento</label><input name="dob" type="date" /></div>
-      <div class="field"><label>Nº de licencia</label><input name="license" placeholder="Ej: 4471122" /></div>
-      <div class="field"><label>Estado de licencia</label>
-        <select name="licStatus"><option>Válida</option><option>Suspendida</option><option>Revocada</option></select>
-      </div>
+      <div class="field"><label>Sexo</label><select name="sex"><option value="">—</option><option value="M">Masculino (M)</option><option value="F">Femenino (F)</option><option value="X">No binario (X)</option></select></div>
+      <div class="field"><label>Cabello</label><input name="hair" placeholder="Ej: Castaño" /></div>
+      <div class="field"><label>Ojos</label><input name="eyes" placeholder="Ej: Marrones" /></div>
+      <div class="field"><label>Altura (cm)</label><input name="heightCm" type="number" min="120" max="230" placeholder="Ej: 175" /></div>
+      <div class="field"><label>Peso (kg)</label><input name="weightKg" type="number" min="30" max="250" step="0.1" placeholder="Ej: 70" /></div>
+      <div class="field wide"><label>Dirección</label><input name="address" placeholder="Ej: 1234 Mission Blvd" /></div>
+      <div class="field"><label>Ciudad</label><input name="city" value="Los Angeles" /></div>
+      <div class="field"><label>Código postal</label><input name="zip" inputmode="numeric" maxlength="5" placeholder="90001" /></div>
       <div class="field wide"><label>Notas / antecedentes</label><input name="notes" placeholder="Ej: Antecedente por robo (2025)" /></div>
       <div class="field field-btn"><button class="btn btn-primary" type="submit">➕ Guardar persona</button></div>`;
   }
@@ -878,9 +882,30 @@ function createRecordFromForm() {
   const rec = { id: nextId(REC_PREFIX[kind]), ts: Date.now() };
 
   if (kind === 'person') {
-    Object.assign(rec, { name: val('name'), dni: val('dni'), dob: val('dob'), license: val('license'), licStatus: val('licStatus') || 'Válida', notes: val('notes') });
+    const issued = new Date();
+    const expires = new Date(issued);
+    expires.setFullYear(expires.getFullYear() + 4);
+    const isoDate = (d) => d.toISOString().slice(0, 10);
+    Object.assign(rec, {
+      name: val('name'),
+      dni: val('dni').toUpperCase(),
+      dob: val('dob'),
+      sex: val('sex'),
+      hair: val('hair'),
+      eyes: val('eyes'),
+      heightCm: parseInt(fd.get('heightCm'), 10) || 0,
+      weightKg: Number(fd.get('weightKg')) || 0,
+      address: val('address'),
+      city: val('city') || 'Los Angeles',
+      state: 'CA',
+      zip: val('zip').replace(/\D/g, ''),
+      issueDate: isoDate(issued),
+      expires: isoDate(expires),
+      robloxUsername: '',
+      notes: val('notes'),
+    });
     db.persons.unshift(rec);
-    addLog('📇 Persona registrada: ' + rec.name + (rec.license ? ' (lic. ' + rec.license + ')' : ''));
+    addLog('📇 Persona registrada: ' + rec.name);
   } else if (kind === 'vehicle') {
     Object.assign(rec, { plate: val('plate').toUpperCase(), model: val('model'), color: val('color'), owner: val('owner'), status: val('status') || 'Normal', notes: val('notes') });
     db.vehicles.unshift(rec);
@@ -905,6 +930,63 @@ function createRecordFromForm() {
   renderAll();
 }
 
+function personAntecedents(p) {
+  const out = [];
+  const name = String(p && p.name || '');
+  for (const f of db.fines.filter((x) => sameName(x.person, name))) {
+    out.push({
+      ts: Number(f.ts) || 0,
+      tone: f.status === 'pagada' ? 'ok' : 'warn',
+      icon: '🧾',
+      label: 'Multa',
+      title: '$' + (Number(f.amount) || 0) + ' · ' + (f.reason || 'Sin motivo'),
+      meta: [f.status || 'pendiente', f.officer ? 'por ' + f.officer : '', fmtTime(f.ts)].filter(Boolean).join(' · '),
+    });
+  }
+  for (const w of db.warrants.filter((x) => sameName(x.person, name))) {
+    out.push({
+      ts: Number(w.ts) || 0,
+      tone: w.status === 'activa' ? 'bad' : 'ok',
+      icon: '⚖️',
+      label: 'Orden',
+      title: (w.wkind || 'Orden') + ' · ' + (w.reason || 'Sin motivo'),
+      meta: [w.status || 'activa', w.officer ? 'por ' + w.officer : '', fmtTime(w.ts)].filter(Boolean).join(' · '),
+    });
+  }
+  const needle = name.toLowerCase();
+  for (const r of db.reports.filter((x) =>
+    sameName(x.officer, name) || String(x.involved || '').toLowerCase().includes(needle)
+  )) {
+    out.push({
+      ts: Number(r.ts) || 0,
+      tone: 'info',
+      icon: '📝',
+      label: 'Reporte',
+      title: r.title || 'Reporte',
+      meta: [r.rkind || '', r.officer ? 'por ' + r.officer : '', fmtTime(r.ts)].filter(Boolean).join(' · '),
+    });
+  }
+  if (p && p.notes) {
+    out.push({
+      ts: Number(p.ts) || 0,
+      tone: 'note',
+      icon: '📝',
+      label: 'Nota',
+      title: p.notes,
+      meta: 'Registrada en la ficha de la persona',
+    });
+  }
+  return out.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
+function quickAntecedents(p) {
+  const all = personAntecedents(p);
+  const urgent = all.filter((a) => a.tone === 'bad' || a.tone === 'warn');
+  const notes = all.filter((a) => a.tone === 'note');
+  const rest = all.filter((a) => !urgent.includes(a) && !notes.includes(a));
+  return urgent.concat(notes, rest).slice(0, 3);
+}
+
 function renderRecSearch() {
   const box = $('#rec-results');
   if (!box) return;
@@ -912,7 +994,10 @@ function renderRecSearch() {
   if (!q) { box.innerHTML = ''; return; }
   const qDni = recQuery.replace(/\D/g, '');
   const persons = db.persons.filter((p) =>
-    String(p.name || '').toLowerCase().includes(q) || String(p.license || '').toLowerCase().includes(q)
+    String(p.name || '').toLowerCase().includes(q)
+    || String(p.notes || '').toLowerCase().includes(q)
+    || String(p.address || '').toLowerCase().includes(q)
+    || String(p.city || '').toLowerCase().includes(q)
     || String(p.dni || '').toLowerCase().includes(q)
     || (!!qDni && String(p.dni || '').replace(/\D/g, '').includes(qDni))).slice(0, 6);
   const vehicles = db.vehicles.filter((v) =>
@@ -924,11 +1009,14 @@ function renderRecSearch() {
   }
   const cards = [];
   for (const p of persons) {
-    const fines = db.fines.filter((f) => sameName(f.person, p.name)).length;
-    const ords = db.warrants.filter((w) => w.status === 'activa' && sameName(w.person, p.name)).length;
+    const ants = quickAntecedents(p);
+    const antHtml = ants.length
+      ? ants.map((a) => `<span class="rec-ant-mini ${a.tone}"><b>${a.icon} ${esc(a.label)}</b> ${esc(a.title)}</span>`).join('')
+      : '<span class="rec-ant-none">✅ Sin antecedentes activos ni notas.</span>';
     cards.push(`<button class="rec-card" type="button" data-open="${esc(p.id)}" data-open-kind="person">
       <span class="rec-card-title">👤 ${esc(p.name)}</span>
-      <span class="rec-card-meta">${p.dni ? '🪪 DNI ' + esc(p.dni) + ' · ' : ''}${p.license ? 'Lic. ' + esc(p.license) + ' · ' : ''}${esc(p.licStatus || 'Válida')}${fines ? ' · 🧾 ' + fines + ' multa(s)' : ''}${ords ? ' · ⚖️ ' + ords + ' orden(es) ACTIVA(S)' : ''}</span>
+      <span class="rec-card-meta">${p.dni ? '🪪 ' + esc(p.dni) : 'Sin DNI'}${p.dob ? ' · 🎂 ' + esc(p.dob) : ''}${p.address ? ' · 📍 ' + esc(p.address) : ''}</span>
+      <span class="rec-card-ants">${antHtml}</span>
     </button>`);
   }
   for (const v of vehicles) {
@@ -958,25 +1046,35 @@ function renderRecDetail() {
     const p = db.persons.find((x) => x.id === id);
     if (!p) { recDetail = null; return renderRecDetail(); }
     const vehicles = db.vehicles.filter((v) => sameName(v.owner, p.name));
-    const fines = db.fines.filter((f) => sameName(f.person, p.name));
-    const warrants = db.warrants.filter((w) => sameName(w.person, p.name));
-    const reports = db.reports.filter((r) => String(r.involved || '').toLowerCase().includes(String(p.name).toLowerCase()) || sameName(r.officer, p.name));
+    const antecedents = personAntecedents(p);
+    const address = [p.address, p.city, [p.state, p.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const antHtml = antecedents.length
+      ? antecedents.map((a) => `<div class="rec-ant ${a.tone}">
+          <span class="rec-ant-icon">${a.icon}</span>
+          <div class="rec-ant-body">
+            <b>${esc(a.label)}: ${esc(a.title)}</b>
+            <small>${esc(a.meta)}</small>
+          </div>
+        </div>`).join('')
+      : '<div class="rec-line">Sin antecedentes registrados.</div>';
     html = `
       <div class="panel-head"><h2>👤 ${esc(p.name)}</h2><div class="rec-actions">${closeBtn}${delBtn()}</div></div>
       <div class="rec-facts">
         <span><b>DNI:</b> <input class="rec-inline-input" data-action="dni-save" data-id="${esc(p.id)}" value="${esc(p.dni || '')}" placeholder="Sin DNI" spellcheck="false" /></span>
-        <span><b>Nº de licencia:</b> ${esc(p.license || '—')}</span>
-        <span><b>Estado:</b> <select class="rec-inline-select" data-action="lic-change" data-id="${esc(p.id)}">
-          ${['Válida', 'Suspendida', 'Revocada'].map((s) => `<option${s === (p.licStatus || 'Válida') ? ' selected' : ''}>${s}</option>`).join('')}
-        </select></span>
         <span><b>Nacimiento:</b> ${esc(p.dob || '—')}</span>
-        <span><b>Registrada:</b> ${fmtTime(p.ts)}</span>
+        <span><b>Sexo:</b> ${esc(p.sex || '—')}</span>
+        <span><b>Cabello / ojos:</b> ${esc((p.hair || '—') + ' / ' + (p.eyes || '—'))}</span>
+        <span><b>Altura / peso:</b> ${esc((p.heightCm ? p.heightCm + ' cm' : '—') + ' / ' + (p.weightKg ? p.weightKg + ' kg' : '—'))}</span>
+        <span><b>Dirección:</b> ${esc(address || '—')}</span>
+        ${(p.issueDate || p.expires) ? `<span><b>Emitido / vence:</b> ${esc((p.issueDate || '—') + ' / ' + (p.expires || '—'))}</span>` : ''}
+        <span><b>Roblox:</b> ${esc(p.robloxUsername || '—')}</span>
+        <span><b>Registrada:</b> ${p.ts ? fmtTime(p.ts) : '—'}</span>
       </div>
-      ${p.notes ? '<div class="muted small">📝 ' + esc(p.notes) + '</div>' : ''}
       ${recSection('🚗 Vehículos a su nombre', vehicles.map((v) => esc(v.plate) + (v.model ? ' · ' + esc(v.model) : '') + (v.status === 'Robado' ? ' <b style="color:#ef4444">⚠️ ROBADO</b>' : '')))}
-      ${recSection('🧾 Multas', fines.map((f) => `$${f.amount} · ${esc(f.reason)} · <em>${esc(f.status)}</em>`))}
-      ${recSection('⚖️ Órdenes', warrants.map((w) => `${esc(w.wkind)}: ${esc(w.reason)} · <em>${esc(w.status)}</em>`))}
-      ${recSection('📝 Reportes', reports.map((r) => esc(r.title)))}`;
+      <div class="rec-section rec-ants">
+        <h3>📋 Antecedentes (${antecedents.length})</h3>
+        ${antHtml}
+      </div>`;
   } else if (kind === 'vehicle') {
     const v = db.vehicles.find((x) => x.id === id);
     if (!v) { recDetail = null; return renderRecDetail(); }
@@ -1043,11 +1141,18 @@ function renderRecLists() {
   const grid = $('#rec-lists');
   if (!grid) return;
 
-  const personItems = db.persons.slice(0, 6).map((p) => `
+  const personItems = db.persons.slice(0, 6).map((p) => {
+    const ants = personAntecedents(p);
+    const active = ants.filter((a) => a.tone === 'bad' || a.tone === 'warn').length;
+    return `
     <div class="rec-item" data-open="${esc(p.id)}" data-open-kind="person">
       <div>👤 ${esc(p.name)}</div>
-      <div class="rec-item-row"><span class="tag">${esc(p.licStatus || 'Válida')}</span>${p.dni ? '<span class="tag">🪪 ' + esc(p.dni) + '</span>' : ''}${p.license ? '<span class="tag">Lic. ' + esc(p.license) + '</span>' : ''}</div>
-    </div>`).join('');
+      <div class="rec-item-row">
+        ${p.dni ? '<span class="tag">🪪 ' + esc(p.dni) + '</span>' : ''}
+        <span class="tag ${active ? 'tag-bad' : 'tag-ok'}">${active ? '⚠️ ' + active + ' antecedente(s)' : '✅ Sin antecedentes'}</span>
+      </div>
+    </div>`;
+  }).join('');
 
   const vehicleItems = db.vehicles.slice(0, 6).map((v) => `
     <div class="rec-item" data-open="${esc(v.id)}" data-open-kind="vehicle">
@@ -1174,18 +1279,6 @@ function wireRegistros() {
   });
 
   $('#rec-detail').addEventListener('change', (e) => {
-    const sel = e.target.closest('select[data-action="lic-change"]');
-    if (sel) {
-      const p = db.persons.find((x) => x.id === sel.dataset.id);
-      if (p) {
-        p.licStatus = sel.value;
-        addLog('🪪 Licencia de ' + p.name + ' → ' + sel.value);
-        saveDb();
-        renderRecLists();
-        flash(p.name + ': licencia ' + sel.value);
-      }
-      return;
-    }
     const dniInp = e.target.closest('input[data-action="dni-save"]');
     if (dniInp) {
       const p2 = db.persons.find((x) => x.id === dniInp.dataset.id);
@@ -2322,17 +2415,41 @@ async function syncWebCitizens({ silent = true } = {}) {
       const name = String(item && item.name || '').trim();
       if (!dni || !name) continue;
       const key = dniKey(dni);
-      if (!key || db.persons.some((p) => dniKey(p.dni) === key)) continue;
+      if (!key) continue;
+      const createdAt = Number(item.createdAt) || Date.now();
+      const physical = {
+        sex: String(item.sex || ''),
+        hair: String(item.hair || ''),
+        eyes: String(item.eyes || ''),
+        heightCm: Number(item.heightCm) || 0,
+        weightKg: Number(item.weightKg) || 0,
+        address: String(item.address || ''),
+        city: String(item.city || ''),
+        state: String(item.state || 'CA'),
+        zip: String(item.zip || ''),
+        issueDate: String(item.issueDate || ''),
+        expires: String(item.expires || ''),
+        robloxUsername: String(item.robloxUsername || ''),
+      };
+      const existing = db.persons.find((p) => dniKey(p.dni) === key);
+      if (existing) {
+        // Completa los campos físicos que falten en importaciones viejas,
+        // sin pisar correcciones hechas por el staff.
+        for (const [field, value] of Object.entries(physical)) {
+          if (!existing[field] && value) existing[field] = value;
+        }
+        continue;
+      }
       db.persons.unshift({
         id: nextId('PER'),
         name,
         dni,
         dob: String(item.dob || ''),
-        license: '',
-        licStatus: 'Sin licencia',
+        ...physical,
         notes: 'DNI creado desde el Panel de Ciudadano.',
         source: 'web',
-        createdAt: Number(item.createdAt) || Date.now(),
+        ts: createdAt,
+        createdAt,
       });
       added++;
     }

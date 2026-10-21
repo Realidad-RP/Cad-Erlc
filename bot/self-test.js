@@ -80,21 +80,32 @@ function ok(cond, label) {
   const snapDni = {
     calls: [], units: [], bolos: [],
     persons: [
-      { id: 'PER-1', name: 'Juan Pérez', dni: '30123456', dob: '1998-03-15', license: '4471122', licStatus: 'Válida' },
-      { id: 'PER-2', name: 'Marta Gómez', dni: '28999000', licStatus: 'Revocada' },
+      {
+        id: 'PER-1', name: 'Juan Pérez', dni: 'C1234567', dob: '1998-03-15',
+        sex: 'M', hair: 'Castaño', eyes: 'Marrones', heightCm: 175, weightKg: 72,
+        address: '1234 Mission Blvd', city: 'Los Angeles', state: 'CA', zip: '90001',
+        issueDate: '2026-01-10', expires: '2030-01-10', robloxUsername: 'JuanRP',
+        notes: 'Antecedente por robo (2025).',
+      },
+      { id: 'PER-2', name: 'Marta Gómez', dni: 'C7654321' },
     ],
     vehicles: [{ id: 'VEH-1', plate: 'ABC 123', owner: 'Juan Pérez', status: 'Robado' }],
-    fines: [{ id: 'MUL-1', person: 'Juan Pérez', amount: 500, status: 'pendiente' }],
+    fines: [{ id: 'MUL-1', person: 'Juan Pérez', amount: 500, reason: 'Exceso de velocidad', status: 'pendiente' }],
     warrants: [{ id: 'ORD-1', person: 'Juan Pérez', wkind: 'Arresto', reason: 'Robo', status: 'activa' }],
+    reports: [{ id: 'REP-1', title: 'Persecución', rkind: 'Tráfico', involved: 'Juan Pérez', officer: 'Oficial Pérez' }],
   };
-  ok(findPersonsByDni(snapDni, '30.123.456').length === 1, 'encuentra el DNI aunque se escriba con puntos');
-  ok(findPersonsByDni(snapDni, ' 30123456 ')[0].name === 'Juan Pérez', 'encuentra con espacios alrededor');
+  ok(findPersonsByDni(snapDni, 'c-123-4567').length === 1, 'encuentra el DNI C####### aunque se escriba con guiones');
+  ok(findPersonsByDni(snapDni, ' C1234567 ')[0].name === 'Juan Pérez', 'encuentra con espacios alrededor');
   ok(findPersonsByDni(snapDni, '111').length === 0, 'DNI inexistente → sin resultados');
 
-  const dniReply = buildDniReply(snapDni, '30123456');
+  const dniReply = buildDniReply(snapDni, 'C1234567');
   ok(dniReply && dniReply.title.includes('Juan Pérez'), 'respuesta /dni con el nombre');
+  ok(dniReply.lines.some((l) => /ANTECEDENTES/.test(l)), 'agrupa los antecedentes en una sola sección');
   ok(dniReply.lines.some((l) => /ÓRDENES ACTIVAS/.test(l)) && dniReply.lines.some((l) => /Arresto/.test(l)), 'incluye órdenes activas');
   ok(dniReply.lines.some((l) => /Multas pendientes: \*\*1\*\*/.test(l)) && dniReply.lines.some((l) => /ABC 123/.test(l)), 'incluye multas y vehículos');
+  ok(dniReply.lines.some((l) => /Reportes: \*\*1\*\*/.test(l)) && dniReply.lines.some((l) => /Notas:/.test(l)), 'incluye reportes y notas en antecedentes');
+  ok(!dniReply.lines.some((l) => /Licencia/i.test(l)), 'ya no muestra licencia en /dni');
+  ok(dniReply.lines.some((l) => /175 cm/.test(l)) && dniReply.lines.some((l) => /@JuanRP/.test(l)), 'incluye datos físicos y Roblox');
   ok(buildDniReply(snapDni, '000000') === null, 'DNI no registrado → null');
 
   // ---- 3. Servidor HTTP (enlace CAD + webhooks) ----
