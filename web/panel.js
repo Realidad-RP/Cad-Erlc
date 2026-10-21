@@ -1040,9 +1040,11 @@
     const skipBtn = $('#cineSkip');
     const cfg = window.LR_CONFIG || {};
     const src = String(cfg.introMusic || '').trim();
+    const targetVolume = Math.max(0, Math.min(1, Number(cfg.introMusicVolume) || 0.35));
     let finished = false;
     let muted = false;
     let timer = null;
+    let fadeTimer = null;
 
     const paintMute = () => {
       if (!muteBtn) return;
@@ -1051,10 +1053,22 @@
       muteBtn.title = muted ? 'Activar música' : 'Silenciar música';
     };
 
+    const startFade = () => {
+      if (!audio || finished) return;
+      if (fadeTimer) clearInterval(fadeTimer);
+      audio.volume = 0;
+      fadeTimer = setInterval(() => {
+        if (finished || !audio) { clearInterval(fadeTimer); return; }
+        audio.volume = Math.min(targetVolume, audio.volume + targetVolume / 26);
+        if (audio.volume >= targetVolume) clearInterval(fadeTimer);
+      }, 100);
+    };
+
     const finish = () => {
       if (finished) return;
       finished = true;
       if (timer) clearTimeout(timer);
+      if (fadeTimer) clearInterval(fadeTimer);
       intro.classList.add('cine-out');
       if (audio) audio.pause();
       setTimeout(() => {
@@ -1071,7 +1085,8 @@
         audio.muted = muted;
         if (!muted) {
           const p = audio.play();
-          if (p && p.catch) p.catch(() => {});
+          if (p && p.then) p.then(startFade).catch(() => {});
+          else startFade();
         }
         paintMute();
       });
@@ -1079,7 +1094,7 @@
     if (skipBtn) skipBtn.addEventListener('click', finish);
 
     if (audio && src) {
-      audio.volume = Math.max(0, Math.min(1, Number(cfg.introMusicVolume) || 0.35));
+      audio.volume = 0;
       audio.src = src;
       audio.addEventListener('error', () => {
         if (muteBtn) {
@@ -1090,8 +1105,8 @@
         }
       });
       const play = audio.play();
-      if (play && play.catch) {
-        play.catch(() => {
+      if (play && play.then) {
+        play.then(startFade).catch(() => {
           // El navegador puede bloquear el autoplay. El botón de mute
           // permite activar el sonido con un clic.
           if (muteBtn) muteBtn.title = 'Tocá para activar la música';
