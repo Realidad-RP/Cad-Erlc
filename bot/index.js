@@ -565,6 +565,75 @@ async function sendLicenseApplication(application) {
   return { id: msg.id };
 }
 
+function buildWeaponLicenseEmbed(application, review = null) {
+  const app = application || {};
+  const embed = new EmbedBuilder()
+    .setFooter({ text: 'Panel de Ciudadano · Licencia de armas' })
+    .setTimestamp(new Date(review ? (review.license && review.license.reviewedAt) || Date.now() : app.submittedAt || Date.now()));
+
+  if (!review) {
+    embed
+      .setColor(0xe67e22)
+      .setTitle('🔫 Nueva solicitud de licencia de armas')
+      .setDescription(`**${app.name || 'Ciudadano'}** (\`${app.dni || 'sin DNI'}\`) solicitó una licencia de armas desde el panel.`)
+      .addFields(
+        licenseField('Discord', app.username ? '@' + app.username : '—'),
+        licenseField('Roblox', app.robloxUsername || '—'),
+        licenseField('Experiencia con armas', app.experience || '—'),
+        licenseField('Tipo de licencia', app.weaponType || '—'),
+        licenseField('Uso previsto', app.purpose || '—'),
+        licenseField('Motivo', app.reason || '—', false)
+      );
+    return embed;
+  }
+
+  const license = review.license || {};
+  const approved = review.decision === 'approved';
+  embed
+    .setColor(approved ? 0x35d07f : 0xf2545b)
+    .setTitle(approved ? '✅ Licencia de armas aprobada' : '❌ Licencia de armas rechazada')
+    .setDescription(`**${app.name || 'Ciudadano'}** (\`${app.dni || 'sin DNI'}\`)`)
+    .addFields(
+      licenseField('Discord', app.username ? '@' + app.username : '—'),
+      licenseField('Roblox', app.robloxUsername || '—'),
+      licenseField('Tipo de licencia', app.weaponType || '—'),
+      licenseField('Estado', license.label || (approved ? 'Válida' : 'Rechazada')),
+      licenseField('Número', approved ? (license.number || '—') : '—'),
+      licenseField('Vence', approved ? new Date(license.expiresAt || Date.now()).toLocaleDateString('es-AR') : '—'),
+      licenseField('Revisado por', license.reviewedBy || '—'),
+      licenseField('Respuesta', approved ? 'Licencia de armas emitida.' : (license.rejectionReason || 'Rechazada por el staff.'), false)
+    );
+  return embed;
+}
+
+async function sendWeaponLicenseApplication(application) {
+  if (!discordReady) throw new Error('El bot de Discord todavía no está conectado.');
+  let channel = licenseChannelId
+    ? await client.channels.fetch(licenseChannelId).catch(() => null)
+    : null;
+  if (!channel) channel = await ensureLicenseChannel();
+  if (!channel) {
+    throw new Error('No hay canal de licencias. Revisá que el bot pueda gestionar canales en Discord.');
+  }
+  const msg = await channel.send({
+    embeds: [buildWeaponLicenseEmbed(application)],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('licw:approve:' + application.username)
+          .setLabel('Aprobar licencia de armas')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('licw:reject:' + application.username)
+          .setLabel('Rechazar')
+          .setStyle(ButtonStyle.Danger)
+      ),
+    ],
+    allowedMentions: { parse: [] },
+  });
+  return { id: msg.id };
+}
+
 async function handleLicenseButton(interaction) {
   const [, action, ...rest] = String(interaction.customId || '').split(':');
   const username = rest.join(':');
@@ -616,6 +685,57 @@ async function handleLicenseButton(interaction) {
   }
 }
 
+async function handleWeaponLicenseButton(interaction) {
+  const [, action, ...rest] = String(interaction.customId || '').split(':');
+  const username = rest.join(':');
+  if (!action || !username) return;
+
+  const guild = interaction.guild || await getGuild();
+  const reviewerIds = new Set(getLicenseRoleSets(guild).reviewers.map((role) => role.id));
+  const memberRoles = interaction.member && interaction.member.roles && interaction.member.roles.cache;
+  const hasReviewerRole = !!(memberRoles && memberRoles.some((role) => reviewerIds.has(role.id)));
+  const canReview = (interaction.memberPermissions &&
+    interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) || hasReviewerRole;
+  if (!canReview) {
+    return interaction.reply({
+      content: '⛔ Solo los rangos de moderación (desde Moderador en Prueba) pueden aprobar o rechazar licencias.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  await interaction.deferUpdate();
+  try {
+    const result = await webAuth.reviewWeaponLicense(
+      username,
+      action,
+      {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        displayName: interaction.member && interaction.member.displayName
+          ? interaction.member.displayName
+          : interaction.user.globalName || interaction.user.username,
+      },
+      action === 'reject' ? 'Solicitud de licencia de armas rechazada por el staff desde Discord.' : ''
+    );
+
+    await interaction.editReply({
+      embeds: [buildWeaponLicenseEmbed(result.application, result)],
+      components: [],
+    });
+
+    const dm = result.decision === 'approved'
+      ? `✅ **La Realidad RP · Licencia de armas aprobada**\n\nTu licencia de armas fue aprobada.\nNúmero: **${result.license.number}**\nVence: **${new Date(result.license.expiresAt).toLocaleDateString('es-AR')}**\n\nYa podés verla en el Panel de Ciudadano, en Registro Civil → Armas.`
+      : `❌ **La Realidad RP · Licencia de armas rechazada**\n\n${result.license.rejectionReason || 'Solicitud rechazada por el staff.'}\n\nPodés volver a solicitar desde Registro Civil → Armas.`;
+    if (result.discordId) sendDiscordDM(result.discordId, dm).catch(() => {});
+  } catch (err) {
+    console.warn('[Licencias] No se pudo revisar la solicitud de armas:', err.message);
+    await interaction.followUp({
+      content: '⚠️ ' + err.message,
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+  }
+}
+
 // Cuentas y reseñas: se guardan en un canal privado de Discord para que
 // sobrevivan a los reinicios de Render (el disco gratuito es efímero).
 const webStore = createDiscordStore({
@@ -631,6 +751,7 @@ const webAuth = createWebAuth({
   resolveRobloxUser,
   sendDiscordDM,
   sendLicenseApplication,
+  sendWeaponLicenseApplication,
   isDiscordReady: () => discordReady,
   getDiscordError: () => discordLoginError,
   getCadSnapshot: () => mirror.get(),
@@ -956,9 +1077,11 @@ async function handleCommand(interaction) {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
-    if (!String(interaction.customId || '').startsWith('lic:')) return;
+    const customId = String(interaction.customId || '');
+    if (!customId.startsWith('lic:') && !customId.startsWith('licw:')) return;
     try {
-      await handleLicenseButton(interaction);
+      if (customId.startsWith('licw:')) await handleWeaponLicenseButton(interaction);
+      else await handleLicenseButton(interaction);
     } catch (err) {
       console.error('[BOT] Error atendiendo el botón de licencia:', err);
       if (!interaction.deferred && !interaction.replied) {

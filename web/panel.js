@@ -25,6 +25,9 @@
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const safeUrl = (s) => (/^https?:\/\//i.test(String(s || '')) ? String(s) : '');
   const money = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR');
+  const money2 = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const units = (n, digits) => (Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: digits == null ? 5 : digits });
+  const uid = (prefix) => (prefix || 'id') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const num = (n) => (Number(n) || 0).toLocaleString('es-AR');
   const dateFmt = (ts) => {
     if (!ts) return '—';
@@ -114,6 +117,18 @@
     if (s.includes('revision') || s.includes('pendiente') || s.includes('suspendida')) return 'gold';
     if (s.includes('valida')) return 'ok';
     return 'neutral';
+  };
+  const weaponLicenseInfo = (c) => c && c.weaponLicenseInfo ? c.weaponLicenseInfo : {
+    status: 'none',
+    label: (c && c.weaponLicenseStatus) || 'Sin licencia de armas',
+    number: (c && c.weaponLicense) || '',
+    submittedAt: 0,
+    reviewedAt: 0,
+    reviewedBy: '',
+    issuedAt: 0,
+    expiresAt: 0,
+    rejectionReason: '',
+    application: null,
   };
   const recordTone = (status) => {
     const s = norm(status);
@@ -217,11 +232,12 @@
      2) DATOS, APPS E ICONOS
      ============================================================ */
 
-  const TABS = ['resumen', 'dni', 'licencia', 'vehiculos', 'multas', 'ordenes', 'antecedentes'];
+  const TABS = ['resumen', 'dni', 'licencia', 'armas', 'vehiculos', 'multas', 'ordenes', 'antecedentes'];
   const CIVIL_TABS = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'dni', label: 'DNI' },
     { id: 'licencia', label: 'Licencia' },
+    { id: 'armas', label: 'Armas' },
     { id: 'vehiculos', label: 'Vehículos' },
     { id: 'multas', label: 'Multas' },
     { id: 'ordenes', label: 'Órdenes' },
@@ -296,7 +312,15 @@
   const INSTALLED_KEY = 'rla_os_installed_v1';
   const SOCIAL_KEY = 'rla_social_posts_v1';
   const SOCIAL_LIKES_KEY = 'rla_social_likes_v1';
+  const SOCIAL_COMMENTS_KEY = 'rla_social_comments_v1';
+  const SOCIAL_FOLLOWS_KEY = 'rla_social_follows_v1';
   const WORK_KEY = 'rla_work_applied_v1';
+  const WORK_APPLICATIONS_KEY = 'rla_work_applications_v1';
+  const BANK_KEY = 'rla_bank_v1';
+  const MERCADO_KEY = 'rla_mercado_v1';
+  const CRYPTO_KEY = 'rla_crypto_v1';
+  const WHATSAPP_KEY = 'rla_whatsapp_v1';
+  const ONION_CONTACTS_KEY = 'rla_onion_contacts_v1';
 
   /* ============================================================
      3) ESTADO
@@ -320,6 +344,8 @@
     civilTab: 'resumen',
     licenseFormOpen: false,
     licenseSending: false,
+    weaponLicenseFormOpen: false,
+    weaponLicenseSending: false,
     unlinkConfirm: false,
     autoOpened: false,
     installed: DEFAULT_INSTALLED.slice(),
@@ -333,24 +359,53 @@
     settingsTab: 'cuenta',
     socialPosts: [],
     socialLikes: [],
+    socialComments: [],
+    socialFollows: ['lapd', 'central911', 'rlstore'],
+    socialTab: 'for-you',
+    socialCommentsOpen: '',
+    socialDelete: '',
     waChat: 'central',
     waChats: [],
+    waSearch: '',
+    waNew: false,
+    waOptions: false,
+    waCall: false,
+    waDeleteConfirm: false,
     mlQuery: '',
     mlCategory: 'todas',
     mlCart: [],
     mlCartOpen: false,
+    mlCheckout: false,
+    mlOrders: [],
+    mlOrdersOpen: false,
+    mlOrderSuccess: '',
+    mlError: '',
     workQuery: '',
     workCategory: 'todas',
     workApplied: [],
+    workApplications: [],
+    workApplyJob: '',
+    workView: 'ofertas',
     onionSite: 'home',
     onionQuery: '',
     onionError: '',
+    onionContact: '',
+    onionContacts: [],
     env: null,
     envLoading: false,
     envError: '',
+    bank: null,
+    bankTab: 'resumen',
+    bankMessage: '',
+    bankError: '',
     vpsServers: [],
     vpsConsole: [],
+    vpsConsoleServer: '',
     cryptoAssets: [],
+    cryptoTransactions: [],
+    cryptoAddress: 'rla1q7k9d4m2x8p6v3n5c1',
+    cryptoAction: '',
+    cryptoError: '',
   };
 
   let unlinkTimer = null;
@@ -422,23 +477,101 @@
     state.installed = loadInstalled();
     state.socialLikes = readJSON(SOCIAL_LIKES_KEY, []);
     if (!Array.isArray(state.socialLikes)) state.socialLikes = [];
+    state.socialComments = readJSON(SOCIAL_COMMENTS_KEY, []);
+    if (!Array.isArray(state.socialComments)) state.socialComments = [];
+    state.socialFollows = readJSON(SOCIAL_FOLLOWS_KEY, ['lapd', 'central911', 'rlstore']);
+    if (!Array.isArray(state.socialFollows)) state.socialFollows = ['lapd', 'central911', 'rlstore'];
     const savedPosts = readJSON(SOCIAL_KEY, null);
     state.socialPosts = Array.isArray(savedPosts) ? savedPosts.filter((p) => p && p.text) : [];
-    state.workApplied = readJSON(WORK_KEY, []);
-    if (!Array.isArray(state.workApplied)) state.workApplied = [];
-    state.waChats = defaultChats();
+
+    const legacyApplied = readJSON(WORK_KEY, []);
+    const savedApplications = readJSON(WORK_APPLICATIONS_KEY, null);
+    if (Array.isArray(savedApplications)) {
+      state.workApplications = savedApplications.filter((a) => a && a.jobId);
+    } else if (Array.isArray(legacyApplied)) {
+      state.workApplications = legacyApplied.filter(Boolean).map((jobId) => ({
+        id: 'app-' + jobId,
+        jobId,
+        status: 'pending',
+        ts: 0,
+        experience: '',
+        availability: '',
+        message: 'Postulación guardada desde la versión anterior de RLA Work.',
+      }));
+    }
+    state.workApplied = state.workApplications.map((a) => a.jobId);
+
+    const savedBank = readJSON(BANK_KEY, null);
+    state.bank = savedBank && Array.isArray(savedBank.accounts) ? savedBank : defaultBank();
+    const bankTotal = (state.bank.accounts || []).reduce((sum, a) => sum + Number(a.balance || 0), 0);
+    const cardTotal = (state.bank.cards || []).reduce((sum, c) => sum + Number(c.balance || 0), 0);
+    if (savedBank && savedBank.seeded !== true && bankTotal <= 0 && cardTotal <= 0 && !(state.bank.transactions || []).length) {
+      state.bank = defaultBank();
+    }
+    if (!Array.isArray(state.bank.cards)) state.bank.cards = defaultBank().cards;
+    if (!Array.isArray(state.bank.transactions)) state.bank.transactions = [];
+
+    const savedMercado = readJSON(MERCADO_KEY, null);
+    state.mlCart = savedMercado && Array.isArray(savedMercado.cart) ? savedMercado.cart.filter((i) => i && i.id) : [];
+    state.mlOrders = savedMercado && Array.isArray(savedMercado.orders) ? savedMercado.orders : [];
+
+    const savedWhatsapp = readJSON(WHATSAPP_KEY, null);
+    state.waChats = Array.isArray(savedWhatsapp)
+      ? savedWhatsapp.filter((c) => c && c.id && Array.isArray(c.messages))
+      : defaultChats();
+    if (state.waChats.length && !state.waChats.some((c) => c.id === state.waChat)) state.waChat = state.waChats[0].id;
+
     state.vpsServers = defaultServers();
     state.vpsConsole = defaultConsole();
-    state.cryptoAssets = defaultAssets();
+
+    const savedCrypto = readJSON(CRYPTO_KEY, null);
+    if (savedCrypto && Array.isArray(savedCrypto.assets)) {
+      state.cryptoAssets = savedCrypto.assets;
+      state.cryptoTransactions = Array.isArray(savedCrypto.transactions) ? savedCrypto.transactions : [];
+      state.cryptoAddress = savedCrypto.address || state.cryptoAddress;
+    } else {
+      state.cryptoAssets = defaultAssets();
+      state.cryptoTransactions = defaultCryptoTransactions();
+    }
+
+    state.onionContacts = readJSON(ONION_CONTACTS_KEY, []);
+    if (!Array.isArray(state.onionContacts)) state.onionContacts = [];
   }
 
   function saveSocial() {
     writeJSON(SOCIAL_KEY, state.socialPosts.filter((p) => p && p.custom));
     writeJSON(SOCIAL_LIKES_KEY, state.socialLikes);
+    writeJSON(SOCIAL_COMMENTS_KEY, state.socialComments);
+    writeJSON(SOCIAL_FOLLOWS_KEY, state.socialFollows);
   }
 
   function saveWork() {
     writeJSON(WORK_KEY, state.workApplied);
+    writeJSON(WORK_APPLICATIONS_KEY, state.workApplications);
+  }
+
+  function saveBank() {
+    writeJSON(BANK_KEY, state.bank);
+  }
+
+  function saveMercado() {
+    writeJSON(MERCADO_KEY, { cart: state.mlCart, orders: state.mlOrders });
+  }
+
+  function saveCrypto() {
+    writeJSON(CRYPTO_KEY, {
+      assets: state.cryptoAssets,
+      transactions: state.cryptoTransactions,
+      address: state.cryptoAddress,
+    });
+  }
+
+  function saveWhatsapp() {
+    writeJSON(WHATSAPP_KEY, state.waChats);
+  }
+
+  function saveOnionContacts() {
+    writeJSON(ONION_CONTACTS_KEY, state.onionContacts);
   }
 
   /* ============================================================
@@ -562,16 +695,16 @@
 
   function defaultMlProducts() {
     return [
-      { id: 'gps', title: 'GPS SPOT Trace para vehículo', cat: 'Tecnología', price: 12999, emoji: '📡', rating: 4.8, shipping: 'Envío gratis', tag: 'Más vendido' },
-      { id: 'radio', title: 'Radio portátil Motorola de mano', cat: 'Tecnología', price: 8450, emoji: '📻', rating: 4.9, shipping: 'Envío gratis', tag: '' },
-      { id: 'chaleco', title: 'Chaleco táctico LAPD (roleplay)', cat: 'Vehículos', price: 4200, emoji: '🦺', rating: 4.7, shipping: 'Envío gratis', tag: '' },
-      { id: 'llantas', title: 'Kit de llantas deportivas 18"', cat: 'Vehículos', price: 32500, emoji: '🛞', rating: 4.6, shipping: 'Envío a cargo', tag: 'Oferta' },
-      { id: 'herramientas', title: 'Caja de herramientas profesional', cat: 'Vehículos', price: 15750, emoji: '🧰', rating: 4.8, shipping: 'Envío gratis', tag: '' },
-      { id: 'uniforme', title: 'Uniforme CHP completo (roleplay)', cat: 'Vehículos', price: 6800, emoji: '👮', rating: 4.5, shipping: 'Envío gratis', tag: '' },
-      { id: 'camara', title: 'Cámara dash 4K para patrulla', cat: 'Tecnología', price: 9900, emoji: '📷', rating: 4.7, shipping: 'Envío gratis', tag: 'Nuevo' },
+      { id: 'cafe', title: 'Café de especialidad Los Angeles 1 kg', cat: 'Hogar', price: 1800, emoji: '☕', rating: 4.8, shipping: 'Envío gratis', tag: 'Oferta' },
       { id: 'extintor', title: 'Extintor portátil para vehículo', cat: 'Hogar', price: 2200, emoji: '🧯', rating: 4.9, shipping: 'Envío gratis', tag: '' },
+      { id: 'chaleco', title: 'Chaleco táctico LAPD (roleplay)', cat: 'Vehículos', price: 4200, emoji: '🦺', rating: 4.7, shipping: 'Envío gratis', tag: '' },
+      { id: 'uniforme', title: 'Uniforme CHP completo (roleplay)', cat: 'Vehículos', price: 6800, emoji: '👮', rating: 4.5, shipping: 'Envío gratis', tag: '' },
+      { id: 'radio', title: 'Radio portátil Motorola de mano', cat: 'Tecnología', price: 8450, emoji: '📻', rating: 4.9, shipping: 'Envío gratis', tag: '' },
+      { id: 'camara', title: 'Cámara dash 4K para patrulla', cat: 'Tecnología', price: 9900, emoji: '📷', rating: 4.7, shipping: 'Envío gratis', tag: 'Nuevo' },
+      { id: 'gps', title: 'GPS SPOT Trace para vehículo', cat: 'Tecnología', price: 12999, emoji: '📡', rating: 4.8, shipping: 'Envío gratis', tag: 'Más vendido' },
+      { id: 'herramientas', title: 'Caja de herramientas profesional', cat: 'Vehículos', price: 15750, emoji: '🧰', rating: 4.8, shipping: 'Envío gratis', tag: '' },
       { id: 'celular', title: 'Celular RLA Phone 5G 128 GB', cat: 'Tecnología', price: 28500, emoji: '📱', rating: 4.4, shipping: 'Envío gratis', tag: 'Oferta' },
-      { id: 'cafe', title: 'Café de especialidad Los Angeles 1 kg', cat: 'Hogar', price: 1800, emoji: '☕', rating: 4.8, shipping: 'Envío gratis', tag: '' },
+      { id: 'llantas', title: 'Kit de llantas deportivas 18"', cat: 'Vehículos', price: 32500, emoji: '🛞', rating: 4.6, shipping: 'Envío a cargo', tag: 'Oferta' },
     ];
   }
 
@@ -606,12 +739,61 @@
 
   function defaultAssets() {
     return [
-      { id: 'btc', name: 'Bitcoin', ticker: 'BTC', price: 67240, balance: 0, change: '+2.41%', tone: 'btc' },
-      { id: 'eth', name: 'Ethereum', ticker: 'ETH', price: 3480, balance: 0, change: '+1.18%', tone: 'eth' },
-      { id: 'sol', name: 'Solana', ticker: 'SOL', price: 172.4, balance: 0, change: '-0.64%', tone: 'sol' },
-      { id: 'rla', name: 'RLA Coin', ticker: 'RLA', price: 1, balance: 0, change: '+8.02%', tone: 'rla' },
+      { id: 'btc', name: 'Bitcoin', ticker: 'BTC', price: 67240, balance: 0.018, change: '+2.41%', tone: 'btc' },
+      { id: 'eth', name: 'Ethereum', ticker: 'ETH', price: 3480, balance: 0.42, change: '+1.18%', tone: 'eth' },
+      { id: 'sol', name: 'Solana', ticker: 'SOL', price: 172.4, balance: 6.4, change: '-0.64%', tone: 'sol' },
+      { id: 'rla', name: 'RLA Coin', ticker: 'RLA', price: 1, balance: 320, change: '+8.02%', tone: 'rla' },
     ];
   }
+
+  function defaultCryptoTransactions() {
+    const now = Date.now();
+    return [
+      { id: 'ctx-airdrop', type: 'receive', assetId: 'btc', ticker: 'BTC', units: 0.018, usd: 1210.32, ts: now - 86400000 * 21, note: 'Airdrop de bienvenida' },
+      { id: 'ctx-eth', type: 'receive', assetId: 'eth', ticker: 'ETH', units: 0.42, usd: 1461.6, ts: now - 86400000 * 14, note: 'Airdrop de bienvenida' },
+      { id: 'ctx-sol', type: 'receive', assetId: 'sol', ticker: 'SOL', units: 6.4, usd: 1103.36, ts: now - 86400000 * 9, note: 'Airdrop de bienvenida' },
+      { id: 'ctx-rla', type: 'receive', assetId: 'rla', ticker: 'RLA', units: 320, usd: 320, ts: now - 86400000 * 4, note: 'Airdrop de bienvenida' },
+    ];
+  }
+
+  function defaultBank() {
+    const now = Date.now();
+    const day = 86400000;
+    return {
+      seeded: true,
+      accounts: [
+        { id: 'checking', name: 'Cuenta de cheques', last4: '4821', balance: 24850.5, kind: 'checking' },
+        { id: 'savings', name: 'Ahorros', last4: '9034', balance: 7850, kind: 'savings' },
+      ],
+      cards: [
+        { id: 'cash', name: 'Cash Rewards', last4: '1188', color: 'red', limit: 5000, balance: 640.2, status: 'active' },
+      ],
+      transactions: [
+        { id: 'btx-payroll', account: 'checking', type: 'deposit', amount: 4250, title: 'Depósito de nómina', detail: 'RLA Systems · Nómina quincenal', ts: now - day * 2 },
+        { id: 'btx-market', account: 'checking', type: 'payment', amount: -129.99, title: 'MercadoLibre', detail: 'Compra en la ciudad', ts: now - day * 3 },
+        { id: 'btx-save', account: 'checking', type: 'transfer', amount: -1500, title: 'Transferencia a Ahorros', detail: 'Ahorro programado', ts: now - day * 5 },
+        { id: 'btx-interest', account: 'savings', type: 'deposit', amount: 12.4, title: 'Intereses de la cuenta', detail: 'Bank of America · roleplay', ts: now - day * 7 },
+        { id: 'btx-card', account: 'checking', type: 'payment', amount: -220, title: 'Pago de tarjeta', detail: 'Cash Rewards •••• 1188', ts: now - day * 8 },
+      ],
+    };
+  }
+
+  function defaultSocialComments() {
+    return [
+      { id: 'sc-1', postId: 'lapd-operativo', name: 'Oficial Ramírez', handle: '@ramirez_lapd', initials: 'OR', tone: 'blue', text: 'Unidad 12 en el sector. Todo tranquilo por ahora.', time: 'Hace 8 min' },
+      { id: 'sc-2', postId: 'lapd-operativo', name: 'Vecino de Vespucci', handle: '@vespucci_la', initials: 'VV', tone: 'green', text: 'Gracias por mantener la zona segura.', time: 'Hace 5 min' },
+      { id: 'sc-3', postId: 'central-911', name: 'RLA Soporte', handle: '@rlasoporte', initials: 'RLA', tone: 'teal', text: 'Recordá no llamar al 911 para consultas de roleplay.', time: 'Hace 30 min' },
+      { id: 'sc-4', postId: 'rla-store', name: 'Valentina Cruz', handle: '@valen_rp', initials: 'VC', tone: 'teal', text: 'Ya instalé las tres apps. El escritorio quedó increíble.', time: 'Hace 1 h' },
+    ];
+  }
+
+  const WA_CONTACTS = [
+    { id: 'chp', name: 'CHP Carreteras', initials: 'CHP', tone: 'gold', status: 'En línea · Patrulla', text: 'CHP. Informe de ruta recibido. Una unidad está en camino.' },
+    { id: 'lafd', name: 'LAFD Emergencias', initials: 'LAFD', tone: 'red', status: 'En línea · Despacho', text: 'LAFD. Si hay una emergencia médica, indicá la ubicación exacta.' },
+    { id: 'garage', name: 'Grove Street Garage', initials: 'GS', tone: 'green', status: 'En línea · Taller', text: 'Taller Grove Street. Traé tu vehículo cuando quieras.' },
+    { id: 'air', name: 'RLA Air Support', initials: 'RLA', tone: 'teal', status: 'En línea · Aéreo', text: 'RLA Air Support. Coordinamos apoyo aéreo por este canal.' },
+    { id: 'banco', name: 'Bank of America', initials: 'BofA', tone: 'blue', status: 'En línea · Banca', text: 'Bank of America. Podés consultar tus cuentas desde la app del escritorio.' },
+  ];
 
   const ONION_SITES = {
     home: {
@@ -635,9 +817,9 @@
     mercado: {
       title: 'Mercado Gris',
       kicker: 'onion://mercado',
-      body: '<div class="pc-onion-market"><div><b>Reloj de lujo</b><span>Vendedor anónimo · $4.500</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="toast" data-message="Contacto enviado al vendedor (demo).">Contactar</button></div>' +
-        '<div class="pc-onion-market"><div><b>Repuesto de motor V8</b><span>Vendedor anónimo · $12.000</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="toast" data-message="Contacto enviado al vendedor (demo).">Contactar</button></div>' +
-        '<div class="pc-onion-market"><div><b>Documentación de vehículo</b><span>Vendedor anónimo · $2.000</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="toast" data-message="Contacto enviado al vendedor (demo).">Contactar</button></div>',
+      body: '<div class="pc-onion-market"><div><b>Reloj de lujo</b><span>Vendedor anónimo · $4.500</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="onion-contact" data-item="Reloj de lujo" data-seller="Vendedor anónimo">Contactar</button></div>' +
+        '<div class="pc-onion-market"><div><b>Repuesto de motor V8</b><span>Vendedor anónimo · $12.000</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="onion-contact" data-item="Repuesto de motor V8" data-seller="Vendedor anónimo">Contactar</button></div>' +
+        '<div class="pc-onion-market"><div><b>Documentación de vehículo</b><span>Vendedor anónimo · $2.000</span></div><button class="pc-btn pc-btn-ghost" data-pc-action="onion-contact" data-item="Documentación de vehículo" data-seller="Vendedor anónimo">Contactar</button></div>',
     },
     filtros: {
       title: 'Filtraciones LA',
@@ -1505,7 +1687,9 @@
     state.canUnlink = true;
     state.civilTab = 'resumen';
     state.licenseFormOpen = false;
+    state.weaponLicenseFormOpen = false;
     state.licenseSending = false;
+    state.weaponLicenseSending = false;
     state.unlinkConfirm = false;
     state.autoOpened = false;
     state.googleQuery = '';
@@ -1597,6 +1781,7 @@
       state.loading = false;
       state.error = '';
       state.licenseFormOpen = false;
+      state.weaponLicenseFormOpen = false;
       state.civilTab = 'dni';
       state.autoOpened = true;
       renderAllUI();
@@ -1649,6 +1834,7 @@
       state.loading = false;
       state.error = '';
       state.licenseFormOpen = false;
+      state.weaponLicenseFormOpen = false;
       state.civilTab = 'resumen';
       state.autoOpened = true;
       renderAllUI();
@@ -1700,6 +1886,7 @@
         json: { experience, vehicleType, trafficRules, reason, confirm },
       });
       state.licenseFormOpen = false;
+      state.weaponLicenseFormOpen = false;
       state.civilTab = 'licencia';
       await loadCitizen({ silent: true, force: true });
       refreshApp('civil', true);
@@ -1714,6 +1901,57 @@
       if (btn) { btn.disabled = false; btn.textContent = 'Enviar solicitud a mods'; }
     } finally {
       state.licenseSending = false;
+    }
+  }
+
+  async function handleWeaponLicenseSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    if (!form || form.id !== 'weaponLicenseApplyForm') return;
+    const app = LR();
+    if (!app) return;
+
+    const experience = String(form.experience.value || '').trim();
+    const weaponType = String(form.weaponType.value || '').trim();
+    const purpose = String(form.purpose.value || '').trim();
+    const reason = String(form.reason.value || '').trim();
+    const confirm = !!(form.confirm && form.confirm.checked);
+    const msg = $('#weaponLicenseApplyMsg');
+    const btn = form.querySelector('button[type="submit"]');
+    const fail = (text) => {
+      if (msg) { msg.textContent = text; msg.className = 'citizen-form-msg error'; }
+    };
+
+    if (!experience) return fail('Elegí tu experiencia con armas de fuego.');
+    if (!weaponType) return fail('Elegí qué tipo de arma querés registrar.');
+    if (!purpose) return fail('Elegí el uso previsto de la licencia.');
+    if (reason.length < 20) return fail('Contanos por qué querés la licencia de armas (mínimo 20 caracteres).');
+    if (!confirm) return fail('Confirmá que sos mayor de 21 años y que la licencia es de roleplay.');
+
+    state.weaponLicenseSending = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando a mods…'; }
+    if (msg) { msg.textContent = 'Enviando la solicitud de licencia de armas al canal privado de moderadores…'; msg.className = 'citizen-form-msg'; }
+
+    try {
+      await app.Auth.api('/citizen/weapon-license/apply', {
+        method: 'POST',
+        json: { experience, weaponType, purpose, reason, confirm },
+      });
+      state.weaponLicenseFormOpen = false;
+      state.civilTab = 'armas';
+      await loadCitizen({ silent: true, force: true });
+      refreshApp('civil', true);
+      app.toast('✅ Solicitud de licencia de armas enviada. Un moderador la va a revisar en Discord.');
+    } catch (err) {
+      if (err.status === 401) {
+        app.Auth.clear();
+        showLock();
+        return;
+      }
+      if (msg) { msg.textContent = '❌ ' + (err.message || 'No se pudo enviar la solicitud de licencia de armas.'); msg.className = 'citizen-form-msg error'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Enviar solicitud a mods'; }
+    } finally {
+      state.weaponLicenseSending = false;
     }
   }
 
@@ -1751,6 +1989,24 @@
     showLock();
     renderAllUI();
     app.toast('👋 Cerraste sesión.');
+  }
+
+  function downloadFile(name, content, type) {
+    try {
+      const blob = new Blob([content], { type: type || 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      return true;
+    } catch {
+      toast('No se pudo generar la descarga.');
+      return false;
+    }
   }
 
   function downloadCitizenData() {
@@ -1876,6 +2132,525 @@
     refreshApp('social', true);
   }
 
+  /* --- Banca, comercio y cripto --- */
+
+  function bankAccount(id) {
+    return state.bank && state.bank.accounts ? state.bank.accounts.find((a) => a.id === id) : null;
+  }
+
+  function bankCard(id) {
+    return state.bank && state.bank.cards ? state.bank.cards.find((c) => c.id === id) : null;
+  }
+
+  function bankTotalBalance() {
+    return (state.bank && state.bank.accounts ? state.bank.accounts : []).reduce((sum, a) => sum + Number(a.balance || 0), 0);
+  }
+
+  function bankAccountName(id) {
+    if (String(id || '').startsWith('card:')) {
+      const card = bankCard(String(id).slice(5));
+      return card ? card.name + ' •••• ' + card.last4 : 'Tarjeta';
+    }
+    const a = bankAccount(id);
+    return a ? a.name + ' •••• ' + a.last4 : 'Cuenta';
+  }
+
+  function bankRecord(account, type, amount, title, detail) {
+    state.bank.transactions.unshift({
+      id: uid('btx'),
+      account,
+      type,
+      amount: Math.round(Number(amount) * 100) / 100,
+      title,
+      detail: detail || '',
+      ts: Date.now(),
+    });
+    if (state.bank.transactions.length > 100) state.bank.transactions = state.bank.transactions.slice(0, 100);
+    saveBank();
+  }
+
+  function bankMove(fromId, toId, amount, detail) {
+    const value = Math.round(Number(amount) * 100) / 100;
+    const from = bankAccount(fromId);
+    const to = bankAccount(toId);
+    if (!from || !to) return 'Elegí dos cuentas válidas.';
+    if (!Number.isFinite(value) || value <= 0) return 'Ingresá un monto mayor a cero.';
+    if (from.id === to.id) return 'Elegí cuentas diferentes.';
+    if (from.balance < value) return 'No tenés saldo suficiente en ' + from.name + '.';
+    from.balance = Math.round((from.balance - value) * 100) / 100;
+    to.balance = Math.round((to.balance + value) * 100) / 100;
+    bankRecord(from.id, 'transfer', -value, 'Transferencia a ' + to.name, detail || 'Transferencia entre cuentas');
+    bankRecord(to.id, 'transfer', value, 'Transferencia desde ' + from.name, detail || 'Transferencia entre cuentas');
+    saveBank();
+    return '';
+  }
+
+  function bankDeposit(accountId, amount, detail) {
+    const account = bankAccount(accountId);
+    const value = Math.round(Number(amount) * 100) / 100;
+    if (!account) return 'Elegí una cuenta válida.';
+    if (!Number.isFinite(value) || value <= 0) return 'Ingresá un monto mayor a cero.';
+    account.balance = Math.round((account.balance + value) * 100) / 100;
+    bankRecord(account.id, 'deposit', value, 'Depósito en efectivo', detail || 'Depósito de roleplay');
+    saveBank();
+    return '';
+  }
+
+  function bankPayCard(cardId, accountId, amount) {
+    const card = bankCard(cardId);
+    const account = bankAccount(accountId);
+    const value = Math.round(Number(amount) * 100) / 100;
+    if (!card || !account) return 'Elegí una tarjeta y una cuenta válidas.';
+    if (!Number.isFinite(value) || value <= 0) return 'Ingresá un monto mayor a cero.';
+    if (value > Number(card.balance || 0)) return 'El monto supera el saldo de la tarjeta.';
+    if (value > account.balance) return 'No tenés saldo suficiente en ' + account.name + '.';
+    account.balance = Math.round((account.balance - value) * 100) / 100;
+    card.balance = Math.round((Number(card.balance || 0) - value) * 100) / 100;
+    bankRecord(account.id, 'payment', -value, 'Pago de tarjeta', card.name + ' •••• ' + card.last4);
+    saveBank();
+    return '';
+  }
+
+  function bankApplyCard(type) {
+    const offers = {
+      cash: { id: 'cash', name: 'Cash Rewards', last4: String(1000 + Math.floor(Math.random() * 8999)), color: 'red', limit: 5000, balance: 0, status: 'active' },
+      travel: { id: 'travel', name: 'Travel Rewards', last4: String(1000 + Math.floor(Math.random() * 8999)), color: 'blue', limit: 7500, balance: 0, status: 'active' },
+    };
+    const card = offers[type];
+    if (!card) return;
+    if (state.bank.cards.some((c) => c.id === card.id)) {
+      state.bankMessage = 'Ya tenés la tarjeta ' + card.name + '.';
+      refreshApp('bank', true);
+      return;
+    }
+    state.bank.cards.push(card);
+    saveBank();
+    state.bankTab = 'tarjetas';
+    state.bankMessage = 'Tarjeta ' + card.name + ' agregada a tu banca.';
+    refreshApp('bank', true);
+    toast('Tarjeta ' + card.name + ' agregada.');
+  }
+
+  function bankStatementDownload() {
+    const lines = [
+      'Bank of America - Estado de cuenta de roleplay',
+      'Generado: ' + new Date().toLocaleString('es-AR'),
+      '',
+      'Cuenta,Saldo',
+      ...state.bank.accounts.map((a) => [a.name + ' •••• ' + a.last4, Number(a.balance || 0).toFixed(2)].join(',')),
+      '',
+      'Fecha,Tipo,Cuenta,Descripción,Monto',
+      ...state.bank.transactions.map((t) => [
+        new Date(t.ts).toLocaleDateString('es-AR'),
+        t.type,
+        bankAccountName(t.account),
+        '"' + String(t.title || '').replace(/"/g, '""') + '"',
+        Number(t.amount || 0).toFixed(2),
+      ].join(',')),
+    ];
+    if (downloadFile('Bank_of_America_estado_de_cuenta.csv', '\ufeff' + lines.join('\r\n'), 'text/csv;charset=utf-8')) {
+      toast('Estado de cuenta descargado.');
+    }
+  }
+
+  function creditBank(accountId, amount, title, detail) {
+    const account = bankAccount(accountId);
+    if (!account) return false;
+    account.balance = Math.round((Number(account.balance) + Number(amount)) * 100) / 100;
+    bankRecord(accountId, 'deposit', amount, title, detail);
+    return true;
+  }
+
+  function debitBank(accountId, amount, title, detail) {
+    const account = bankAccount(accountId);
+    if (!account || account.balance < Number(amount)) return false;
+    account.balance = Math.round((Number(account.balance) - Number(amount)) * 100) / 100;
+    bankRecord(accountId, 'payment', -Math.abs(Number(amount)), title, detail);
+    return true;
+  }
+
+  function cryptoAsset(id) {
+    return state.cryptoAssets.find((a) => a.id === id) || null;
+  }
+
+  function cryptoTotal() {
+    return state.cryptoAssets.reduce((sum, a) => sum + Number(a.price || 0) * Number(a.balance || 0), 0);
+  }
+
+  function cryptoAddTransaction(type, asset, qty, usd, note) {
+    state.cryptoTransactions.unshift({
+      id: uid('ctx'),
+      type,
+      assetId: asset.id,
+      ticker: asset.ticker,
+      units: Number(qty) || 0,
+      usd: Number(usd) || 0,
+      ts: Date.now(),
+      note: note || '',
+    });
+    if (state.cryptoTransactions.length > 80) state.cryptoTransactions = state.cryptoTransactions.slice(0, 80);
+    saveCrypto();
+  }
+
+  function cryptoBuy(assetId, usdAmount) {
+    const asset = cryptoAsset(assetId);
+    const usd = Math.round(Number(usdAmount) * 100) / 100;
+    if (!asset) return 'Elegí una moneda válida.';
+    if (!Number.isFinite(usd) || usd <= 0) return 'Ingresá un monto mayor a cero.';
+    if (!debitBank('checking', usd, 'Compra de ' + asset.ticker, 'RLA Wallet')) return 'No tenés saldo suficiente en la cuenta de cheques.';
+    asset.balance = Number((Number(asset.balance) + usd / Number(asset.price)).toFixed(8));
+    cryptoAddTransaction('buy', asset, usd / Number(asset.price), usd, 'Compra con Bank of America');
+    saveCrypto();
+    return '';
+  }
+
+  function cryptoSell(assetId, qty) {
+    const asset = cryptoAsset(assetId);
+    const amount = Number(qty);
+    if (!asset) return 'Elegí una moneda válida.';
+    if (!Number.isFinite(amount) || amount <= 0) return 'Ingresá una cantidad mayor a cero.';
+    if (amount > Number(asset.balance) + 1e-9) return 'No tenés suficientes ' + asset.ticker + '.';
+    asset.balance = Number((Number(asset.balance) - amount).toFixed(8));
+    const usd = Math.round(amount * Number(asset.price) * 100) / 100;
+    creditBank('checking', usd, 'Venta de ' + asset.ticker, 'RLA Wallet');
+    cryptoAddTransaction('sell', asset, amount, usd, 'Venta a Bank of America');
+    saveCrypto();
+    return '';
+  }
+
+  function cryptoSend(assetId, qty, address) {
+    const asset = cryptoAsset(assetId);
+    const amount = Number(qty);
+    const target = String(address || '').trim();
+    if (!asset) return 'Elegí una moneda válida.';
+    if (!Number.isFinite(amount) || amount <= 0) return 'Ingresá una cantidad mayor a cero.';
+    if (amount > Number(asset.balance) + 1e-9) return 'No tenés suficientes ' + asset.ticker + '.';
+    if (target.length < 8) return 'Ingresá una dirección de destino válida.';
+    asset.balance = Number((Number(asset.balance) - amount).toFixed(8));
+    cryptoAddTransaction('send', asset, amount, amount * Number(asset.price), 'Enviado a ' + target.slice(0, 8) + '…');
+    saveCrypto();
+    return '';
+  }
+
+  function cryptoRefreshPrices() {
+    state.cryptoAssets = state.cryptoAssets.map((a) => {
+      const drift = (Math.random() - 0.45) * 0.035;
+      const price = Math.max(0.01, Number((Number(a.price) * (1 + drift)).toFixed(a.price < 10 ? 4 : 2)));
+      return Object.assign({}, a, {
+        price,
+        change: (drift >= 0 ? '+' : '') + (drift * 100).toFixed(2) + '%',
+      });
+    });
+    saveCrypto();
+    refreshApp('crypto', true);
+    toast('Precios de roleplay actualizados.');
+  }
+
+  function copyText(text, message) {
+    const value = String(text || '');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(() => toast(message || 'Copiado.')).catch(() => {
+        toast('No se pudo copiar automáticamente.');
+      });
+      return;
+    }
+    const input = document.createElement('textarea');
+    input.value = value;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    try { document.execCommand('copy'); toast(message || 'Copiado.'); } catch { toast('No se pudo copiar.'); }
+    input.remove();
+  }
+
+  function socialCommentsFor(postId) {
+    return defaultSocialComments().filter((c) => c.postId === postId)
+      .concat(state.socialComments.filter((c) => c.postId === postId));
+  }
+
+  function socialCommentCount(post) {
+    return Number(post.comments || 0) + state.socialComments.filter((c) => c.postId === post.id).length;
+  }
+
+  function handleSocialComment(form) {
+    const postId = form.getAttribute('data-post');
+    const input = form.querySelector('[name="comment"]');
+    const text = String(input ? input.value : '').trim();
+    if (!postId || !text) return;
+    const user = currentUser() || {};
+    state.socialComments.push({
+      id: uid('sc'),
+      postId,
+      name: user.displayName || user.username || 'Ciudadano',
+      handle: '@' + (user.username || 'ciudadano'),
+      initials: initials(user.displayName || user.username || 'Ciudadano'),
+      tone: 'teal',
+      text,
+      time: 'Ahora',
+      custom: true,
+    });
+    saveSocial();
+    state.socialCommentsOpen = postId;
+    refreshApp('social', true);
+    toast('Comentario publicado.');
+  }
+
+  function handleSocialFollow(handle) {
+    const key = String(handle || '').replace(/^@/, '');
+    const index = state.socialFollows.indexOf(key);
+    if (index >= 0) state.socialFollows.splice(index, 1);
+    else state.socialFollows.push(key);
+    saveSocial();
+    refreshApp('social', true);
+  }
+
+  function handleSocialShare(postId) {
+    const url = location.origin + location.pathname + '#post-' + postId;
+    copyText(url, 'Enlace del post copiado.');
+  }
+
+  function handleSocialDelete(postId) {
+    state.socialDelete = postId;
+    refreshApp('social', true);
+  }
+
+  function handleWorkApplication(form) {
+    const jobId = form.getAttribute('data-job');
+    const job = defaultJobs().find((j) => j.id === jobId);
+    if (!job) return;
+    const existing = state.workApplications.find((a) => a.jobId === jobId);
+    if (existing) {
+      toast('Ya tenés una postulación para ' + job.title + '.');
+      state.workApplyJob = '';
+      state.workView = 'applications';
+      refreshApp('work', true);
+      return;
+    }
+    const experience = String(form.elements.experience.value || '').trim();
+    const availability = String(form.elements.availability.value || '').trim();
+    const message = String(form.elements.message.value || '').trim();
+    if (!experience) { toast('Elegí tu experiencia.'); return; }
+    if (message.length < 20) { toast('Contanos un poco más (mínimo 20 caracteres).'); return; }
+    state.workApplications.unshift({
+      id: uid('app'),
+      jobId,
+      status: 'pending',
+      ts: Date.now(),
+      experience,
+      availability,
+      message,
+    });
+    state.workApplied = state.workApplications.map((a) => a.jobId);
+    saveWork();
+    state.workApplyJob = '';
+    state.workView = 'applications';
+    refreshApp('work', true);
+    toast('Postulación enviada. El staff la revisa en Discord.');
+  }
+
+  function withdrawWorkApplication(jobId) {
+    state.workApplications = state.workApplications.filter((a) => a.jobId !== jobId);
+    state.workApplied = state.workApplications.map((a) => a.jobId);
+    saveWork();
+    refreshApp('work', true);
+    toast('Postulación retirada.');
+  }
+
+  function startWhatsappChat(contactId) {
+    const contact = WA_CONTACTS.find((c) => c.id === contactId);
+    if (!contact) return;
+    let chat = state.waChats.find((c) => c.id === contact.id);
+    if (!chat) {
+      chat = {
+        id: contact.id,
+        name: contact.name,
+        initials: contact.initials,
+        tone: contact.tone,
+        status: contact.status,
+        messages: [{ from: 'them', text: contact.text, time: nowTime() }],
+      };
+      state.waChats.push(chat);
+      saveWhatsapp();
+    }
+    state.waChat = chat.id;
+    state.waNew = false;
+    state.waOptions = false;
+    state.waCall = false;
+    refreshApp('whatsapp', true);
+    mountWhatsappApp();
+  }
+
+  function handleWhatsappClear() {
+    const chat = state.waChats.find((c) => c.id === state.waChat);
+    if (!chat) return;
+    chat.messages = [];
+    state.waOptions = false;
+    saveWhatsapp();
+    refreshApp('whatsapp', true);
+    toast('Chat vaciado.');
+  }
+
+  function handleWhatsappDelete() {
+    if (!state.waDeleteConfirm) {
+      state.waDeleteConfirm = true;
+      refreshApp('whatsapp', true);
+      return;
+    }
+    state.waChats = state.waChats.filter((c) => c.id !== state.waChat);
+    state.waChat = state.waChats.length ? state.waChats[0].id : '';
+    state.waOptions = false;
+    state.waDeleteConfirm = false;
+    saveWhatsapp();
+    refreshApp('whatsapp', true);
+    toast('Chat eliminado.');
+  }
+
+  function handleWhatsappSend(form) {
+    const chat = state.waChats.find((c) => c.id === state.waChat);
+    if (!chat) return;
+    const input = form.querySelector('[name="message"]');
+    const text = String(input ? input.value : '').trim();
+    if (!text) return;
+    chat.messages.push({ from: 'me', text, time: nowTime() });
+    if (input) input.value = '';
+    saveWhatsapp();
+    refreshApp('whatsapp', true);
+    mountWhatsappApp();
+    const replies = {
+      central: 'Central 911: recibido. Una unidad fue notificada y se dirige al sector.',
+      soporte: 'RLA Soporte: gracias por escribir. Un moderador va a revisar tu caso.',
+      lapd: 'LAPD Reclutamiento: tu mensaje fue recibido. Revisá RLA Work para completar la postulación.',
+      store: 'RLA Store: tu pedido está en preparación. Te avisamos cuando esté listo.',
+      familia: 'Familia: dale, nos vemos en la plaza en un rato.',
+      chp: 'CHP Carreteras: recibido. Mantené la ubicación y esperá la unidad.',
+      lafd: 'LAFD Emergencias: despacho recibido. Una unidad médica está en camino.',
+      garage: 'Grove Street Garage: anotado. Podés pasar por el taller cuando quieras.',
+      air: 'RLA Air Support: coordinamos la aeronave para el sector indicado.',
+      banco: 'Bank of America: consultá tus cuentas y movimientos desde la app del escritorio.',
+    };
+    const chatId = chat.id;
+    const reply = chat.muted ? 'Mensaje recibido. El chat está silenciado.' : (replies[chatId] || 'Mensaje recibido.');
+    setTimeout(() => {
+      const target = state.waChats.find((c) => c.id === chatId);
+      if (!target) return;
+      target.messages.push({ from: 'them', text: reply, time: nowTime() });
+      saveWhatsapp();
+      if (windowMap.has('whatsapp')) { refreshApp('whatsapp', true); mountWhatsappApp(); }
+    }, 950);
+  }
+
+  function handleMlAdd(id) {
+    const product = defaultMlProducts().find((p) => p.id === id);
+    if (!product) return;
+    const item = state.mlCart.find((x) => x.id === id);
+    if (item) item.qty += 1;
+    else state.mlCart.push({ id, qty: 1 });
+    saveMercado();
+    refreshApp('mercado', true);
+    toast('🛒 ' + product.title + ' agregado al carrito.');
+  }
+
+  function handleMlRemove(id) {
+    state.mlCart = state.mlCart.filter((x) => x.id !== id);
+    saveMercado();
+    refreshApp('mercado', true);
+  }
+
+  function changeMlQty(id, delta) {
+    const item = state.mlCart.find((x) => x.id === id);
+    if (!item) return;
+    item.qty = Math.max(0, Number(item.qty || 0) + delta);
+    if (!item.qty) state.mlCart = state.mlCart.filter((x) => x.id !== id);
+    saveMercado();
+    refreshApp('mercado', true);
+  }
+
+  function mlCartTotal() {
+    const products = defaultMlProducts();
+    return state.mlCart.reduce((sum, item) => {
+      const product = products.find((p) => p.id === item.id);
+      return sum + (product ? product.price * item.qty : 0);
+    }, 0);
+  }
+
+  function handleMlCheckout(form) {
+    if (!state.mlCart.length) return;
+    const total = mlCartTotal();
+    const address = String(form.elements.address.value || '').trim();
+    const delivery = String(form.elements.delivery.value || 'Envío');
+    const payment = String(form.elements.payment.value || 'checking');
+    if (delivery === 'Envío' && address.length < 5) {
+      state.mlError = 'Ingresá una dirección de entrega.';
+      refreshApp('mercado', true);
+      return;
+    }
+    let paid = false;
+    if (payment === 'checking') {
+      paid = debitBank('checking', total, 'MercadoLibre', 'Pedido de la ciudad');
+    } else {
+      const card = bankCard(payment);
+      if (!card) {
+        state.mlError = 'La tarjeta seleccionada no está disponible.';
+        refreshApp('mercado', true);
+        return;
+      }
+      if (Number(card.balance || 0) + total > Number(card.limit || 0)) {
+        state.mlError = 'La compra supera el límite de la tarjeta.';
+        refreshApp('mercado', true);
+        return;
+      }
+      card.balance = Math.round((Number(card.balance || 0) + total) * 100) / 100;
+      bankRecord('card:' + card.id, 'card-purchase', -total, 'MercadoLibre', card.name + ' •••• ' + card.last4);
+      paid = true;
+    }
+    if (!paid) {
+      state.mlError = 'No tenés saldo suficiente en Bank of America.';
+      refreshApp('mercado', true);
+      return;
+    }
+    const order = {
+      id: 'ML-' + String(Date.now()).slice(-6),
+      items: state.mlCart.map((item) => {
+        const p = defaultMlProducts().find((x) => x.id === item.id);
+        return p ? { id: p.id, title: p.title, qty: item.qty, price: p.price, emoji: p.emoji } : null;
+      }).filter(Boolean),
+      total,
+      address,
+      delivery,
+      payment,
+      status: 'Preparando',
+      ts: Date.now(),
+    };
+    state.mlOrders.unshift(order);
+    state.mlCart = [];
+    state.mlCheckout = false;
+    state.mlCartOpen = false;
+    state.mlOrderSuccess = order.id;
+    state.mlError = '';
+    saveMercado();
+    refreshApp('mercado', true);
+    toast('Compra realizada. Pedido ' + order.id + '.');
+  }
+
+  function handleOnionContactSubmit(form) {
+    const seller = form.getAttribute('data-seller') || 'Vendedor anónimo';
+    const item = form.getAttribute('data-item') || 'Consulta';
+    const message = String(form.elements.message.value || '').trim();
+    if (message.length < 10) { toast('Escribí un mensaje un poco más largo.'); return; }
+    state.onionContacts.unshift({
+      id: uid('onion'),
+      seller,
+      item,
+      message,
+      ts: Date.now(),
+    });
+    saveOnionContacts();
+    state.onionContact = '';
+    refreshApp('onion', true);
+    toast('Mensaje enviado al vendedor.');
+  }
+
   function handleSocialPost(form) {
     const input = form.querySelector('[name="text"]');
     const text = String(input ? input.value : '').trim();
@@ -1900,56 +2675,15 @@
     toast('Publicado en RLA Social.');
   }
 
-  function handleWhatsappSend(form) {
-    const chat = state.waChats.find((c) => c.id === state.waChat);
-    if (!chat) return;
-    const input = form.querySelector('[name="message"]');
-    const text = String(input ? input.value : '').trim();
-    if (!text) return;
-    chat.messages.push({ from: 'me', text, time: nowTime() });
-    if (input) input.value = '';
-    refreshApp('whatsapp', true);
-    mountWhatsappApp();
-    const replies = {
-      central: 'Central 911: recibido. Una unidad fue notificada y se dirige al sector.',
-      soporte: 'RLA Soporte: gracias por escribir. Un moderador va a revisar tu caso.',
-      lapd: 'LAPD Reclutamiento: tu mensaje fue recibido. Revisá RLA Work para completar la postulación.',
-      store: 'RLA Store: tu pedido está en preparación. Te avisamos cuando esté listo.',
-      familia: 'Familia: dale, nos vemos en la plaza en un rato.',
-    };
-    const chatId = chat.id;
-    setTimeout(() => {
-      const target = state.waChats.find((c) => c.id === chatId);
-      if (!target) return;
-      target.messages.push({ from: 'them', text: replies[chatId] || 'Mensaje recibido.', time: nowTime() });
-      if (windowMap.has('whatsapp')) { refreshApp('whatsapp', true); mountWhatsappApp(); }
-    }, 950);
-  }
-
-  function handleMlAdd(id) {
-    const product = defaultMlProducts().find((p) => p.id === id);
-    if (!product) return;
-    const item = state.mlCart.find((x) => x.id === id);
-    if (item) item.qty += 1;
-    else state.mlCart.push({ id, qty: 1 });
-    refreshApp('mercado', true);
-    toast('🛒 ' + product.title + ' agregado al carrito.');
-  }
-
-  function handleMlRemove(id) {
-    state.mlCart = state.mlCart.filter((x) => x.id !== id);
-    refreshApp('mercado', true);
-  }
-
   function handleWorkApply(id) {
     if (state.workApplied.includes(id)) {
-      toast('Ya guardaste tu postulación para esta búsqueda.');
+      state.workView = 'applications';
+      refreshApp('work', true);
       return;
     }
-    state.workApplied.push(id);
-    saveWork();
+    state.workApplyJob = state.workApplyJob === id ? '' : id;
+    state.workView = 'ofertas';
     refreshApp('work', true);
-    toast('Postulación guardada. Completala en Discord con el staff.');
   }
 
   function handleVpsRestart(id) {
@@ -1968,6 +2702,60 @@
       if (windowMap.has('vps')) refreshApp('vps', true);
       toast(server.name + ' reiniciado.');
     }, 1300);
+  }
+
+  function handleVpsCommand(form) {
+    const input = form.elements.command;
+    const raw = String(input ? input.value : '').trim();
+    if (!raw) return;
+    state.vpsConsole.push('rla@manager:~$ ' + raw);
+    const parts = raw.split(/\s+/);
+    const command = String(parts.shift() || '').toLowerCase();
+    const arg = String(parts.join(' ') || '').toLowerCase();
+    const server = state.vpsServers.find((s) => s.id === arg || norm(s.name) === arg);
+    if (command === 'help') {
+      state.vpsConsole.push('[INFO] Comandos: help, status, ps, select <servidor>, restart <servidor>, logs, ping, uptime, clear.');
+    } else if (command === 'status' || command === 'ps') {
+      state.vpsServers.forEach((s) => state.vpsConsole.push('[INFO] ' + s.name + ' · ' + (s.status === 'online' ? 'online' : s.status) + ' · CPU ' + s.cpu + '% · RAM ' + s.ram + '% · ' + s.ping + ' ms'));
+    } else if (command === 'select') {
+      if (!server) {
+        state.vpsConsole.push('[INFO] Uso: select <web|bot|cad|radio>');
+      } else {
+        state.vpsConsoleServer = server.id;
+        state.vpsConsole.push('[OK] Servidor seleccionado: ' + server.name);
+      }
+    } else if (command === 'restart') {
+      if (!server) {
+        state.vpsConsole.push('[INFO] Uso: restart <web|bot|cad|radio>');
+      } else {
+        addConsoleLine('[INFO] ' + server.name + ' · reinicio solicitado');
+        handleVpsRestart(server.id);
+      }
+    } else if (command === 'logs') {
+      state.vpsConsole.push('[INFO] Últimos eventos del sistema:');
+      defaultConsole().slice(-4).forEach((line) => state.vpsConsole.push(line));
+    } else if (command === 'ping') {
+      state.vpsConsole.push('[OK] pong · ' + (state.vpsConsoleServer ? state.vpsConsoleServer : 'manager') + ' · ' + (18 + Math.round(Math.random() * 42)) + ' ms');
+    } else if (command === 'uptime') {
+      state.vpsConsole.push('[INFO] ' + state.vpsServers.map((s) => s.name + ' ' + s.uptime).join(' · '));
+    } else if (command === 'clear') {
+      state.vpsConsole = [];
+      refreshApp('vps', true);
+      setTimeout(() => { const next = $('#vpsCommand'); if (next) next.focus(); }, 80);
+      return;
+    } else if (command === 'whoami') {
+      state.vpsConsole.push('[INFO] rla-admin · consola de roleplay');
+    } else {
+      state.vpsConsole.push('[ERROR] Comando no reconocido. Escribí help para ver la lista.');
+    }
+    if (state.vpsConsole.length > 60) state.vpsConsole = state.vpsConsole.slice(-60);
+    refreshApp('vps', true);
+    setTimeout(() => { const next = $('#vpsCommand'); if (next) next.focus(); }, 80);
+  }
+
+  function addConsoleLine(line) {
+    state.vpsConsole.push(line);
+    if (state.vpsConsole.length > 60) state.vpsConsole = state.vpsConsole.slice(-60);
   }
 
   async function loadEnvStatus() {
@@ -2042,7 +2830,7 @@
       return;
     }
     if (action === 'toast') {
-      toast(msg || 'Función disponible próximamente.');
+      toast(msg || 'No se pudo completar la acción. Probá de nuevo.');
       return;
     }
     if (action === 'refresh') {
@@ -2085,57 +2873,172 @@
       return;
     }
     if (action === 'social-like') { toggleSocialLike(btn.getAttribute('data-post')); return; }
+    if (action === 'social-tab') {
+      state.socialTab = btn.getAttribute('data-social-tab') === 'following' ? 'following' : 'for-you';
+      state.socialCommentsOpen = '';
+      refreshApp('social', true);
+      return;
+    }
+    if (action === 'social-comments') {
+      const postId = btn.getAttribute('data-post');
+      state.socialCommentsOpen = state.socialCommentsOpen === postId ? '' : postId;
+      refreshApp('social', true);
+      return;
+    }
+    if (action === 'social-follow') { handleSocialFollow(btn.getAttribute('data-handle')); return; }
+    if (action === 'social-share') { handleSocialShare(btn.getAttribute('data-post')); return; }
+    if (action === 'social-delete') { handleSocialDelete(btn.getAttribute('data-post')); return; }
+    if (action === 'social-delete-cancel') { state.socialDelete = ''; refreshApp('social', true); return; }
+    if (action === 'social-delete-confirm') {
+      state.socialPosts = state.socialPosts.filter((p) => p.id !== state.socialDelete);
+      state.socialDelete = '';
+      saveSocial();
+      refreshApp('social', true);
+      toast('Publicación eliminada.');
+      return;
+    }
     if (action === 'wa-chat') {
       state.waChat = btn.getAttribute('data-chat') || '';
+      state.waNew = false;
+      state.waOptions = false;
+      state.waCall = false;
+      state.waDeleteConfirm = false;
       refreshApp('whatsapp', true);
       return;
     }
     if (action === 'wa-back') {
       state.waChat = '';
+      state.waOptions = false;
+      state.waCall = false;
       refreshApp('whatsapp', true);
       return;
     }
+    if (action === 'wa-new') { state.waNew = !state.waNew; state.waOptions = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-new-close') { state.waNew = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-start') { startWhatsappChat(btn.getAttribute('data-contact')); return; }
+    if (action === 'wa-options') { state.waOptions = !state.waOptions; state.waCall = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-options-close') { state.waOptions = false; state.waDeleteConfirm = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-clear') { handleWhatsappClear(); return; }
+    if (action === 'wa-delete') { handleWhatsappDelete(); return; }
+    if (action === 'wa-mute') {
+      const chat = state.waChats.find((c) => c.id === state.waChat);
+      if (chat) { chat.muted = !chat.muted; saveWhatsapp(); refreshApp('whatsapp', true); }
+      return;
+    }
+    if (action === 'wa-call') { state.waCall = true; state.waOptions = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-call-end') { state.waCall = false; refreshApp('whatsapp', true); toast('Llamada finalizada.'); return; }
     if (action === 'ml-cat') {
       state.mlCategory = btn.getAttribute('data-category') || 'todas';
       state.mlQuery = '';
+      state.mlCheckout = false;
+      state.mlOrdersOpen = false;
       refreshApp('mercado', true);
       return;
     }
     if (action === 'ml-add') { handleMlAdd(btn.getAttribute('data-product')); return; }
     if (action === 'ml-remove') { handleMlRemove(btn.getAttribute('data-product')); return; }
+    if (action === 'ml-inc') { changeMlQty(btn.getAttribute('data-product'), 1); return; }
+    if (action === 'ml-dec') { changeMlQty(btn.getAttribute('data-product'), -1); return; }
     if (action === 'ml-cart') {
       state.mlCartOpen = !state.mlCartOpen;
+      state.mlCheckout = false;
+      state.mlOrdersOpen = false;
+      state.mlOrderSuccess = '';
+      state.mlError = '';
       refreshApp('mercado', true);
       return;
     }
-    if (action === 'ml-checkout') {
+    if (action === 'ml-checkout-open') {
       if (!state.mlCart.length) { toast('Tu carrito está vacío.'); return; }
-      state.mlCart = [];
       state.mlCartOpen = false;
+      state.mlCheckout = true;
+      state.mlOrdersOpen = false;
+      state.mlOrderSuccess = '';
+      state.mlError = '';
       refreshApp('mercado', true);
-      toast('✅ Compra simulada completada. ¡Gracias por comprar en MercadoLibre!');
+      return;
+    }
+    if (action === 'ml-orders') {
+      state.mlOrdersOpen = true;
+      state.mlCartOpen = false;
+      state.mlCheckout = false;
+      state.mlOrderSuccess = '';
+      refreshApp('mercado', true);
+      return;
+    }
+    if (action === 'ml-back-store') {
+      state.mlOrdersOpen = false;
+      state.mlCheckout = false;
+      state.mlCartOpen = false;
+      state.mlOrderSuccess = '';
+      state.mlError = '';
+      refreshApp('mercado', true);
       return;
     }
     if (action === 'work-cat') {
       state.workCategory = btn.getAttribute('data-category') || 'todas';
+      state.workView = 'ofertas';
+      state.workApplyJob = '';
       refreshApp('work', true);
       return;
     }
     if (action === 'work-apply') { handleWorkApply(btn.getAttribute('data-job')); return; }
-    if (action === 'crypto-toast') { toast(msg || 'Función disponible próximamente.'); return; }
+    if (action === 'work-apply-cancel') { state.workApplyJob = ''; refreshApp('work', true); return; }
+    if (action === 'work-applications') { state.workView = 'applications'; state.workApplyJob = ''; refreshApp('work', true); return; }
+    if (action === 'work-offers') { state.workView = 'ofertas'; refreshApp('work', true); return; }
+    if (action === 'work-withdraw') { withdrawWorkApplication(btn.getAttribute('data-job')); return; }
+    if (action === 'crypto-action') {
+      const next = btn.getAttribute('data-crypto-action') || '';
+      state.cryptoAction = state.cryptoAction === next ? '' : next;
+      state.cryptoError = '';
+      refreshApp('crypto', true);
+      return;
+    }
+    if (action === 'crypto-close') { state.cryptoAction = ''; state.cryptoError = ''; refreshApp('crypto', true); return; }
+    if (action === 'crypto-copy') { copyText(state.cryptoAddress, 'Dirección de RLA Wallet copiada.'); return; }
+    if (action === 'crypto-refresh') { cryptoRefreshPrices(); return; }
+    if (action === 'bank-tab') {
+      state.bankTab = btn.getAttribute('data-bank-tab') || 'resumen';
+      state.bankMessage = '';
+      state.bankError = '';
+      refreshApp('bank', true);
+      return;
+    }
+    if (action === 'bank-statement') { bankStatementDownload(); return; }
+    if (action === 'bank-apply-card') { bankApplyCard(btn.getAttribute('data-card-type')); return; }
+    if (action === 'bank-tab-shortcut') { state.bankTab = btn.getAttribute('data-bank-tab') || 'resumen'; refreshApp('bank', true); return; }
     if (action === 'onion-site') {
       state.onionSite = btn.getAttribute('data-site') || 'home';
       state.onionError = '';
+      state.onionContact = '';
       refreshApp('onion', true);
       return;
     }
     if (action === 'onion-back') {
       state.onionSite = 'home';
       state.onionError = '';
+      state.onionContact = '';
       refreshApp('onion', true);
       return;
     }
+    if (action === 'onion-contact') {
+      state.onionContact = btn.getAttribute('data-item') || 'Consulta';
+      refreshApp('onion', true);
+      return;
+    }
+    if (action === 'onion-contact-close') { state.onionContact = ''; refreshApp('onion', true); return; }
     if (action === 'vps-restart') { handleVpsRestart(btn.getAttribute('data-server')); return; }
+    if (action === 'vps-select') {
+      state.vpsConsoleServer = btn.getAttribute('data-server') || '';
+      refreshApp('vps', true);
+      setTimeout(() => { const input = $('#vpsCommand'); if (input) input.focus(); }, 60);
+      return;
+    }
+    if (action === 'vps-clear') {
+      state.vpsConsole = [];
+      refreshApp('vps', true);
+      return;
+    }
     if (action === 'show-desktop') { minimizeAllWindows(); return; }
     if (action === 'minimize-all') { minimizeAllWindows(); closeLauncher(); return; }
     if (action === 'open-settings-appearance') {
@@ -2143,8 +3046,9 @@
       openApp('settings');
       return;
     }
-    if (action === 'bank-tab') {
-      toast('Esa sección de Bank of America estará disponible próximamente.');
+    if (action === 'google-clear') {
+      state.googleQuery = '';
+      refreshApp('google', true);
       return;
     }
   }
@@ -2190,6 +3094,21 @@
     }
     if (action === 'license-cancel') {
       state.licenseFormOpen = false;
+      refreshApp('civil', true);
+      return;
+    }
+    if (action === 'weapon-license-start') {
+      state.weaponLicenseFormOpen = true;
+      state.civilTab = 'armas';
+      refreshApp('civil', true);
+      setTimeout(() => {
+        const first = $('#weaponLicenseApplyForm select');
+        if (first) first.focus();
+      }, 60);
+      return;
+    }
+    if (action === 'weapon-license-cancel') {
+      state.weaponLicenseFormOpen = false;
       refreshApp('civil', true);
       return;
     }
@@ -2280,6 +3199,7 @@
     if (form.id === 'citizenCreateForm') { handleCreateSubmit(e); return; }
     if (form.id === 'citizenLinkForm') { handleLinkSubmit(e); return; }
     if (form.id === 'licenseApplyForm') { handleLicenseSubmit(e); return; }
+    if (form.id === 'weaponLicenseApplyForm') { handleWeaponLicenseSubmit(e); return; }
     if (form.id === 'googleForm') {
       e.preventDefault();
       const input = form.querySelector('[name="q"]');
@@ -2295,6 +3215,85 @@
     if (form.id === 'waForm') {
       e.preventDefault();
       handleWhatsappSend(form);
+      return;
+    }
+    if (form.id === 'bankTransferForm') {
+      e.preventDefault();
+      state.bankError = bankMove(String(form.elements.from.value || ''), String(form.elements.to.value || ''), form.elements.amount.value, String(form.elements.memo.value || '').trim());
+      if (!state.bankError) {
+        state.bankMessage = 'Transferencia realizada correctamente.';
+        state.bankTab = 'resumen';
+        toast('Transferencia realizada.');
+      }
+      refreshApp('bank', true);
+      return;
+    }
+    if (form.id === 'bankDepositForm') {
+      e.preventDefault();
+      state.bankError = bankDeposit(String(form.elements.account.value || ''), form.elements.amount.value, String(form.elements.source.value || '').trim());
+      if (!state.bankError) {
+        state.bankMessage = 'Depósito acreditado en tu cuenta.';
+        state.bankTab = 'resumen';
+        toast('Depósito acreditado.');
+      }
+      refreshApp('bank', true);
+      return;
+    }
+    if (form.id === 'bankPayCardForm') {
+      e.preventDefault();
+      state.bankError = bankPayCard(String(form.elements.card.value || ''), String(form.elements.account.value || ''), form.elements.amount.value);
+      if (!state.bankError) {
+        state.bankMessage = 'Pago de tarjeta registrado.';
+        state.bankTab = 'tarjetas';
+        toast('Pago de tarjeta registrado.');
+      }
+      refreshApp('bank', true);
+      return;
+    }
+    if (form.id === 'socialCommentForm') {
+      e.preventDefault();
+      handleSocialComment(form);
+      return;
+    }
+    if (form.id === 'workApplyForm') {
+      e.preventDefault();
+      handleWorkApplication(form);
+      return;
+    }
+    if (form.id === 'mlCheckoutForm') {
+      e.preventDefault();
+      handleMlCheckout(form);
+      return;
+    }
+    if (form.id === 'cryptoBuyForm') {
+      e.preventDefault();
+      state.cryptoError = cryptoBuy(String(form.elements.asset.value || ''), form.elements.amount.value);
+      if (!state.cryptoError) toast('Compra de criptomonedas realizada.');
+      refreshApp('crypto', true);
+      return;
+    }
+    if (form.id === 'cryptoSellForm') {
+      e.preventDefault();
+      state.cryptoError = cryptoSell(String(form.elements.asset.value || ''), form.elements.amount.value);
+      if (!state.cryptoError) toast('Venta acreditada en tu cuenta de cheques.');
+      refreshApp('crypto', true);
+      return;
+    }
+    if (form.id === 'cryptoSendForm') {
+      e.preventDefault();
+      state.cryptoError = cryptoSend(String(form.elements.asset.value || ''), form.elements.amount.value, form.elements.address.value);
+      if (!state.cryptoError) toast('Envío de criptomonedas registrado.');
+      refreshApp('crypto', true);
+      return;
+    }
+    if (form.id === 'onionContactForm') {
+      e.preventDefault();
+      handleOnionContactSubmit(form);
+      return;
+    }
+    if (form.id === 'vpsConsoleForm') {
+      e.preventDefault();
+      handleVpsCommand(form);
       return;
     }
     if (form.id === 'mlForm') {
@@ -2345,6 +3344,10 @@
     if (target && target.id === 'pcLauncherSearch') filterLauncher();
     if (target && target.id === 'storeSearch') filterStoreCards();
     if (target && target.id === 'filesSearch') filterFiles();
+    if (target && target.id === 'waSearch') filterWhatsappChats();
+    if (target && target.id === 'vpsCommand' && target.form && target.form.id === 'vpsConsoleForm') {
+      // La consola conserva el foco al refrescar; no hace falta nada más.
+    }
   }
 
   function onDocumentDblClick(e) {
@@ -2653,6 +3656,13 @@
       windows: Array.from(windowMap.keys()),
       activeWindow: activeWindowId,
       prefs: Object.assign({}, state.prefs),
+      bank: JSON.parse(JSON.stringify(state.bank || {})),
+      cryptoAssets: JSON.parse(JSON.stringify(state.cryptoAssets || [])),
+      cryptoTransactions: JSON.parse(JSON.stringify(state.cryptoTransactions || [])),
+      workApplications: JSON.parse(JSON.stringify(state.workApplications || [])),
+      socialComments: JSON.parse(JSON.stringify(state.socialComments || [])),
+      waChats: JSON.parse(JSON.stringify(state.waChats || [])),
+      onionContacts: JSON.parse(JSON.stringify(state.onionContacts || [])),
     }),
   };
 
@@ -2684,6 +3694,7 @@
       const tab = TABS.includes(state.civilTab) ? state.civilTab : 'resumen';
       if (tab === 'dni') body = renderDni(c);
       else if (tab === 'licencia') body = renderLicense(c);
+      else if (tab === 'armas') body = renderWeaponLicense(c);
       else if (tab === 'vehiculos') body = renderVehicles(c);
       else if (tab === 'multas') body = renderFines(c);
       else if (tab === 'ordenes') body = renderWarrants(c);
@@ -2702,6 +3713,7 @@
   function renderCivilTop(c) {
     const user = currentUser() || {};
     const info = c ? licenseInfo(c) : null;
+    const weaponInfo = c ? weaponLicenseInfo(c) : null;
     const sync = syncInfo();
     const title = c ? c.name : (user.displayName || user.username || 'Ciudadano');
     const sub = c
@@ -2711,6 +3723,7 @@
     if (c) {
       chips.push(pcChip('DNI ' + c.dni, 'ok'));
       chips.push(pcChip(info.label || 'Sin licencia', licenseTone(info.label)));
+      if (weaponInfo && weaponInfo.status !== 'none') chips.push(pcChip('Armas: ' + weaponInfo.label, licenseTone(weaponInfo.label)));
       if (c.totals && c.totals.warrants > 0) chips.push(pcChip(c.totals.warrants + ' orden' + (c.totals.warrants === 1 ? ' activa' : 'es activas'), 'red'));
       if (c.totals && c.totals.fines > 0) chips.push(pcChip(c.totals.fines + ' multa' + (c.totals.fines === 1 ? ' pendiente' : 's pendientes'), 'gold'));
     } else {
@@ -2759,7 +3772,9 @@
 
   function renderOverview(c) {
     const info = licenseInfo(c);
+    const weaponInfo = weaponLicenseInfo(c);
     const license = licenseTone(info.label);
+    const weaponTone = licenseTone(weaponInfo.label);
     const alerts = [];
     if (state.cadMissing) {
       alerts.push(banner('gold', 'DNI creado en la web',
@@ -2779,6 +3794,16 @@
             ? 'No manejes hasta regularizar tu situación. Podés volver a solicitar desde la pestaña Licencia.'
             : 'Evitá conducir hasta que se resuelva.',
         '<button class="btn btn-ghost btn-sm" type="button" data-action="go-tab" data-tab="licencia">Ver licencia</button>'));
+    }
+    if (weaponInfo.status === 'pending' || weaponInfo.status === 'rejected' || weaponTone === 'red') {
+      const pendingWeapon = weaponInfo.status === 'pending';
+      alerts.push(banner(weaponTone === 'neutral' ? 'gold' : weaponTone, pendingWeapon ? 'Licencia de armas en revisión' : 'Licencia de armas: ' + weaponInfo.label,
+        pendingWeapon
+          ? 'Un moderador está revisando tu solicitud de armas en Discord.'
+          : weaponInfo.status === 'rejected'
+            ? 'La solicitud fue rechazada. Podés revisar el motivo y volver a intentarlo.'
+            : 'Tu licencia de armas no está habilitada. Hablá con el staff.',
+        '<button class="btn btn-ghost btn-sm" type="button" data-action="go-tab" data-tab="armas">Ver armas</button>'));
     }
 
     const recentFines = (c.fines || []).slice(0, 3);
@@ -2812,6 +3837,7 @@
       '<div class="citizen-stats">' +
         statCard('DNI', c.dni, ageText(c) + ' · Identidad vinculada', 'accent') +
         statCard('Licencia', info.label || 'Sin licencia', c.license ? 'Nº ' + c.license : (info.status === 'pending' ? 'Solicitud en revisión' : 'Se solicita desde el panel'), license) +
+        statCard('Armas', weaponInfo.label || 'Sin licencia de armas', weaponInfo.number ? 'Nº ' + weaponInfo.number : (weaponInfo.status === 'pending' ? 'Solicitud en revisión' : 'Permiso de armas'), weaponTone) +
         statCard('Multas', c.totals.fines, c.totals.fines ? money(c.totals.finesAmount) : 'Sin deudas', c.totals.fines ? 'gold' : 'ok') +
         statCard('Órdenes activas', c.totals.warrants, c.totals.warrants ? 'Requiere atención' : 'Todo en orden', c.totals.warrants ? 'red' : 'ok') +
         statCard('Vehículos', c.totals.vehicles, c.totals.vehicles ? 'A tu nombre' : 'Sin vehículos', 'neutral') +
@@ -3054,6 +4080,177 @@
       extra;
   }
 
+  function renderWeaponLicenseApplicationForm() {
+    return '<article class="citizen-card citizen-license-form">' +
+      '<div class="citizen-card-head"><div><span class="eyebrow">Cuestionario</span><h3>Solicitar licencia de armas</h3></div></div>' +
+      '<p class="citizen-fine">La solicitud se envía al canal privado de moderadores en Discord. El panel no emite la licencia automáticamente.</p>' +
+      '<form class="citizen-form" id="weaponLicenseApplyForm" novalidate>' +
+        '<div class="citizen-id-grid">' +
+          '<label>Experiencia con armas de fuego' +
+            '<select name="experience" required>' +
+              '<option value="">Elegí…</option>' +
+              '<option value="Ninguna">Ninguna</option>' +
+              '<option value="Poca">Poca</option>' +
+              '<option value="Intermedia">Intermedia</option>' +
+              '<option value="Mucha">Mucha</option>' +
+            '</select>' +
+          '</label>' +
+          '<label>Tipo de licencia' +
+            '<select name="weaponType" required>' +
+              '<option value="">Elegí…</option>' +
+              '<option value="Arma corta">Arma corta (pistola / revólver)</option>' +
+              '<option value="Arma larga">Arma larga (rifle / escopeta)</option>' +
+              '<option value="Ambas">Ambas</option>' +
+            '</select>' +
+          '</label>' +
+        '</div>' +
+        '<label>Uso previsto' +
+          '<select name="purpose" required>' +
+            '<option value="">Elegí…</option>' +
+            '<option value="Defensa personal">Defensa personal</option>' +
+            '<option value="Trabajo de seguridad">Trabajo de seguridad</option>' +
+            '<option value="Deporte y tiro">Deporte y tiro</option>' +
+            '<option value="Colección">Colección</option>' +
+          '</select>' +
+        '</label>' +
+        '<label>¿Por qué querés la licencia de armas?' +
+          '<textarea name="reason" rows="4" maxlength="800" placeholder="Contanos dónde vas a guardar el arma, para qué la vas a usar y qué experiencia tenés." required></textarea>' +
+        '</label>' +
+        '<label class="citizen-check"><input type="checkbox" name="confirm" required> Confirmo que soy mayor de 21 años, que mis datos son correctos y que esta licencia es de roleplay.</label>' +
+        '<div class="citizen-form-actions">' +
+          '<button class="btn btn-primary" type="submit">Enviar solicitud a mods</button>' +
+          '<button class="btn btn-ghost" type="button" data-action="weapon-license-cancel">Cancelar</button>' +
+        '</div>' +
+        '<div class="citizen-form-msg" id="weaponLicenseApplyMsg"></div>' +
+      '</form>' +
+    '</article>';
+  }
+
+  function renderWeaponLicense(c) {
+    const info = weaponLicenseInfo(c);
+    const tone = licenseTone(info.label);
+    const approved = info.status === 'approved';
+    const pending = info.status === 'pending';
+    const rejected = info.status === 'rejected';
+    const restricted = info.status === 'suspended' || info.status === 'revoked';
+    const app = info.application || {};
+    const age = Number(c.age) || ageFromDob(c.dob) || 0;
+    const activeWarrants = (c.warrants || []).filter((w) => norm(w.status) === 'activa');
+    const ageOk = age >= 21;
+    const warrantsOk = activeWarrants.length === 0;
+    const canApply = !approved && !pending && !restricted && ageOk && warrantsOk;
+
+    const statusCard = '<article class="citizen-license citizen-weapon-license ' + tone + '">' +
+      '<div class="citizen-license-mark">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>' +
+      '</div>' +
+      '<div class="citizen-license-info">' +
+        '<span class="eyebrow">Licencia de armas · Estado actual</span>' +
+        '<h2>' + esc(info.label) + '</h2>' +
+        (approved
+          ? '<p>Nº <b class="citizen-mono">' + esc(info.number || '—') + '</b> · Vence ' + dateFmt(info.expiresAt) + '</p>'
+          : pending
+            ? '<p>Solicitud enviada ' + dateFmt(info.submittedAt) + '. Los moderadores la revisan en Discord.</p>'
+            : rejected
+              ? '<p>Motivo: ' + esc(info.rejectionReason || 'Solicitud rechazada por el staff.') + '</p>'
+              : restricted
+                ? '<p>La licencia está ' + esc(info.label.toLowerCase()) + '. Hablá con el staff para regularizarla.</p>'
+                : '<p>Todavía no tenés licencia de armas. Podés solicitar el permiso desde acá.</p>') +
+      '</div>' +
+      chip(approved ? 'Habilitada' : pending ? 'En revisión' : rejected ? 'Rechazada' : restricted ? info.label : 'Sin solicitud', tone) +
+    '</article>';
+
+    let action = '';
+    if (canApply && !state.weaponLicenseFormOpen) {
+      action = '<div class="citizen-actions">' +
+        '<button class="btn btn-primary" type="button" data-action="weapon-license-start">' +
+          (rejected ? 'Volver a solicitar' : 'Solicitar licencia de armas') +
+        '</button>' +
+      '</div>';
+    } else if (pending) {
+      action = '<div class="citizen-actions"><button class="btn btn-ghost" type="button" data-action="refresh">Actualizar estado</button></div>';
+    } else if (!approved && !restricted && (!ageOk || !warrantsOk)) {
+      action = '<div class="citizen-actions"><span class="citizen-fine">' +
+        (!ageOk ? 'Necesitás ser mayor de 21 años para solicitar la licencia de armas.' : '') +
+        (!ageOk && !warrantsOk ? ' ' : '') +
+        (!warrantsOk ? 'Tenés una orden activa. Resolvela con el staff antes de solicitar.' : '') +
+        '</span></div>';
+    }
+
+    const requirements = '<article class="citizen-card">' +
+      '<div class="citizen-card-head"><div><span class="eyebrow">Requisitos</span><h3>Antes de solicitar</h3></div></div>' +
+      '<div class="citizen-rows">' +
+        '<div><span>DNI vinculado</span><b class="citizen-ok">Sí · ' + esc(c.dni) + '</b></div>' +
+        '<div><span>Edad</span><b>' + esc(age ? age + ' años' : '—') + ' ' + chip(ageOk ? 'Cumple' : 'Menor de 21', ageOk ? 'ok' : 'red') + '</b></div>' +
+        '<div><span>Órdenes activas</span><b>' + (warrantsOk ? chip('Sin órdenes', 'ok') : chip(activeWarrants.length + ' activa' + (activeWarrants.length === 1 ? '' : 's'), 'red')) + '</b></div>' +
+        '<div><span>Revisión</span><b>Moderadores en Discord</b></div>' +
+      '</div>' +
+      '<p class="citizen-fine">La licencia es de roleplay. El mal uso del arma puede terminar en suspensión o revocación.</p>' +
+    '</article>';
+
+    let extra = '';
+    if (approved) {
+      extra = '<div class="citizen-grid-2">' +
+        '<article class="citizen-card">' +
+          '<div class="citizen-card-head"><div><span class="eyebrow">Licencia</span><h3>Datos de la licencia de armas</h3></div></div>' +
+          '<div class="citizen-rows">' +
+            '<div><span>Titular</span><b>' + esc(c.name) + '</b></div>' +
+            '<div><span>DNI</span><b class="citizen-mono">' + esc(c.dni) + '</b></div>' +
+            '<div><span>Número</span><b class="citizen-mono">' + esc(info.number || '—') + '</b></div>' +
+            '<div><span>Tipo</span><b>' + esc(app.weaponType || '—') + '</b></div>' +
+            '<div><span>Uso previsto</span><b>' + esc(app.purpose || '—') + '</b></div>' +
+            '<div><span>Emitida</span><b>' + dateFmt(info.issuedAt || info.reviewedAt) + '</b></div>' +
+            '<div><span>Vence</span><b>' + dateFmt(info.expiresAt) + '</b></div>' +
+            '<div><span>Revisada por</span><b>' + esc(info.reviewedBy || '—') + '</b></div>' +
+            '<div><span>Estado</span>' + chip(info.label, tone) + '</div>' +
+          '</div>' +
+        '</article>' +
+        '<article class="citizen-card">' +
+          '<div class="citizen-card-head"><div><span class="eyebrow">Solicitud</span><h3>Tu cuestionario</h3></div></div>' +
+          '<div class="citizen-rows">' +
+            '<div><span>Experiencia</span><b>' + esc(app.experience || '—') + '</b></div>' +
+            '<div><span>Tipo</span><b>' + esc(app.weaponType || '—') + '</b></div>' +
+            '<div><span>Uso</span><b>' + esc(app.purpose || '—') + '</b></div>' +
+            '<div><span>Motivo</span><b>' + esc(app.reason || '—') + '</b></div>' +
+          '</div>' +
+        '</article>' +
+      '</div>';
+    } else if (pending || rejected || restricted) {
+      extra = '<div class="citizen-grid-2">' +
+        '<article class="citizen-card">' +
+          '<div class="citizen-card-head"><div><span class="eyebrow">Solicitud</span><h3>Lo que enviaste</h3></div></div>' +
+          '<div class="citizen-rows">' +
+            '<div><span>Experiencia</span><b>' + esc(app.experience || '—') + '</b></div>' +
+            '<div><span>Tipo</span><b>' + esc(app.weaponType || '—') + '</b></div>' +
+            '<div><span>Uso</span><b>' + esc(app.purpose || '—') + '</b></div>' +
+            '<div><span>Enviada</span><b>' + dateFmt(info.submittedAt) + '</b></div>' +
+            '<div><span>Motivo</span><b>' + esc(app.reason || '—') + '</b></div>' +
+          '</div>' +
+        '</article>' +
+        '<article class="citizen-card">' +
+          '<div class="citizen-card-head"><div><span class="eyebrow">Mods</span><h3>Qué pasa ahora</h3></div></div>' +
+          (rejected
+            ? '<p class="citizen-notes">La solicitud fue rechazada. Corregí lo que haga falta y volvé a enviarla cuando quieras.</p>'
+            : restricted
+              ? '<p class="citizen-notes">Tu licencia de armas está ' + esc(info.label.toLowerCase()) + '. Un moderador tiene que rehabilitarla antes de que puedas volver a solicitar.</p>'
+              : '<p class="citizen-notes">Un moderador revisa tu solicitud en el canal privado de Discord. Si la aprueba, el número de licencia aparece acá automáticamente.</p>') +
+          '<p class="citizen-fine">La licencia de armas es independiente de la licencia de conducir y se guarda en tu expediente.</p>' +
+        '</article>' +
+      '</div>';
+    }
+
+    return '<div class="citizen-section-head">' +
+        '<div><span class="eyebrow">Registro Civil</span><h2>Licencia de armas</h2>' +
+        '<p>Permiso de tenencia para armas de fuego de roleplay, con revisión humana en Discord.</p></div>' +
+      '</div>' +
+      statusCard +
+      action +
+      (state.weaponLicenseFormOpen && canApply ? renderWeaponLicenseApplicationForm() : '') +
+      (approved ? '' : requirements) +
+      extra +
+      '<p class="citizen-fine citizen-print-note">Documento de roleplay. No habilita la tenencia de armas reales.</p>';
+  }
+
   function renderVehicles(c) {
     const vehicles = c.vehicles || [];
     if (!vehicles.length) {
@@ -3139,6 +4336,7 @@
 
   function renderAntecedents(c) {
     const info = licenseInfo(c);
+    const weaponInfo = weaponLicenseInfo(c);
     const fines = c.fines || [];
     const warrants = c.warrants || [];
     const timeline = [];
@@ -3172,6 +4370,7 @@
         statCard('Multas', fines.length, pendingTotal ? money(pendingTotal) + ' pendiente' : 'Sin deudas', pendingTotal ? 'gold' : 'ok') +
         statCard('Órdenes', warrants.length, warrants.filter((w) => norm(w.status) === 'activa').length ? 'Hay órdenes activas' : 'Sin órdenes activas', warrants.some((w) => norm(w.status) === 'activa') ? 'red' : 'ok') +
         statCard('Licencia', info.label || 'Sin licencia', info.number ? 'Nº ' + info.number : (info.status === 'pending' ? 'En revisión' : 'Sin emitir'), licenseTone(info.label)) +
+        statCard('Armas', weaponInfo.label || 'Sin licencia', weaponInfo.number ? 'Nº ' + weaponInfo.number : (weaponInfo.status === 'pending' ? 'En revisión' : 'Sin emitir'), licenseTone(weaponInfo.label)) +
         statCard('Vehículos', (c.vehicles || []).length, 'Registrados a tu nombre', 'neutral') +
       '</div>' +
       '<article class="citizen-card">' +
@@ -3702,6 +4901,7 @@
     if (c) {
       files.push({ id: 'dni', name: 'DNI_' + c.dni + '.pdf', type: 'PDF', folder: 'Identidad', tone: 'red', size: 248 * 1024, desc: 'Documento de identidad de California. Podés abrirlo, imprimirlo o guardarlo como PDF.', app: 'civil', tab: 'dni' });
       files.push({ id: 'licencia', name: 'Licencia_de_conducir.txt', type: 'TXT', folder: 'Licencia', tone: 'blue', size: 4.2 * 1024, desc: 'Estado y datos de tu licencia de conducir emitida desde el panel.', app: 'civil', tab: 'licencia' });
+      files.push({ id: 'licencia-armas', name: 'Licencia_de_armas.txt', type: 'TXT', folder: 'Licencia', tone: 'red', size: 4.6 * 1024, desc: 'Estado y datos de tu licencia de armas emitida desde el panel.', app: 'civil', tab: 'armas' });
       files.push({ id: 'vehiculos', name: 'Vehiculos_registrados.json', type: 'JSON', folder: 'Vehículos', tone: 'gold', size: Math.max(640, JSON.stringify(c.vehicles || []).length + 420), desc: 'Vehículos a tu nombre en el CAD, con patente, modelo y estado.', app: 'civil', tab: 'vehiculos' });
       files.push({ id: 'multas', name: 'Multas_pendientes.csv', type: 'CSV', folder: 'Multas', tone: 'green', size: Math.max(420, (c.fines || []).reduce((n, f) => n + String(f.reason || '').length + 80, 300)), desc: 'Listado de multas y deudas registradas por el CAD.', app: 'civil', tab: 'multas' });
       files.push({ id: 'ordenes', name: 'Ordenes_judiciales.txt', type: 'TXT', folder: 'Órdenes', tone: 'red', size: Math.max(380, (c.warrants || []).reduce((n, w) => n + String(w.reason || '').length + 70, 240)), desc: 'Órdenes activas e historial de órdenes judiciales.', app: 'civil', tab: 'ordenes' });
@@ -3890,67 +5090,154 @@
     '</span>';
   }
 
+  function bankTxRow(t) {
+    const positive = Number(t.amount) >= 0;
+    const icon = t.type === 'deposit' ? '↙' : t.type === 'transfer' ? '⇄' : t.type === 'card-purchase' ? '▣' : '⌁';
+    return '<div class="bofa-tx">' +
+      '<span class="bofa-tx-icon ' + (positive ? 'is-in' : 'is-out') + '">' + icon + '</span>' +
+      '<div class="bofa-tx-main"><b>' + esc(t.title || 'Movimiento') + '</b><span>' + esc(t.detail || bankAccountName(t.account)) + ' · ' + esc(dateFmt(t.ts)) + '</span></div>' +
+      '<b class="bofa-tx-amount ' + (positive ? 'is-in' : '') + '">' + (positive ? '+' : '') + money2(t.amount) + '</b>' +
+    '</div>';
+  }
+
+  function bankTabButton(id, label) {
+    return '<button type="button" class="' + (state.bankTab === id ? 'is-on' : '') + '" data-pc-action="bank-tab" data-bank-tab="' + id + '">' + label + '</button>';
+  }
+
   function renderBankApp() {
     const user = currentUser() || {};
     const c = state.citizen;
     const pending = c && c.totals ? c.totals.finesAmount || 0 : 0;
     const pendingCount = c && c.totals ? c.totals.fines || 0 : 0;
     const name = user.displayName || user.username || 'Ciudadano';
+    const total = bankTotalBalance();
+    const tab = state.bankTab || 'resumen';
+    const accountOptions = state.bank.accounts.map((a) => '<option value="' + esc(a.id) + '">' + esc(a.name) + ' •••• ' + esc(a.last4) + '</option>').join('');
+    const cardOptions = state.bank.cards.map((card) => '<option value="' + esc(card.id) + '">' + esc(card.name) + ' •••• ' + esc(card.last4) + '</option>').join('');
+    const alert = state.bankError
+      ? '<div class="pc-alert red"><b>No se pudo completar la operación</b><span>' + esc(state.bankError) + '</span></div>'
+      : state.bankMessage
+        ? '<div class="pc-alert green"><b>Listo</b><span>' + esc(state.bankMessage) + '</span></div>'
+        : '';
+
+    const summary = '<div class="bofa-layout">' +
+      '<section class="bofa-balance-card">' +
+        '<div class="bofa-balance-top"><span>Saldo total disponible</span><button type="button" data-pc-action="bank-tab" data-bank-tab="movimientos" title="Ver movimientos">•••</button></div>' +
+        '<b class="bofa-balance">' + money2(total) + '</b>' +
+        '<div class="bofa-accounts">' +
+          state.bank.accounts.map((a) => '<div><span>' + esc(a.name) + '</span><b>' + money2(a.balance) + '</b><small>•••• ' + esc(a.last4) + '</small></div>').join('') +
+        '</div>' +
+        '<div class="bofa-card-actions">' +
+          '<button type="button" data-pc-action="bank-tab" data-bank-tab="transferencias">Transferir</button>' +
+          '<button type="button" data-pc-action="bank-tab" data-bank-tab="tarjetas">Pagar tarjeta</button>' +
+          '<button type="button" data-pc-action="bank-statement">Estado de cuenta</button>' +
+        '</div>' +
+      '</section>' +
+      '<aside class="bofa-side-card">' +
+        '<span class="pc-eyebrow">CAD · La Realidad RP</span>' +
+        '<h3>Multas pendientes</h3>' +
+        '<b class="bofa-fines">' + money(pending) + '</b>' +
+        '<p>' + (pendingCount ? 'Tenés ' + pendingCount + ' multa' + (pendingCount === 1 ? '' : 's') + ' registrada' + (pendingCount === 1 ? '' : 's') + ' en el CAD. Se abonan en el juego con un oficial.' : 'No tenés multas pendientes en el CAD.') + '</p>' +
+        '<button class="pc-btn pc-btn-primary" type="button" data-pc-action="open-app" data-app="civil" data-tab="multas">Ver en Registro Civil</button>' +
+      '</aside>' +
+    '</div>' +
+    '<section class="bofa-quick">' +
+      '<button type="button" data-pc-action="bank-tab" data-bank-tab="cuentas"><span>↙</span><b>Depositar</b><small>Cheques y efectivo</small></button>' +
+      '<button type="button" data-pc-action="bank-tab" data-bank-tab="transferencias"><span>⇄</span><b>Transferir</b><small>Entre cuentas</small></button>' +
+      '<button type="button" data-pc-action="bank-tab" data-bank-tab="tarjetas"><span>⌁</span><b>Pagar</b><small>Servicios y tarjetas</small></button>' +
+      '<button type="button" data-pc-action="bank-statement"><span>▤</span><b>Estado de cuenta</b><small>Descargar CSV</small></button>' +
+    '</section>' +
+    '<div class="bofa-columns">' +
+      '<section class="bofa-panel">' +
+        '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Actividad</span><h3>Movimientos recientes</h3></div><button type="button" data-pc-action="bank-tab" data-bank-tab="movimientos">Ver todo</button></div>' +
+        (state.bank.transactions.length ? '<div class="bofa-tx-list">' + state.bank.transactions.slice(0, 5).map(bankTxRow).join('') + '</div>' : '<div class="bofa-empty"><span>▤</span><b>Sin movimientos recientes</b><p>Cuando realices una operación en la ciudad, va a aparecer acá.</p></div>') +
+      '</section>' +
+      '<section class="bofa-panel">' +
+        '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Beneficios</span><h3>Tarjetas para tu personaje</h3></div></div>' +
+        '<div class="bofa-offer"><span class="bofa-offer-card red"></span><div><b>Cash Rewards</b><span>3% en categorías seleccionadas</span></div>' + (bankCard('cash') ? '<button type="button" data-pc-action="bank-tab" data-bank-tab="tarjetas">Administrar</button>' : '<button type="button" data-pc-action="bank-apply-card" data-card-type="cash">Solicitar</button>') + '</div>' +
+        '<div class="bofa-offer"><span class="bofa-offer-card blue"></span><div><b>Travel Rewards</b><span>Sin cargos por cambio de moneda</span></div>' + (bankCard('travel') ? '<button type="button" data-pc-action="bank-tab" data-bank-tab="tarjetas">Administrar</button>' : '<button type="button" data-pc-action="bank-apply-card" data-card-type="travel">Solicitar</button>') + '</div>' +
+      '</section>' +
+    '</div>';
+
+    const accountsPage = '<section class="bofa-panel bofa-page-panel">' +
+      '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Cuentas</span><h3>Tus cuentas de roleplay</h3></div><span class="pc-muted">' + state.bank.accounts.length + ' cuentas</span></div>' +
+      '<div class="bofa-accounts-grid">' + state.bank.accounts.map((a) => '<article class="bofa-account-card"><div><span>' + esc(a.name) + '</span><b>' + money2(a.balance) + '</b><small>Cuenta •••• ' + esc(a.last4) + '</small></div><div><span class="pc-chip ok">Activa</span><button class="pc-btn pc-btn-ghost pc-btn-sm" type="button" data-pc-action="bank-tab" data-bank-tab="transferencias">Transferir</button></div></article>').join('') + '</div>' +
+      '<form class="bofa-form" id="bankDepositForm">' +
+        '<div class="bofa-form-head"><span class="pc-eyebrow">Depósito</span><h3>Acreditar fondos</h3><p>Depósito de roleplay. No se mueve dinero real.</p></div>' +
+        '<label>Cuenta<select name="account" required>' + accountOptions + '</select></label>' +
+        '<label>Monto<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></label>' +
+        '<label>Origen<select name="source"><option>Efectivo</option><option>Nómina de roleplay</option><option>Venta de vehículo</option><option>Otro ingreso</option></select></label>' +
+        '<button class="pc-btn pc-btn-primary" type="submit">Depositar</button>' +
+      '</form>' +
+      '<p class="bofa-note">Los saldos y depósitos son parte de la simulación de Bank of America en La Realidad RP.</p>' +
+    '</section>';
+
+    const transferPage = '<section class="bofa-panel bofa-page-panel">' +
+      '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Transferencias</span><h3>Mover dinero entre cuentas</h3></div><span class="pc-muted">Inmediato</span></div>' +
+      '<form class="bofa-form" id="bankTransferForm">' +
+        '<label>Desde<select name="from" required>' + accountOptions + '</select></label>' +
+        '<label>Hacia<select name="to" required>' + accountOptions + '</select></label>' +
+        '<label>Monto<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></label>' +
+        '<label>Concepto<input name="memo" type="text" maxlength="80" placeholder="Ej. Ahorro semanal"></label>' +
+        '<button class="pc-btn pc-btn-primary" type="submit">Transferir</button>' +
+      '</form>' +
+      '<div class="bofa-panel-head bofa-subhead"><div><span class="pc-eyebrow">Historial</span><h3>Transferencias recientes</h3></div></div>' +
+      (state.bank.transactions.filter((t) => t.type === 'transfer').slice(0, 10).length
+        ? '<div class="bofa-tx-list">' + state.bank.transactions.filter((t) => t.type === 'transfer').slice(0, 10).map(bankTxRow).join('') + '</div>'
+        : '<div class="bofa-empty"><span>⇄</span><b>Sin transferencias</b><p>Las transferencias entre tus cuentas aparecerán acá.</p></div>') +
+    '</section>';
+
+    const cardsPage = '<section class="bofa-panel bofa-page-panel">' +
+      '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Tarjetas</span><h3>Tus tarjetas de crédito</h3></div><span class="pc-muted">' + state.bank.cards.length + ' activas</span></div>' +
+      (state.bank.cards.length
+        ? '<div class="bofa-cards-grid">' + state.bank.cards.map((card) => '<article class="bofa-credit-card ' + esc(card.color || 'red') + '"><div class="bofa-credit-top"><span>Bank of America</span><i>VISA</i></div><b>•••• ' + esc(card.last4) + '</b><div class="bofa-credit-bottom"><span>' + esc(card.name) + '</span><span>Saldo ' + money2(card.balance) + '</span></div><small>Límite ' + money2(card.limit) + '</small></article>').join('') + '</div>'
+        : '<div class="bofa-empty"><span>▣</span><b>Sin tarjetas</b><p>Solicitá una tarjeta para usarla en tus compras de roleplay.</p></div>') +
+      '<form class="bofa-form" id="bankPayCardForm">' +
+        '<div class="bofa-form-head"><span class="pc-eyebrow">Pago</span><h3>Pagar tarjeta</h3><p>Usá el saldo de una cuenta para reducir el saldo de tu tarjeta.</p></div>' +
+        '<label>Tarjeta<select name="card" required>' + cardOptions + '</select></label>' +
+        '<label>Desde<select name="account" required>' + accountOptions + '</select></label>' +
+        '<label>Monto<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></label>' +
+        '<button class="pc-btn pc-btn-primary" type="submit">Pagar tarjeta</button>' +
+      '</form>' +
+      '<div class="bofa-offers-grid">' +
+        '<div class="bofa-offer"><span class="bofa-offer-card red"></span><div><b>Cash Rewards</b><span>3% en categorías seleccionadas</span></div>' + (bankCard('cash') ? '<span class="pc-chip ok">Activa</span>' : '<button type="button" data-pc-action="bank-apply-card" data-card-type="cash">Solicitar</button>') + '</div>' +
+        '<div class="bofa-offer"><span class="bofa-offer-card blue"></span><div><b>Travel Rewards</b><span>Sin cargos por cambio de moneda</span></div>' + (bankCard('travel') ? '<span class="pc-chip ok">Activa</span>' : '<button type="button" data-pc-action="bank-apply-card" data-card-type="travel">Solicitar</button>') + '</div>' +
+      '</div>' +
+    '</section>';
+
+    const movementsPage = '<section class="bofa-panel bofa-page-panel">' +
+      '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Actividad</span><h3>Todos los movimientos</h3></div><button type="button" data-pc-action="bank-statement">Descargar CSV</button></div>' +
+      (state.bank.transactions.length ? '<div class="bofa-tx-list">' + state.bank.transactions.slice(0, 60).map(bankTxRow).join('') + '</div>' : '<div class="bofa-empty"><span>▤</span><b>Sin movimientos</b><p>Tus operaciones van a aparecer acá.</p></div>') +
+    '</section>';
+
+    const body = tab === 'cuentas' ? accountsPage : tab === 'transferencias' ? transferPage : tab === 'tarjetas' ? cardsPage : tab === 'movimientos' ? movementsPage : summary;
+
     return '<div class="pc-bank pc-app-scroll">' +
       '<header class="bofa-header">' +
         '<div class="bofa-header-inner">' +
           bofaLogoMarkup() +
           '<nav class="bofa-nav">' +
-            '<button type="button" class="is-on">Resumen</button>' +
-            '<button type="button" data-pc-action="bank-tab">Cuentas</button>' +
-            '<button type="button" data-pc-action="bank-tab">Transferencias</button>' +
-            '<button type="button" data-pc-action="bank-tab">Tarjetas</button>' +
+            bankTabButton('resumen', 'Resumen') +
+            bankTabButton('cuentas', 'Cuentas') +
+            bankTabButton('transferencias', 'Transferencias') +
+            bankTabButton('tarjetas', 'Tarjetas') +
+            bankTabButton('movimientos', 'Movimientos') +
           '</nav>' +
           '<div class="bofa-user">' + pcAvatar('is-sm') + '<span>Hola, ' + esc(firstName(name)) + '</span></div>' +
         '</div>' +
       '</header>' +
+      '<div class="bofa-tabbar">' +
+        bankTabButton('resumen', 'Resumen') +
+        bankTabButton('cuentas', 'Cuentas') +
+        bankTabButton('transferencias', 'Transferir') +
+        bankTabButton('tarjetas', 'Tarjetas') +
+        bankTabButton('movimientos', 'Movimientos') +
+      '</div>' +
       '<div class="bofa-demo-banner"><b>Simulación de roleplay</b><span>Bank of America dentro de La Realidad RP no es un banco real.</span></div>' +
       '<main class="bofa-main">' +
-        '<div class="bofa-greeting"><div><span class="pc-eyebrow">Bank of America</span><h2>Buen día, ' + esc(firstName(name)) + '</h2><p>Este es el resumen de tus cuentas en la ciudad.</p></div><span class="bofa-secure">◈ Conexión segura</span></div>' +
-        '<div class="bofa-layout">' +
-          '<section class="bofa-balance-card">' +
-            '<div class="bofa-balance-top"><span>Saldo total disponible</span><button type="button" data-pc-action="toast" data-message="El detalle de la cuenta estará disponible próximamente.">•••</button></div>' +
-            '<b class="bofa-balance">$0.00</b>' +
-            '<div class="bofa-accounts">' +
-              '<div><span>Cuenta de cheques</span><b>$0.00</b><small>•••• 4821</small></div>' +
-              '<div><span>Ahorros</span><b>$0.00</b><small>•••• 9034</small></div>' +
-            '</div>' +
-            '<div class="bofa-card-actions">' +
-              '<button type="button" data-pc-action="toast" data-message="Transferencias disponible próximamente.">Transferir</button>' +
-              '<button type="button" data-pc-action="toast" data-message="El pago de tarjeta estará disponible próximamente.">Pagar tarjeta</button>' +
-              '<button type="button" data-pc-action="open-app" data-app="civil" data-tab="multas">Ver multas del CAD</button>' +
-            '</div>' +
-          '</section>' +
-          '<aside class="bofa-side-card">' +
-            '<span class="pc-eyebrow">CAD · La Realidad RP</span>' +
-            '<h3>Multas pendientes</h3>' +
-            '<b class="bofa-fines">' + money(pending) + '</b>' +
-            '<p>' + (pendingCount ? 'Tenés ' + pendingCount + ' multa' + (pendingCount === 1 ? '' : 's') + ' registrada' + (pendingCount === 1 ? '' : 's') + ' en el CAD. Se abonan en el juego con un oficial.' : 'No tenés multas pendientes en el CAD.') + '</p>' +
-            '<button class="pc-btn pc-btn-primary" type="button" data-pc-action="open-app" data-app="civil" data-tab="multas">Ver en Registro Civil</button>' +
-          '</aside>' +
-        '</div>' +
-        '<section class="bofa-quick">' +
-          '<button type="button" data-pc-action="toast" data-message="Depósitos disponible próximamente."><span>↙</span><b>Depositar</b><small>Cheques y efectivo</small></button>' +
-          '<button type="button" data-pc-action="toast" data-message="Transferencias disponible próximamente."><span>⇄</span><b>Transferir</b><small>Entre cuentas</small></button>' +
-          '<button type="button" data-pc-action="toast" data-message="Pago de servicios disponible próximamente."><span>⌁</span><b>Pagar</b><small>Servicios y tarjetas</small></button>' +
-          '<button type="button" data-pc-action="toast" data-message="Estado de cuenta disponible próximamente."><span>▤</span><b>Estado de cuenta</b><small>Descargar PDF</small></button>' +
-        '</section>' +
-        '<div class="bofa-columns">' +
-          '<section class="bofa-panel">' +
-            '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Actividad</span><h3>Movimientos recientes</h3></div><button type="button" data-pc-action="toast" data-message="No hay más movimientos.">Ver todo</button></div>' +
-            '<div class="bofa-empty"><span>▤</span><b>Sin movimientos recientes</b><p>Cuando realices una operación en la ciudad, va a aparecer acá.</p></div>' +
-          '</section>' +
-          '<section class="bofa-panel">' +
-            '<div class="bofa-panel-head"><div><span class="pc-eyebrow">Beneficios</span><h3>Tarjetas para tu personaje</h3></div></div>' +
-            '<div class="bofa-offer"><span class="bofa-offer-card red"></span><div><b>Cash Rewards</b><span>3% en categorías seleccionadas</span></div><button type="button" data-pc-action="toast" data-message="Solicitud de tarjeta disponible próximamente.">Solicitar</button></div>' +
-            '<div class="bofa-offer"><span class="bofa-offer-card blue"></span><div><b>Travel Rewards</b><span>Sin cargos por cambio de moneda</span></div><button type="button" data-pc-action="toast" data-message="Solicitud de tarjeta disponible próximamente.">Solicitar</button></div>' +
-          '</section>' +
-        '</div>' +
+        '<div class="bofa-greeting"><div><span class="pc-eyebrow">Bank of America</span><h2>' + (tab === 'resumen' ? 'Buen día, ' + esc(firstName(name)) : esc(tab.charAt(0).toUpperCase() + tab.slice(1))) + '</h2><p>' + (tab === 'resumen' ? 'Este es el resumen de tus cuentas en la ciudad.' : 'Administrá tus cuentas, tarjetas y movimientos de roleplay.') + '</p></div><span class="bofa-secure">◈ Conexión segura</span></div>' +
+        alert +
+        body +
       '</main>' +
       '<footer class="bofa-foot"><span>Bank of America · Simulación de roleplay</span><span>Miembro FDIC (ficticio) · Igualdad de vivienda</span></footer>' +
     '</div>';
@@ -3965,32 +5252,72 @@
     return '<span class="pc-social-avatar tone-' + esc(tone) + '">' + esc(p.initials || initials(p.name)) + '</span>';
   }
 
+  function socialFollowed(handle) {
+    return state.socialFollows.includes(String(handle || '').replace(/^@/, ''));
+  }
+
+  function socialCommentMarkup(post) {
+    if (state.socialCommentsOpen !== post.id) return '';
+    const comments = socialCommentsFor(post.id);
+    return '<section class="pc-social-comments">' +
+      '<div class="pc-social-comments-head"><b>Comentarios</b><span>' + comments.length + '</span></div>' +
+      (comments.length
+        ? '<div class="pc-social-comment-list">' + comments.map((comment) => '<div class="pc-social-comment"><span class="pc-social-avatar tone-' + esc(comment.tone || 'teal') + '">' + esc(comment.initials || initials(comment.name)) + '</span><div><div><b>' + esc(comment.name) + '</b><span>@' + esc(String(comment.handle || '').replace(/^@/, '')) + ' · ' + esc(comment.time || 'Ahora') + '</span></div><p>' + esc(comment.text) + '</p></div></div>').join('') + '</div>'
+        : '<p class="pc-social-comment-empty">Todavía no hay comentarios. Sé el primero en responder.</p>') +
+      '<form class="pc-social-comment-form" id="socialCommentForm" data-post="' + esc(post.id) + '">' +
+        pcAvatar('is-sm') +
+        '<input name="comment" type="text" maxlength="240" placeholder="Escribí un comentario…" autocomplete="off" required>' +
+        '<button class="pc-btn pc-btn-primary pc-btn-sm" type="submit">Responder</button>' +
+      '</form>' +
+    '</section>';
+  }
+
   function renderSocialPost(p) {
     const liked = state.socialLikes.includes(p.id);
     const likes = Number(p.likes || 0) + (liked ? 1 : 0);
     const img = p.image && (/^assets\//.test(p.image) ? p.image : safeUrl(p.image));
-    return '<article class="pc-social-post">' +
+    const handleKey = String(p.handle || '').replace(/^@/, '');
+    const followed = socialFollowed(handleKey);
+    const own = p.custom || (p.handle && currentUser() && p.handle === '@' + currentUser().username);
+    const confirming = state.socialDelete === p.id;
+    const deleteBox = confirming
+      ? '<div class="pc-social-delete"><div><b>¿Eliminar esta publicación?</b><span>Esta acción no se puede deshacer.</span></div><div><button type="button" class="pc-btn pc-btn-ghost pc-btn-sm" data-pc-action="social-delete-cancel">Cancelar</button><button type="button" class="pc-btn pc-btn-danger pc-btn-sm" data-pc-action="social-delete-confirm">Eliminar</button></div></div>'
+      : '';
+    return '<article class="pc-social-post" id="post-' + esc(p.id) + '">' +
       '<header class="pc-social-post-head">' + socialAvatar(p) +
-        '<div class="pc-social-post-id"><div><b>' + esc(p.name || 'Ciudadano') + '</b>' + (p.badge ? '<span class="pc-social-badge">' + esc(p.badge) + '</span>' : '') + '</div><span>@' + esc(p.handle || 'ciudadano') + ' · ' + esc(p.time || 'Ahora') + '</span></div>' +
-        '<button type="button" class="pc-social-more" data-pc-action="toast" data-message="Opciones del post disponibles próximamente.">•••</button>' +
+        '<div class="pc-social-post-id"><div><b>' + esc(p.name || 'Ciudadano') + '</b>' + (p.badge ? '<span class="pc-social-badge">' + esc(p.badge) + '</span>' : '') + '</div><span>@' + esc(handleKey || 'ciudadano') + ' · ' + esc(p.time || 'Ahora') + '</span></div>' +
+        '<div class="pc-social-post-tools">' +
+          (own ? '' : '<button type="button" class="pc-social-follow-mini ' + (followed ? 'is-followed' : '') + '" data-pc-action="social-follow" data-handle="' + esc(handleKey) + '">' + (followed ? 'Siguiendo' : 'Seguir') + '</button>') +
+          '<button type="button" class="pc-social-more" data-pc-action="' + (own ? 'social-delete' : 'social-share') + '" data-post="' + esc(p.id) + '" title="Opciones">•••</button>' +
+        '</div>' +
       '</header>' +
       '<p class="pc-social-text">' + esc(p.text || '') + '</p>' +
       (img ? '<div class="pc-social-media"><img src="' + esc(img) + '" alt="" loading="lazy"></div>' : '') +
       '<footer class="pc-social-actions">' +
         '<button type="button" class="' + (liked ? 'is-liked' : '') + '" data-pc-action="social-like" data-post="' + esc(p.id) + '"><span>♥</span>' + likes + '</button>' +
-        '<button type="button" data-pc-action="toast" data-message="Los comentarios estarán disponibles próximamente."><span>◌</span>' + esc(p.comments || 0) + '</button>' +
-        '<button type="button" data-pc-action="toast" data-message="Enlace copiado (demo)."><span>↗</span>Compartir</button>' +
+        '<button type="button" class="' + (state.socialCommentsOpen === p.id ? 'is-liked' : '') + '" data-pc-action="social-comments" data-post="' + esc(p.id) + '"><span>◌</span>' + socialCommentCount(p) + '</button>' +
+        '<button type="button" data-pc-action="social-share" data-post="' + esc(p.id) + '"><span>↗</span>Compartir</button>' +
       '</footer>' +
+      socialCommentMarkup(p) +
+      deleteBox +
     '</article>';
   }
 
   function renderSocialApp() {
     const user = currentUser() || {};
-    const posts = state.socialPosts.concat(defaultPosts());
+    const allPosts = state.socialPosts.concat(defaultPosts());
+    const posts = state.socialTab === 'following'
+      ? allPosts.filter((p) => p.custom || socialFollowed(p.handle))
+      : allPosts;
+    const accounts = [
+      { handle: 'lapd', name: 'LAPD Los Angeles', initials: 'LA', tone: 'blue' },
+      { handle: 'central911', name: 'Central 911', initials: '911', tone: 'red' },
+      { handle: 'rlstore', name: 'RLA Store', initials: 'RLA', tone: 'orange' },
+    ];
     return '<div class="pc-social pc-app-scroll">' +
       '<header class="pc-social-top">' +
         '<div class="pc-social-brand"><span class="pc-social-logo">RLA</span><div><b>RLA Social</b><span>La comunidad de Los Angeles</span></div></div>' +
-        '<nav class="pc-social-nav"><button type="button" class="is-on">Para ti</button><button type="button" data-pc-action="toast" data-message="Siguiendo estará disponible próximamente.">Siguiendo</button></nav>' +
+        '<nav class="pc-social-nav"><button type="button" class="' + (state.socialTab !== 'following' ? 'is-on' : '') + '" data-pc-action="social-tab" data-social-tab="for-you">Para ti</button><button type="button" class="' + (state.socialTab === 'following' ? 'is-on' : '') + '" data-pc-action="social-tab" data-social-tab="following">Siguiendo</button></nav>' +
         '<div class="pc-social-user">' + pcAvatar('is-sm') + '<span>@' + esc(user.username || 'ciudadano') + '</span></div>' +
       '</header>' +
       '<div class="pc-social-layout">' +
@@ -4000,18 +5327,16 @@
             '<textarea name="text" rows="2" maxlength="500" placeholder="¿Qué está pasando en la ciudad?" required></textarea>' +
             '<div class="pc-social-compose-actions"><span>Máx. 500 caracteres</span><button class="pc-btn pc-btn-primary pc-btn-sm" type="submit">Publicar</button></div>' +
           '</form>' +
-          posts.map(renderSocialPost).join('') +
+          (posts.length ? posts.map(renderSocialPost).join('') : pcEmpty('💬', 'No hay publicaciones en Siguiendo', 'Seguí cuentas oficiales para ver sus novedades acá.')) +
         '</main>' +
         '<aside class="pc-social-side">' +
           '<section class="pc-social-side-card"><span class="pc-eyebrow">Tendencias</span><h3>En Los Angeles</h3>' +
-            '<button type="button" data-pc-action="toast" data-message="Tendencia de roleplay."><b>#OperativoVespucci</b><span>248 publicaciones</span></button>' +
-            '<button type="button" data-pc-action="toast" data-message="Tendencia de roleplay."><b>#LAPD</b><span>196 publicaciones</span></button>' +
-            '<button type="button" data-pc-action="toast" data-message="Tendencia de roleplay."><b>#RLAStore</b><span>84 publicaciones</span></button>' +
+            '<button type="button" data-pc-action="toast" data-message="#OperativoVespucci · tendencia de roleplay."><b>#OperativoVespucci</b><span>248 publicaciones</span></button>' +
+            '<button type="button" data-pc-action="toast" data-message="#LAPD · tendencia de roleplay."><b>#LAPD</b><span>196 publicaciones</span></button>' +
+            '<button type="button" data-pc-action="toast" data-message="#RLAStore · tendencia de roleplay."><b>#RLAStore</b><span>84 publicaciones</span></button>' +
           '</section>' +
           '<section class="pc-social-side-card"><span class="pc-eyebrow">Cuentas oficiales</span><h3>Para seguir</h3>' +
-            '<div class="pc-social-follow"><span class="pc-social-avatar tone-blue">LA</span><div><b>LAPD Los Angeles</b><span>@lapd</span></div><button type="button" data-pc-action="toast" data-message="Ya seguís a LAPD Los Angeles.">Siguiendo</button></div>' +
-            '<div class="pc-social-follow"><span class="pc-social-avatar tone-red">911</span><div><b>Central 911</b><span>@central911</span></div><button type="button" data-pc-action="toast" data-message="Ya seguís a Central 911.">Siguiendo</button></div>' +
-            '<div class="pc-social-follow"><span class="pc-social-avatar tone-orange">RLA</span><div><b>RLA Store</b><span>@rlastore</span></div><button type="button" data-pc-action="toast" data-message="Ya seguís a RLA Store.">Siguiendo</button></div>' +
+            accounts.map((account) => '<div class="pc-social-follow"><span class="pc-social-avatar tone-' + account.tone + '">' + account.initials + '</span><div><b>' + account.name + '</b><span>@' + account.handle + '</span></div><button type="button" class="' + (socialFollowed(account.handle) ? 'is-followed' : '') + '" data-pc-action="social-follow" data-handle="' + account.handle + '">' + (socialFollowed(account.handle) ? 'Siguiendo' : 'Seguir') + '</button></div>').join('') +
           '</section>' +
           '<footer class="pc-social-side-foot">RLA Social · Roleplay · La Realidad RP</footer>' +
         '</aside>' +
@@ -4023,6 +5348,28 @@
      24) RLA WORK
      ============================================================ */
 
+  function workApplicationFor(jobId) {
+    return state.workApplications.find((a) => a.jobId === jobId) || null;
+  }
+
+  function workStatusLabel(status) {
+    return status === 'accepted' ? 'Aceptada' : status === 'rejected' ? 'Rechazada' : 'En revisión';
+  }
+
+  function renderWorkApplications() {
+    const apps = state.workApplications;
+    return '<section class="pc-work-applications">' +
+      '<div class="pc-work-applications-head"><div><span class="pc-eyebrow">Seguimiento</span><h2>Mis postulaciones</h2><p>RLA Work guarda tus postulaciones en esta PC. El staff las revisa desde Discord.</p></div><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="work-offers">Volver a las ofertas</button></div>' +
+      (apps.length
+        ? '<div class="pc-work-app-list">' + apps.map((app) => {
+            const job = defaultJobs().find((j) => j.id === app.jobId);
+            if (!job) return '';
+            return '<article class="pc-work-application"><div class="pc-job-logo tone-' + esc(job.tone) + '">' + esc(job.initials) + '</div><div class="pc-work-application-main"><div class="pc-work-application-head"><div><h3>' + esc(job.title) + '</h3><span>' + esc(job.company) + ' · ' + esc(job.location) + '</span></div>' + pcChip(workStatusLabel(app.status), app.status === 'accepted' ? 'ok' : app.status === 'rejected' ? 'red' : 'gold') + '</div><div class="pc-work-application-meta"><span>Enviada ' + esc(app.ts ? relative(app.ts) : 'anteriormente') + '</span><span>Disponibilidad: ' + esc(app.availability || 'A convenir') + '</span><span>Experiencia: ' + esc(app.experience || 'No indicada') + '</span></div><p>' + esc(app.message || '') + '</p><div class="pc-work-application-actions"><button class="pc-btn pc-btn-ghost pc-btn-sm" type="button" data-pc-action="open-url" data-url="' + esc(safeUrl(CFG.discord || '')) + '">Abrir Discord</button><button class="pc-btn pc-btn-danger pc-btn-sm" type="button" data-pc-action="work-withdraw" data-job="' + esc(job.id) + '">Retirar postulación</button></div></div></article>';
+          }).join('') + '</div>'
+        : pcEmpty('📄', 'Todavía no te postulaste', 'Elegí una vacante y completá el formulario de postulación.', '<button class="pc-btn pc-btn-primary" type="button" data-pc-action="work-offers">Ver ofertas</button>')) +
+    '</section>';
+  }
+
   function renderWorkApp() {
     const jobs = defaultJobs();
     const q = norm(state.workQuery);
@@ -4032,6 +5379,18 @@
       const qOk = !q || norm(job.title + ' ' + job.company + ' ' + job.text + ' ' + job.cat).includes(q);
       return catOk && qOk;
     });
+    const applyJob = jobs.find((job) => job.id === state.workApplyJob);
+    const applicationsView = state.workView === 'applications';
+    const applyForm = applyJob
+      ? '<section class="pc-work-apply"><div class="pc-work-apply-head"><div><span class="pc-eyebrow">Postulación</span><h3>' + esc(applyJob.title) + '</h3><p>' + esc(applyJob.company) + ' · ' + esc(applyJob.salary) + '</p></div><button type="button" class="pc-btn pc-btn-ghost pc-btn-sm" data-pc-action="work-apply-cancel">Cerrar</button></div>' +
+          '<form id="workApplyForm" data-job="' + esc(applyJob.id) + '">' +
+            '<div class="pc-form-grid"><label>Experiencia en roleplay<select name="experience" required><option value="">Elegí una opción</option><option>Sin experiencia</option><option>Menos de 1 año</option><option>1 a 2 años</option><option>Más de 2 años</option></select></label><label>Disponibilidad<input name="availability" type="text" maxlength="80" placeholder="Ej. Noches y fines de semana" required></label></div>' +
+            '<label>¿Por qué querés este puesto?<textarea name="message" rows="4" maxlength="600" minlength="20" placeholder="Contanos sobre tu personaje y tu experiencia…" required></textarea></label>' +
+            '<div class="pc-form-actions"><span class="pc-muted">La postulación queda guardada en RLA Work.</span><button class="pc-btn pc-btn-primary" type="submit">Enviar postulación</button></div>' +
+          '</form>' +
+        '</section>'
+      : '';
+
     return '<div class="pc-work pc-app-scroll">' +
       '<header class="pc-work-hero">' +
         '<div class="pc-work-brand"><span class="pc-work-logo">RLA</span><div><b>RLA Work</b><span>Empleos de Los Angeles</span></div></div>' +
@@ -4039,32 +5398,35 @@
         '<button class="pc-btn pc-btn-ghost" type="button" data-pc-action="open-url" data-url="' + esc(safeUrl(CFG.discord || '')) + '">Abrir Discord</button>' +
       '</header>' +
       '<div class="pc-work-main">' +
-        '<div class="pc-work-intro"><div><span class="pc-eyebrow">Bolsa de empleo</span><h2>Encontrá tu próximo trabajo en la ciudad.</h2><p>Policía, emergencias, comercios y empresas de roleplay. Postulate y completá el proceso con el staff en Discord.</p></div><div class="pc-work-stats"><div><b>' + jobs.length + '</b><span>Vacantes</span></div><div><b>' + state.workApplied.length + '</b><span>Postulaciones</span></div><div><b>4</b><span>Empresas</span></div></div></div>' +
-        '<div class="pc-work-categories">' + WORK_CATEGORIES.map((cat) => '<button type="button" class="' + (category === cat ? 'is-on' : '') + '" data-pc-action="work-cat" data-category="' + esc(cat) + '">' + esc(cat) + '</button>').join('') + '</div>' +
-        '<div class="pc-work-layout">' +
-          '<div class="pc-work-list">' +
-            (filtered.length ? filtered.map((job) => {
-              const applied = state.workApplied.includes(job.id);
-              return '<article class="pc-job-card">' +
-                '<div class="pc-job-logo tone-' + esc(job.tone) + '">' + esc(job.initials) + '</div>' +
-                '<div class="pc-job-main"><div class="pc-job-head"><h3>' + esc(job.title) + '</h3>' + pcChip(job.type, 'neutral') + '</div>' +
-                  '<b>' + esc(job.company) + '</b>' +
-                  '<div class="pc-job-meta"><span>⌖ ' + esc(job.location) + '</span><span>◷ ' + esc(job.type) + '</span><span>▣ ' + esc(job.salary) + '</span></div>' +
-                  '<p>' + esc(job.text) + '</p>' +
-                  '<div class="pc-job-foot"><span class="pc-job-tag">' + esc(job.cat) + '</span>' +
-                    (applied
-                      ? '<button class="pc-btn pc-btn-ghost pc-btn-sm" type="button" disabled>Postulación guardada</button>'
-                      : '<button class="pc-btn pc-btn-primary pc-btn-sm" type="button" data-pc-action="work-apply" data-job="' + esc(job.id) + '">Postularme</button>') +
-                  '</div>' +
-                '</div>' +
-              '</article>';
-            }).join('') : pcEmpty('💼', 'No encontramos empleos', 'Probá con otra búsqueda o categoría.')) +
-          '</div>' +
-          '<aside class="pc-work-side">' +
-            '<section class="pc-panel"><span class="pc-eyebrow">Cómo funciona</span><h3>Tu postulación</h3><ol class="pc-work-steps"><li><b>Elegí una vacante</b><span>Revisá requisitos, horario y salario.</span></li><li><b>Postulate desde RLA Work</b><span>Guardamos tu interés en esta PC.</span></li><li><b>Completá el proceso</b><span>El staff te contacta por Discord.</span></li></ol><button class="pc-btn pc-btn-primary" type="button" data-pc-action="open-url" data-url="' + esc(safeUrl(CFG.discord || '')) + '">Ir a Discord</button></section>' +
-            '<section class="pc-panel pc-work-tip"><span class="pc-eyebrow">Consejo</span><h3>Prepará tu personaje</h3><p>Escribí una breve historia, revisá tu DNI y asegurate de tener la licencia si el puesto requiere vehículo.</p><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="open-app" data-app="civil">Abrir Registro Civil</button></section>' +
-          '</aside>' +
-        '</div>' +
+        '<div class="pc-work-intro"><div><span class="pc-eyebrow">Bolsa de empleo</span><h2>Encontrá tu próximo trabajo en la ciudad.</h2><p>Policía, emergencias, comercios y empresas de roleplay. Postulate y completá el proceso con el staff en Discord.</p></div><div class="pc-work-stats"><div><b>' + jobs.length + '</b><span>Vacantes</span></div><div><b>' + state.workApplications.length + '</b><span>Postulaciones</span></div><div><b>4</b><span>Empresas</span></div></div></div>' +
+        (applicationsView
+          ? renderWorkApplications()
+          : '<div class="pc-work-viewbar"><div class="pc-work-categories">' + WORK_CATEGORIES.map((cat) => '<button type="button" class="' + (category === cat ? 'is-on' : '') + '" data-pc-action="work-cat" data-category="' + esc(cat) + '">' + esc(cat) + '</button>').join('') + '</div><button class="pc-btn pc-btn-ghost pc-btn-sm" type="button" data-pc-action="work-applications">Mis postulaciones · ' + state.workApplications.length + '</button></div>' +
+            applyForm +
+            '<div class="pc-work-layout">' +
+              '<div class="pc-work-list">' +
+                (filtered.length ? filtered.map((job) => {
+                  const application = workApplicationFor(job.id);
+                  return '<article class="pc-job-card' + (state.workApplyJob === job.id ? ' is-selected' : '') + '">' +
+                    '<div class="pc-job-logo tone-' + esc(job.tone) + '">' + esc(job.initials) + '</div>' +
+                    '<div class="pc-job-main"><div class="pc-job-head"><h3>' + esc(job.title) + '</h3>' + (application ? pcChip(workStatusLabel(application.status), application.status === 'accepted' ? 'ok' : 'gold') : pcChip(job.type, 'neutral')) + '</div>' +
+                      '<b>' + esc(job.company) + '</b>' +
+                      '<div class="pc-job-meta"><span>⌖ ' + esc(job.location) + '</span><span>◷ ' + esc(job.type) + '</span><span>▣ ' + esc(job.salary) + '</span></div>' +
+                      '<p>' + esc(job.text) + '</p>' +
+                      '<div class="pc-job-foot"><span class="pc-job-tag">' + esc(job.cat) + '</span>' +
+                        (application
+                          ? '<button class="pc-btn pc-btn-ghost pc-btn-sm" type="button" data-pc-action="work-applications">Ver postulación</button>'
+                          : '<button class="pc-btn pc-btn-primary pc-btn-sm" type="button" data-pc-action="work-apply" data-job="' + esc(job.id) + '">' + (state.workApplyJob === job.id ? 'Cerrar formulario' : 'Postularme') + '</button>') +
+                      '</div>' +
+                    '</div>' +
+                  '</article>';
+                }).join('') : pcEmpty('💼', 'No encontramos empleos', 'Probá con otra búsqueda o categoría.')) +
+              '</div>' +
+              '<aside class="pc-work-side">' +
+                '<section class="pc-panel"><span class="pc-eyebrow">Cómo funciona</span><h3>Tu postulación</h3><ol class="pc-work-steps"><li><b>Elegí una vacante</b><span>Revisá requisitos, horario y salario.</span></li><li><b>Postulate desde RLA Work</b><span>Completá el formulario en esta PC.</span></li><li><b>Completá el proceso</b><span>El staff te contacta por Discord.</span></li></ol><button class="pc-btn pc-btn-primary" type="button" data-pc-action="open-url" data-url="' + esc(safeUrl(CFG.discord || '')) + '">Ir a Discord</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="work-applications">Ver mis postulaciones</button></section>' +
+                '<section class="pc-panel pc-work-tip"><span class="pc-eyebrow">Consejo</span><h3>Prepará tu personaje</h3><p>Escribí una breve historia, revisá tu DNI y asegurate de tener la licencia si el puesto requiere vehículo.</p><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="open-app" data-app="civil">Abrir Registro Civil</button></section>' +
+              '</aside>' +
+            '</div>') +
       '</div>' +
       '<footer class="pc-work-foot"><span>RLA Work · Bolsa de empleo de roleplay</span><span>Las postulaciones se confirman con el staff en Discord.</span></footer>' +
     '</div>';
@@ -4111,6 +5473,10 @@
     });
     if (c && (q.includes('dni') || q.includes('identidad') || q.includes('documento'))) addCivil('dni', 'Mi DNI — ' + c.name, 'DNI ' + c.dni + ' · ' + ageText(c) + ' · California Identity Card');
     if (c && (q.includes('licencia') || q.includes('conducir'))) addCivil('licencia', 'Mi licencia — ' + licenseInfo(c).label, licenseInfo(c).number ? 'Número ' + licenseInfo(c).number + ' · vence ' + dateFmt(licenseInfo(c).expiresAt) : 'Consultá el estado y solicitá tu licencia desde el panel.');
+    if (c && (q.includes('arma') || q.includes('armas') || q.includes('portacion') || q.includes('portación'))) {
+      const wi = weaponLicenseInfo(c);
+      addCivil('armas', 'Licencia de armas — ' + wi.label, wi.number ? 'Número ' + wi.number + ' · vence ' + dateFmt(wi.expiresAt) : 'Consultá el estado y solicitá tu licencia de armas desde el panel.');
+    }
     if (c && (q.includes('multa') || q.includes('deuda'))) addCivil('multas', 'Mis multas — ' + money(c.totals.finesAmount), c.totals.fines + ' multa' + (c.totals.fines === 1 ? '' : 's') + ' pendiente' + (c.totals.fines === 1 ? '' : 's') + ' en el CAD.');
     if (c && (q.includes('vehiculo') || q.includes('auto') || q.includes('garage'))) addCivil('vehiculos', 'Mis vehículos — ' + c.totals.vehicles, c.totals.vehicles ? 'Vehículos registrados a tu nombre en el CAD.' : 'No tenés vehículos registrados.');
     if (c && (q.includes('orden') || q.includes('antecedente'))) addCivil('antecedentes', 'Mis antecedentes', 'Notas, multas y órdenes del CAD en un solo expediente.');
@@ -4184,34 +5550,73 @@
     if (box) requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
   }
 
+  function filterWhatsappChats() {
+    const input = $('#waSearch');
+    const q = norm(input ? input.value : '');
+    let visible = 0;
+    $$('.pc-wa-chat[data-wa-search]').forEach((chat) => {
+      const show = !q || String(chat.getAttribute('data-wa-search') || '').includes(q);
+      chat.hidden = !show;
+      if (show) visible += 1;
+    });
+    const empty = $('#waChatsEmpty');
+    if (empty) empty.hidden = visible > 0;
+  }
+
   function renderWhatsappApp() {
     const user = currentUser() || {};
     const chats = state.waChats || [];
     const chat = chats.find((c) => c.id === state.waChat) || null;
+    const newContacts = WA_CONTACTS;
+    const options = state.waOptions && chat
+      ? '<div class="pc-wa-options"><div class="pc-wa-options-head"><b>Opciones del chat</b><button type="button" data-pc-action="wa-options-close" aria-label="Cerrar">✕</button></div>' +
+          '<button type="button" data-pc-action="wa-mute"><span>' + (chat.muted ? '🔔' : '🔕') + '</span>' + (chat.muted ? 'Activar notificaciones' : 'Silenciar chat') + '</button>' +
+          '<button type="button" data-pc-action="wa-call"><span>☎</span>Llamada de voz</button>' +
+          '<button type="button" data-pc-action="wa-clear"><span>⌧</span>Vaciar mensajes</button>' +
+          '<button type="button" class="is-danger" data-pc-action="wa-delete"><span>⌫</span>' + (state.waDeleteConfirm ? 'Confirmar eliminación' : 'Eliminar chat') + '</button>' +
+          (state.waDeleteConfirm ? '<p class="pc-wa-delete-note">Se va a eliminar la conversación de esta PC.</p>' : '') +
+        '</div>'
+      : '';
+    const call = state.waCall && chat
+      ? '<div class="pc-wa-call"><span class="pc-wa-avatar tone-' + esc(chat.tone || 'teal') + '">' + esc(chat.initials) + '</span><b>' + esc(chat.name) + '</b><span>Llamada de voz · roleplay</span><small>La llamada dura hasta que la finalices.</small><button class="pc-btn pc-btn-danger" type="button" data-pc-action="wa-call-end">Finalizar llamada</button></div>'
+      : '';
+    const newPanel = state.waNew
+      ? '<div class="pc-wa-new"><div class="pc-wa-new-head"><div><span class="pc-eyebrow">Contactos</span><h2>Nuevo chat</h2></div><button type="button" data-pc-action="wa-new-close" aria-label="Cerrar">✕</button></div><p>Elegí un contacto de la ciudad para iniciar una conversación.</p><div class="pc-wa-new-list">' + newContacts.map((contact) => {
+          const existing = chats.some((c) => c.id === contact.id);
+          return '<button type="button" data-pc-action="wa-start" data-contact="' + esc(contact.id) + '"><span class="pc-wa-avatar tone-' + esc(contact.tone) + '">' + esc(contact.initials) + '</span><span><b>' + esc(contact.name) + '</b><small>' + esc(contact.status) + '</small></span><i>' + (existing ? 'Abrir' : '＋') + '</i></button>';
+        }).join('') + '</div></div>'
+      : '';
+
     return '<div class="pc-wa' + (chat ? ' has-chat' : '') + '">' +
       '<aside class="pc-wa-side">' +
-        '<header class="pc-wa-side-head"><div class="pc-wa-me">' + pcAvatar('is-sm') + '<b>' + esc(user.displayName || user.username || 'Ciudadano') + '</b></div><button type="button" data-pc-action="toast" data-message="Nuevo chat disponible próximamente." title="Nuevo chat">＋</button></header>' +
-        '<label class="pc-wa-search"><span>⌕</span><input type="search" placeholder="Buscar chats" aria-label="Buscar chats" disabled></label>' +
+        '<header class="pc-wa-side-head"><div class="pc-wa-me">' + pcAvatar('is-sm') + '<b>' + esc(user.displayName || user.username || 'Ciudadano') + '</b></div><button type="button" data-pc-action="wa-new" title="Nuevo chat" aria-label="Nuevo chat">＋</button></header>' +
+        '<label class="pc-wa-search"><span>⌕</span><input id="waSearch" type="search" placeholder="Buscar chats" aria-label="Buscar chats" autocomplete="off"></label>' +
         '<div class="pc-wa-chats">' +
           chats.map((c) => {
             const last = c.messages[c.messages.length - 1];
-            return '<button type="button" class="pc-wa-chat' + (chat && chat.id === c.id ? ' is-on' : '') + '" data-pc-action="wa-chat" data-chat="' + esc(c.id) + '">' +
+            return '<button type="button" class="pc-wa-chat' + (chat && chat.id === c.id ? ' is-on' : '') + '" data-pc-action="wa-chat" data-chat="' + esc(c.id) + '" data-wa-search="' + esc(norm(c.name + ' ' + (last ? last.text : ''))) + '">' +
               '<span class="pc-wa-avatar tone-' + esc(c.tone || 'teal') + '">' + esc(c.initials) + '</span>' +
-              '<span class="pc-wa-chat-main"><b>' + esc(c.name) + '</b><small>' + esc(last ? last.text : 'Sin mensajes') + '</small></span>' +
+              '<span class="pc-wa-chat-main"><b>' + esc(c.name) + (c.muted ? ' <i class="pc-wa-muted" title="Silenciado">🔕</i>' : '') + '</b><small>' + esc(last ? last.text : 'Sin mensajes') + '</small></span>' +
               '<span class="pc-wa-chat-time">' + esc(last ? last.time : '') + '</span>' +
             '</button>';
           }).join('') +
+          '<div class="pc-wa-chats-empty" id="waChatsEmpty"' + (chats.length ? ' hidden' : '') + '><b>No hay chats</b><span>Creá uno nuevo con el botón ＋.</span></div>' +
         '</div>' +
         '<footer class="pc-wa-side-foot"><span>Mensajes simulados de roleplay</span><button type="button" data-pc-action="open-url" data-url="' + esc(safeUrl(CFG.discord || '')) + '">Abrir Discord</button></footer>' +
       '</aside>' +
       '<section class="pc-wa-main">' +
+        newPanel +
         (chat
-          ? '<header class="pc-wa-head"><button type="button" class="pc-wa-back" data-pc-action="wa-back" title="Volver">←</button><span class="pc-wa-avatar tone-' + esc(chat.tone || 'teal') + '">' + esc(chat.initials) + '</span><div><b>' + esc(chat.name) + '</b><span>' + esc(chat.status || 'En línea') + '</span></div><div class="pc-wa-head-actions"><button type="button" data-pc-action="toast" data-message="Llamadas disponible próximamente." title="Llamar">☎</button><button type="button" data-pc-action="toast" data-message="Opciones del chat disponible próximamente." title="Opciones">⋮</button></div></header>' +
+          ? '<header class="pc-wa-head"><button type="button" class="pc-wa-back" data-pc-action="wa-back" title="Volver">←</button><span class="pc-wa-avatar tone-' + esc(chat.tone || 'teal') + '">' + esc(chat.initials) + '</span><div><b>' + esc(chat.name) + '</b><span>' + esc(chat.status || 'En línea') + (chat.muted ? ' · Silenciado' : '') + '</span></div><div class="pc-wa-head-actions"><button type="button" data-pc-action="wa-call" title="Llamar" aria-label="Llamar">☎</button><button type="button" data-pc-action="wa-options" title="Opciones" aria-label="Opciones">⋮</button></div></header>' +
+            options +
             '<div class="pc-wa-messages" id="pcWaMessages">' +
-              chat.messages.map((m) => '<div class="pc-wa-msg ' + (m.from === 'me' ? 'is-mine' : 'is-them') + '"><div class="pc-wa-bubble"><p>' + esc(m.text) + '</p><span>' + esc(m.time || '') + (m.from === 'me' ? ' ✓✓' : '') + '</span></div></div>').join('') +
+              (chat.messages.length
+                ? chat.messages.map((m) => '<div class="pc-wa-msg ' + (m.from === 'me' ? 'is-mine' : 'is-them') + '"><div class="pc-wa-bubble"><p>' + esc(m.text) + '</p><span>' + esc(m.time || '') + (m.from === 'me' ? ' ✓✓' : '') + '</span></div></div>').join('')
+                : '<div class="pc-wa-empty-chat"><span>💬</span><b>Chat vacío</b><p>Escribí el primer mensaje para empezar.</p></div>') +
             '</div>' +
-            '<form class="pc-wa-compose" id="waForm"><input name="message" type="text" placeholder="Escribí un mensaje…" autocomplete="off" maxlength="500" aria-label="Mensaje"><button type="submit" title="Enviar">➤</button></form>'
-          : '<div class="pc-wa-empty"><span>💬</span><h3>Seleccioná un chat</h3><p>Elegí una conversación de la izquierda para empezar.</p></div>') +
+            call +
+            '<form class="pc-wa-compose" id="waForm"><input name="message" type="text" placeholder="Escribí un mensaje…" autocomplete="off" maxlength="500" aria-label="Mensaje"><button type="submit" title="Enviar" aria-label="Enviar">➤</button></form>'
+          : '<div class="pc-wa-empty"><span>💬</span><h3>Seleccioná un chat</h3><p>Elegí una conversación de la izquierda o iniciá una nueva.</p><button class="pc-btn pc-btn-primary" type="button" data-pc-action="wa-new">Nuevo chat</button></div>') +
       '</section>' +
     '</div>';
   }
@@ -4219,6 +5624,13 @@
   /* ============================================================
      27) MERCADOLIBRE
      ============================================================ */
+
+  function mlOrderMarkup(order) {
+    return '<article class="pc-ml-order"><div class="pc-ml-order-head"><div><span class="pc-eyebrow">Pedido</span><h3>' + esc(order.id) + '</h3><span>' + esc(dateFmt(order.ts)) + ' · ' + esc(order.status || 'Preparando') + '</span></div><b>' + money2(order.total) + '</b></div>' +
+      '<div class="pc-ml-order-items">' + (order.items || []).map((item) => '<div><span>' + (item.emoji || '📦') + '</span><b>' + esc(item.title) + '</b><small>' + esc(item.qty) + ' × ' + money(item.price) + '</small></div>').join('') + '</div>' +
+      '<div class="pc-ml-order-foot"><span>Entrega: ' + esc(order.delivery || 'Envío') + ' · ' + esc(order.address || 'Retiro en tienda') + '</span><span>Pago: ' + esc(order.payment === 'checking' ? 'Bank of America · cheques' : 'Tarjeta de crédito') + '</span></div>' +
+    '</article>';
+  }
 
   function renderMercadoApp() {
     const products = defaultMlProducts();
@@ -4230,35 +5642,58 @@
       return catOk && qOk;
     });
     const cartCount = state.mlCart.reduce((n, i) => n + i.qty, 0);
-    const cartTotal = state.mlCart.reduce((sum, i) => {
-      const p = products.find((x) => x.id === i.id);
-      return sum + (p ? p.price * i.qty : 0);
-    }, 0);
+    const cartTotal = mlCartTotal();
     const user = currentUser() || {};
+    const checking = bankAccount('checking');
+    const cards = state.bank && state.bank.cards ? state.bank.cards : [];
+    const successOrder = state.mlOrderSuccess ? state.mlOrders.find((o) => o.id === state.mlOrderSuccess) : null;
+    const error = state.mlError ? '<div class="pc-alert red"><b>No se pudo completar el pedido</b><span>' + esc(state.mlError) + '</span></div>' : '';
+    const cardOptions = cards.map((card) => '<option value="' + esc(card.id) + '">' + esc(card.name) + ' •••• ' + esc(card.last4) + ' · disponible ' + money2(Math.max(0, Number(card.limit || 0) - Number(card.balance || 0))) + '</option>').join('');
 
     let body = '';
-    if (state.mlCartOpen) {
+    if (successOrder) {
+      body = '<div class="pc-ml-success"><span class="pc-ml-success-icon">✓</span><span class="pc-eyebrow">Compra confirmada</span><h2>¡Gracias por tu compra!</h2><p>Tu pedido <b>' + esc(successOrder.id) + '</b> quedó registrado. El pago se descontó de Bank of America.</p><div class="pc-ml-success-summary"><div><span>Total</span><b>' + money2(successOrder.total) + '</b></div><div><span>Entrega</span><b>' + esc(successOrder.delivery || 'Envío') + '</b></div><div><span>Estado</span><b>' + esc(successOrder.status) + '</b></div></div><div class="pc-form-actions"><button class="pc-btn pc-btn-primary" type="button" data-pc-action="ml-orders">Ver mis pedidos</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="ml-back-store">Seguir comprando</button></div></div>';
+    } else if (state.mlOrdersOpen) {
+      body = '<div class="pc-ml-cart-head"><div><span class="pc-eyebrow">Historial</span><h2>Mis pedidos</h2></div><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="ml-back-store">Volver a la tienda</button></div>' +
+        (state.mlOrders.length ? '<div class="pc-ml-orders">' + state.mlOrders.map(mlOrderMarkup).join('') + '</div>' : pcEmpty('📦', 'Todavía no hiciste pedidos', 'Cuando compres en MercadoLibre, tus pedidos van a aparecer acá.', '<button class="pc-btn pc-btn-primary" type="button" data-pc-action="ml-back-store">Explorar productos</button>'));
+    } else if (state.mlCheckout) {
+      body = '<div class="pc-ml-cart-head"><div><span class="pc-eyebrow">Checkout</span><h2>Finalizar compra</h2></div><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="ml-cart">Volver al carrito</button></div>' +
+        error +
+        '<div class="pc-ml-checkout-layout"><form class="pc-ml-checkout-form" id="mlCheckoutForm">' +
+          '<div class="pc-ml-checkout-block"><span class="pc-eyebrow">Entrega</span><h3>¿Dónde lo enviamos?</h3><label>Método<select name="delivery"><option>Envío</option><option>Retiro en tienda</option></select></label><label>Dirección o punto de retiro<input name="address" type="text" maxlength="120" placeholder="Ej. 1420 Mission Row Ave, Los Angeles" required></label></div>' +
+          '<div class="pc-ml-checkout-block"><span class="pc-eyebrow">Pago</span><h3>Método de pago</h3><label>Cuenta<select name="payment"><option value="checking">Bank of America · Cheques •••• ' + esc(checking ? checking.last4 : '----') + ' · ' + money2(checking ? checking.balance : 0) + '</option>' + cardOptions + '</select></label><p class="pc-ml-pay-note">Los pagos son simulados y se descuentan de tu banca de roleplay.</p></div>' +
+          '<button class="pc-btn pc-btn-primary" type="submit">Pagar ' + money2(cartTotal) + '</button>' +
+        '</form>' +
+        '<aside class="pc-ml-checkout-summary"><span class="pc-eyebrow">Resumen</span><h3>Tu pedido</h3>' + state.mlCart.map((item) => {
+          const p = products.find((x) => x.id === item.id);
+          return p ? '<div class="pc-ml-checkout-row"><span>' + p.emoji + '</span><div><b>' + esc(p.title) + '</b><small>' + item.qty + ' × ' + money(p.price) + '</small></div><b>' + money(p.price * item.qty) + '</b></div>' : '';
+        }).join('') + '<div class="pc-ml-cart-total"><span>Total</span><b>' + money2(cartTotal) + '</b></div><small class="pc-ml-disclaimer">Compra simulada de roleplay. No se procesan pagos reales.</small></aside></div>';
+    } else if (state.mlCartOpen) {
       body = '<div class="pc-ml-cart-page"><div class="pc-ml-cart-head"><div><span class="pc-eyebrow">Tu compra</span><h2>Carrito</h2></div><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="ml-cart">Seguir comprando</button></div>' +
+        error +
         (state.mlCart.length
           ? '<div class="pc-ml-cart-list">' + state.mlCart.map((item) => {
               const p = products.find((x) => x.id === item.id);
               if (!p) return '';
-              return '<div class="pc-ml-cart-row"><span class="pc-ml-prod-art">' + p.emoji + '</span><div><b>' + esc(p.title) + '</b><span>' + esc(p.shipping) + ' · ' + item.qty + ' unidad' + (item.qty === 1 ? '' : 'es') + '</span></div><b>' + money(p.price * item.qty) + '</b><button type="button" data-pc-action="ml-remove" data-product="' + esc(p.id) + '" title="Quitar">✕</button></div>';
+              return '<div class="pc-ml-cart-row"><span class="pc-ml-prod-art">' + p.emoji + '</span><div class="pc-ml-cart-info"><b>' + esc(p.title) + '</b><span>' + esc(p.shipping) + '</span><div class="pc-ml-qty"><button type="button" data-pc-action="ml-dec" data-product="' + esc(p.id) + '" aria-label="Quitar una unidad">−</button><b>' + item.qty + '</b><button type="button" data-pc-action="ml-inc" data-product="' + esc(p.id) + '" aria-label="Agregar una unidad">＋</button></div></div><b>' + money(p.price * item.qty) + '</b><button type="button" class="pc-ml-remove" data-pc-action="ml-remove" data-product="' + esc(p.id) + '" title="Quitar">✕</button></div>';
             }).join('') + '</div>' +
-            '<div class="pc-ml-cart-summary"><div><span>Productos</span><b>' + money(cartTotal) + '</b></div><div><span>Envío</span><b class="pc-ok-text">Gratis</b></div><div class="pc-ml-cart-total"><span>Total</span><b>' + money(cartTotal) + '</b></div><button class="pc-btn pc-btn-primary" type="button" data-pc-action="ml-checkout">Finalizar compra</button></div>'
+            '<div class="pc-ml-cart-summary"><div><span>Productos</span><b>' + money(cartTotal) + '</b></div><div><span>Envío</span><b class="pc-ok-text">Gratis</b></div><div class="pc-ml-cart-total"><span>Total</span><b>' + money(cartTotal) + '</b></div><button class="pc-btn pc-btn-primary" type="button" data-pc-action="ml-checkout-open">Finalizar compra</button></div>'
           : pcEmpty('🛒', 'Tu carrito está vacío', 'Agregá productos desde el catálogo.', '<button class="pc-btn pc-btn-primary" type="button" data-pc-action="ml-cart">Ver productos</button>')) +
         '<p class="pc-ml-disclaimer">Compra simulada de roleplay. No se procesan pagos reales.</p></div>';
     } else {
       body = '<div class="pc-ml-banner"><div><span class="pc-eyebrow">Ofertas de la ciudad</span><h2>Todo lo que necesitás para tu personaje.</h2><p>Tecnología, repuestos, uniformes y más. Envíos simulados en Los Angeles.</p></div><span class="pc-ml-banner-art">🛍️</span></div>' +
+        error +
         '<div class="pc-ml-categories">' + ML_CATEGORIES.map((c) => '<button type="button" class="' + (cat === c ? 'is-on' : '') + '" data-pc-action="ml-cat" data-category="' + esc(c) + '">' + esc(c === 'todas' ? 'Todas' : c) + '</button>').join('') + '</div>' +
         '<div class="pc-ml-section-head"><div><span class="pc-eyebrow">Catálogo</span><h3>' + (q ? 'Resultados para “' + esc(state.mlQuery) + '”' : 'Productos destacados') + '</h3></div><span class="pc-muted">' + filtered.length + ' productos</span></div>' +
-        (filtered.length ? '<div class="pc-ml-grid">' + filtered.map((p) =>
-          '<article class="pc-ml-card">' +
-            '<div class="pc-ml-prod-art">' + p.emoji + (p.tag ? '<span class="pc-ml-tag">' + esc(p.tag) + '</span>' : '') + '</div>' +
+        (filtered.length ? '<div class="pc-ml-grid">' + filtered.map((p) => {
+          const inCart = state.mlCart.find((item) => item.id === p.id);
+          return '<article class="pc-ml-card">' +
+            '<div class="pc-ml-prod-art">' + p.emoji + (p.tag ? '<span class="pc-ml-tag">' + esc(p.tag) + '</span>' : '') + (inCart ? '<span class="pc-ml-in-cart">' + inCart.qty + ' en carrito</span>' : '') + '</div>' +
             '<div class="pc-ml-card-body"><span class="pc-ml-cat">' + esc(p.cat) + '</span><h3>' + esc(p.title) + '</h3><div class="pc-ml-rating">★ ' + esc(String(p.rating)) + ' <span>·</span> ' + esc(p.shipping) + '</div><b class="pc-ml-price">' + money(p.price) + '</b>' +
-              '<button class="pc-btn pc-btn-primary pc-btn-sm" type="button" data-pc-action="ml-add" data-product="' + esc(p.id) + '">Agregar al carrito</button>' +
+              '<button class="pc-btn pc-btn-primary pc-btn-sm" type="button" data-pc-action="ml-add" data-product="' + esc(p.id) + '">' + (inCart ? 'Agregar otra unidad' : 'Agregar al carrito') + '</button>' +
             '</div>' +
-          '</article>').join('') + '</div>'
+          '</article>';
+        }).join('') + '</div>'
           : pcEmpty('🔎', 'No encontramos productos', 'Probá con otra búsqueda o categoría.')) +
         '<p class="pc-ml-disclaimer">MercadoLibre es una simulación de roleplay. No se procesan pagos reales.</p>';
     }
@@ -4267,7 +5702,7 @@
       '<header class="pc-ml-top">' +
         '<div class="pc-ml-logo"><span>Mercado</span><b>Libre</b></div>' +
         '<form class="pc-ml-search" id="mlForm"><input name="q" type="search" value="' + esc(state.mlQuery) + '" placeholder="Buscar productos, marcas y más…" aria-label="Buscar productos"><button type="submit" aria-label="Buscar">⌕</button></form>' +
-        '<div class="pc-ml-top-actions"><button type="button" class="pc-ml-cart-btn" data-pc-action="ml-cart" title="Carrito">🛒<i>' + cartCount + '</i></button><span class="pc-ml-user">' + pcAvatar('is-sm') + '<b>' + esc(firstName(user.displayName || user.username || 'Ciudadano')) + '</b></span></div>' +
+        '<div class="pc-ml-top-actions"><button type="button" class="pc-ml-orders-btn" data-pc-action="ml-orders" title="Mis pedidos">Pedidos</button><button type="button" class="pc-ml-cart-btn" data-pc-action="ml-cart" title="Carrito">🛒<i>' + cartCount + '</i></button><span class="pc-ml-user">' + pcAvatar('is-sm') + '<b>' + esc(firstName(user.displayName || user.username || 'Ciudadano')) + '</b></span></div>' +
       '</header>' +
       '<main class="pc-ml-main">' + body + '</main>' +
       '<footer class="pc-ml-foot"><span>MercadoLibre · Simulación de roleplay</span><span>Los Angeles, California</span></footer>' +
@@ -4281,6 +5716,13 @@
   function renderOnionApp() {
     const site = ONION_SITES[state.onionSite] || ONION_SITES.home;
     const address = state.onionSite === 'home' ? 'onion://home' : 'onion://' + state.onionSite;
+    const contactPanel = state.onionContact
+      ? '<section class="pc-onion-contact"><div class="pc-onion-contact-head"><div><span class="pc-eyebrow">Mensaje privado</span><h3>Contactar por ' + esc(state.onionContact) + '</h3></div><button type="button" data-pc-action="onion-contact-close" aria-label="Cerrar">✕</button></div>' +
+          '<form id="onionContactForm" data-item="' + esc(state.onionContact) + '" data-seller="Vendedor anónimo"><label>Tu mensaje<textarea name="message" rows="4" minlength="10" maxlength="500" placeholder="Escribí una oferta o consulta para el vendedor…" required></textarea></label><div class="pc-form-actions"><span class="pc-muted">El vendedor recibe el mensaje de forma anónima en esta simulación.</span><button class="pc-btn pc-btn-primary" type="submit">Enviar mensaje</button></div></form></section>'
+      : '';
+    const sent = state.onionSite === 'mercado' && state.onionContacts.length
+      ? '<section class="pc-onion-sent"><span class="pc-eyebrow">Mensajes enviados</span>' + state.onionContacts.slice(0, 4).map((contact) => '<div><b>' + esc(contact.item) + '</b><span>' + esc(contact.message) + '</span><small>' + esc(relative(contact.ts)) + ' · ' + esc(contact.seller) + '</small></div>').join('') + '</section>'
+      : '';
     return '<div class="pc-onion">' +
       '<div class="pc-onion-browser">' +
         '<div class="pc-onion-dots"><i></i><i></i><i></i></div>' +
@@ -4292,7 +5734,9 @@
         '<div class="pc-onion-warn"><b>Red Onion simulada</b><span>Este navegador es parte de La Realidad RP. No accede a la dark web real.</span></div>' +
         '<header class="pc-onion-head"><span class="pc-onion-mark">◉</span><div><span class="pc-eyebrow">' + esc(site.kicker) + '</span><h2>' + esc(site.title) + '</h2></div></header>' +
         (state.onionError ? '<div class="pc-alert red"><b>No se pudo resolver el sitio</b><span>' + esc(state.onionError) + '</span></div>' : '') +
+        contactPanel +
         '<div class="pc-onion-body">' + site.body + '</div>' +
+        sent +
         '<footer class="pc-onion-foot"><span>onion:// · Navegación privada de roleplay</span><span>Sin rastreo · Sin cookies reales</span></footer>' +
       '</div>' +
     '</div>';
@@ -4305,26 +5749,27 @@
   function renderVpsApp() {
     const servers = state.vpsServers || [];
     const online = servers.filter((s) => s.status === 'online').length;
+    const selected = servers.find((s) => s.id === state.vpsConsoleServer) || null;
     return '<div class="pc-vps pc-app-scroll">' +
-      '<header class="pc-vps-head"><div><span class="pc-eyebrow">RLA Systems · Infraestructura</span><h2>VPS Manager</h2><p>Monitoreo de los servidores de la ciudad. Datos de demostración.</p></div><div class="pc-vps-head-actions"><span class="pc-status-pill"><i class="pc-status-dot ok"></i>' + online + '/' + servers.length + ' en línea</span><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="open-app" data-app="entornos">Ver Entornos</button></div></header>' +
+      '<header class="pc-vps-head"><div><span class="pc-eyebrow">RLA Systems · Infraestructura</span><h2>VPS Manager</h2><p>Monitoreo y consola de los servidores de roleplay de la ciudad.</p></div><div class="pc-vps-head-actions"><span class="pc-status-pill"><i class="pc-status-dot ok"></i>' + online + '/' + servers.length + ' en línea</span><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="open-app" data-app="entornos">Ver Entornos</button></div></header>' +
       '<div class="pc-vps-grid">' +
         servers.map((s) => {
           const tone = s.status === 'online' ? 'ok' : (s.status === 'restarting' ? 'gold' : 'red');
-          return '<article class="pc-vps-card ' + tone + '">' +
+          return '<article class="pc-vps-card ' + tone + (s.id === state.vpsConsoleServer ? ' is-selected' : '') + '">' +
             '<div class="pc-vps-card-head"><div><span class="pc-vps-prompt">$</span><b>' + esc(s.name) + '</b><small>' + esc(s.role) + '</small></div><span class="pc-vps-status"><i class="pc-status-dot ' + tone + '"></i>' + esc(s.status === 'online' ? 'Online' : s.status === 'restarting' ? 'Reiniciando' : 'Offline') + '</span></div>' +
             '<div class="pc-vps-metrics">' +
               '<div><span>CPU <b>' + s.cpu + '%</b></span><i><em style="width:' + clamp(s.cpu, 0, 100) + '%"></em></i></div>' +
               '<div><span>RAM <b>' + s.ram + '%</b></span><i><em style="width:' + clamp(s.ram, 0, 100) + '%"></em></i></div>' +
               '<div><span>Disco <b>' + s.disk + '%</b></span><i><em style="width:' + clamp(s.disk, 0, 100) + '%"></em></i></div>' +
             '</div>' +
-            '<div class="pc-vps-foot"><span>' + esc(s.uptime) + ' uptime · ' + esc(s.ping) + ' ms</span><div><button type="button" data-pc-action="vps-restart" data-server="' + esc(s.id) + '" ' + (s.status === 'restarting' ? 'disabled' : '') + '>Reiniciar</button><button type="button" data-pc-action="toast" data-message="La consola de ' + esc(s.name) + ' estará disponible próximamente.">Consola</button></div></div>' +
+            '<div class="pc-vps-foot"><span>' + esc(s.uptime) + ' uptime · ' + esc(s.ping) + ' ms</span><div><button type="button" data-pc-action="vps-restart" data-server="' + esc(s.id) + '" ' + (s.status === 'restarting' ? 'disabled' : '') + '>Reiniciar</button><button type="button" data-pc-action="vps-select" data-server="' + esc(s.id) + '">Consola</button></div></div>' +
           '</article>';
         }).join('') +
       '</div>' +
-      '<section class="pc-vps-console"><div class="pc-vps-console-head"><span class="pc-vps-dots"><i></i><i></i><i></i></span><b>rla-systems — logs</b><button type="button" data-pc-action="toast" data-message="Consola interactiva disponible próximamente.">Abrir consola</button></div><div class="pc-vps-lines">' +
-        (state.vpsConsole || []).slice(-8).map((line) => '<p class="' + (line.includes('[OK]') ? 'ok' : line.includes('[INFO]') ? 'info' : '') + '">' + esc(line) + '</p>').join('') +
-      '</div></section>' +
-      '<footer class="pc-vps-foot-note">Los servidores y las métricas son de demostración para el roleplay. No representan infraestructura real.</footer>' +
+      '<section class="pc-vps-console"><div class="pc-vps-console-head"><span class="pc-vps-dots"><i></i><i></i><i></i></span><b>rla-systems — terminal</b><span class="pc-vps-selected">' + esc(selected ? selected.name : 'manager') + '</span><button type="button" data-pc-action="vps-clear">Limpiar</button></div><div class="pc-vps-lines" id="vpsLines">' +
+        (state.vpsConsole || []).slice(-16).map((line) => '<p class="' + (line.includes('[ERROR]') ? 'error' : line.includes('[OK]') ? 'ok' : line.includes('[INFO]') ? 'info' : line.indexOf('$ ') === 0 ? 'cmd' : '') + '">' + esc(line) + '</p>').join('') +
+      '</div><form class="pc-vps-command" id="vpsConsoleForm"><span>rla@manager:~$</span><input id="vpsCommand" name="command" type="text" autocomplete="off" spellcheck="false" placeholder="Escribí help, status o restart web…" aria-label="Comando de consola"><button type="submit">Ejecutar</button></form><p class="pc-vps-help">Comandos: help · status · select web · restart bot · logs · ping · clear</p></section>' +
+      '<footer class="pc-vps-foot-note">Los servidores, métricas y comandos son de demostración para el roleplay. No representan infraestructura real.</footer>' +
     '</div>';
   }
 
@@ -4332,19 +5777,46 @@
      30) CRYPTO WALLET
      ============================================================ */
 
+  function cryptoTxLabel(type) {
+    return type === 'buy' ? 'Compra' : type === 'sell' ? 'Venta' : type === 'send' ? 'Envío' : 'Recibido';
+  }
+
+  function cryptoTxRow(tx) {
+    const direction = tx.type === 'buy' || tx.type === 'receive' ? 'is-in' : 'is-out';
+    return '<div class="pc-crypto-tx"><span class="pc-crypto-tx-icon ' + direction + '">' + (tx.type === 'buy' ? '↙' : tx.type === 'sell' ? '↗' : tx.type === 'send' ? '↗' : '↙') + '</span><div><b>' + cryptoTxLabel(tx.type) + ' · ' + esc(tx.ticker) + '</b><span>' + esc(tx.note || 'RLA Wallet') + ' · ' + esc(relative(tx.ts)) + '</span></div><div class="pc-crypto-tx-amount"><b>' + (tx.type === 'send' || tx.type === 'sell' ? '−' : '+') + units(tx.units, 6) + ' ' + esc(tx.ticker) + '</b><span>' + money2(tx.usd) + '</span></div></div>';
+  }
+
   function renderCryptoApp() {
     const assets = state.cryptoAssets || [];
-    const total = assets.reduce((sum, a) => sum + (a.price * a.balance), 0);
+    const total = cryptoTotal();
+    const checking = bankAccount('checking');
+    const error = state.cryptoError ? '<div class="pc-alert red"><b>No se pudo completar la operación</b><span>' + esc(state.cryptoError) + '</span></div>' : '';
+    const options = assets.map((a) => '<option value="' + esc(a.id) + '">' + esc(a.name) + ' (' + esc(a.ticker) + ') · ' + money2(a.price) + ' · tenés ' + units(a.balance, 6) + '</option>').join('');
+    let panel = '';
+    if (state.cryptoAction === 'receive') {
+      panel = '<section class="pc-crypto-panel"><div class="pc-crypto-panel-head"><div><span class="pc-eyebrow">Recibir</span><h3>Tu dirección RLA Wallet</h3></div><button type="button" data-pc-action="crypto-close" aria-label="Cerrar">✕</button></div><p>Compartí esta dirección para recibir criptomonedas de roleplay. No es una dirección real.</p><div class="pc-crypto-address-box"><code>' + esc(state.cryptoAddress) + '</code><button class="pc-btn pc-btn-primary pc-btn-sm" type="button" data-pc-action="crypto-copy">Copiar</button></div><small>Red: RLA Chain (simulada) · Solo para roleplay</small></section>';
+    } else if (state.cryptoAction === 'buy') {
+      panel = '<section class="pc-crypto-panel"><div class="pc-crypto-panel-head"><div><span class="pc-eyebrow">Comprar</span><h3>Comprar criptomonedas</h3></div><button type="button" data-pc-action="crypto-close" aria-label="Cerrar">✕</button></div><p>El monto se descuenta de tu cuenta de cheques de Bank of America: <b>' + money2(checking ? checking.balance : 0) + '</b>.</p><form id="cryptoBuyForm" class="pc-crypto-form"><label>Moneda<select name="asset" required>' + options + '</select></label><label>Monto en USD<input name="amount" type="number" min="0.01" step="0.01" placeholder="250.00" required></label><button class="pc-btn pc-btn-primary" type="submit">Comprar</button></form></section>';
+    } else if (state.cryptoAction === 'sell') {
+      panel = '<section class="pc-crypto-panel"><div class="pc-crypto-panel-head"><div><span class="pc-eyebrow">Vender</span><h3>Vender criptomonedas</h3></div><button type="button" data-pc-action="crypto-close" aria-label="Cerrar">✕</button></div><p>La venta acredita el saldo en tu cuenta de cheques de Bank of America.</p><form id="cryptoSellForm" class="pc-crypto-form"><label>Moneda<select name="asset" required>' + options + '</select></label><label>Cantidad<input name="amount" type="number" min="0.00000001" step="0.00000001" placeholder="0.001" required></label><button class="pc-btn pc-btn-primary" type="submit">Vender</button></form></section>';
+    } else if (state.cryptoAction === 'send') {
+      panel = '<section class="pc-crypto-panel"><div class="pc-crypto-panel-head"><div><span class="pc-eyebrow">Enviar</span><h3>Enviar criptomonedas</h3></div><button type="button" data-pc-action="crypto-close" aria-label="Cerrar">✕</button></div><p>Los envíos son simulados y quedan registrados en tu historial.</p><form id="cryptoSendForm" class="pc-crypto-form"><label>Moneda<select name="asset" required>' + options + '</select></label><label>Cantidad<input name="amount" type="number" min="0.00000001" step="0.00000001" placeholder="0.001" required></label><label>Dirección de destino<input name="address" type="text" minlength="8" maxlength="80" placeholder="rla1q…" required></label><button class="pc-btn pc-btn-primary" type="submit">Enviar</button></form></section>';
+    } else if (state.cryptoAction === 'history') {
+      panel = '<section class="pc-crypto-panel"><div class="pc-crypto-panel-head"><div><span class="pc-eyebrow">Historial</span><h3>Todos los movimientos</h3></div><button type="button" data-pc-action="crypto-close" aria-label="Cerrar">✕</button></div>' + (state.cryptoTransactions.length ? '<div class="pc-crypto-tx-list">' + state.cryptoTransactions.map(cryptoTxRow).join('') + '</div>' : '<div class="pc-crypto-empty"><span>◈</span><b>Sin movimientos</b><p>Tus operaciones van a aparecer acá.</p></div>') + '</section>';
+    }
     return '<div class="pc-crypto pc-app-scroll">' +
-      '<header class="pc-crypto-head"><div class="pc-crypto-brand"><span class="pc-crypto-mark">◈</span><div><b>RLA Wallet</b><span>Billetera de roleplay</span></div></div><div class="pc-crypto-head-right"><span class="pc-crypto-address">rla1q…7k9d</span>' + pcAvatar('is-sm') + '</div></header>' +
-      '<section class="pc-crypto-portfolio"><div><span class="pc-eyebrow">Portafolio total</span><b>' + money(total) + '</b><p>Saldo disponible en tu billetera de roleplay.</p></div><div class="pc-crypto-actions"><button class="pc-btn pc-btn-primary" type="button" data-pc-action="crypto-toast" data-message="Recibir criptomonedas estará disponible próximamente.">Recibir</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-toast" data-message="Enviar criptomonedas estará disponible próximamente.">Enviar</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-toast" data-message="Comprar criptomonedas estará disponible próximamente.">Comprar</button></div></section>' +
+      '<header class="pc-crypto-head"><div class="pc-crypto-brand"><span class="pc-crypto-mark">◈</span><div><b>RLA Wallet</b><span>Billetera de roleplay</span></div></div><div class="pc-crypto-head-right"><button type="button" class="pc-crypto-address" data-pc-action="crypto-action" data-crypto-action="receive" title="Copiar dirección">' + esc(state.cryptoAddress.slice(0, 8)) + '…' + esc(state.cryptoAddress.slice(-4)) + '</button><button type="button" class="pc-crypto-refresh" data-pc-action="crypto-refresh" title="Actualizar precios">↻</button>' + pcAvatar('is-sm') + '</div></header>' +
+      '<section class="pc-crypto-portfolio"><div><span class="pc-eyebrow">Portafolio total</span><b>' + money2(total) + '</b><p>Saldo disponible en tu billetera de roleplay.</p></div><div class="pc-crypto-actions"><button class="pc-btn pc-btn-primary" type="button" data-pc-action="crypto-action" data-crypto-action="receive">Recibir</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-action" data-crypto-action="send">Enviar</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-action" data-crypto-action="buy">Comprar</button><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-action" data-crypto-action="sell">Vender</button></div></section>' +
+      error + panel +
       '<div class="pc-crypto-grid">' +
         '<section class="pc-panel"><div class="pc-panel-head"><div><span class="pc-eyebrow">Activos</span><h3>Tus monedas</h3></div><span class="pc-muted">Precios de demostración</span></div>' +
-          '<div class="pc-crypto-assets">' + assets.map((a) => '<div class="pc-crypto-asset"><span class="pc-crypto-coin tone-' + esc(a.tone) + '">' + esc(a.ticker.slice(0, 1)) + '</span><div><b>' + esc(a.name) + '</b><span>' + esc(a.ticker) + ' · ' + a.balance + ' ' + esc(a.ticker) + '</span></div><div class="pc-crypto-price"><b>' + money(a.price) + '</b><span class="' + (String(a.change).startsWith('-') ? 'pc-down' : 'pc-up') + '">' + esc(a.change) + '</span></div></div>').join('') + '</div>' +
+          '<div class="pc-crypto-assets">' + assets.map((a) => '<div class="pc-crypto-asset"><span class="pc-crypto-coin tone-' + esc(a.tone) + '">' + esc(a.ticker.slice(0, 1)) + '</span><div><b>' + esc(a.name) + '</b><span>' + esc(a.ticker) + ' · ' + units(a.balance, 6) + ' ' + esc(a.ticker) + '</span></div><div class="pc-crypto-price"><b>' + money2(a.price) + '</b><span>' + money2(Number(a.price) * Number(a.balance)) + '</span><small class="' + (String(a.change).startsWith('-') ? 'pc-down' : 'pc-up') + '">' + esc(a.change) + '</small></div></div>').join('') + '</div>' +
         '</section>' +
-        '<section class="pc-panel"><div class="pc-panel-head"><div><span class="pc-eyebrow">Actividad</span><h3>Movimientos</h3></div></div><div class="pc-crypto-empty"><span>◈</span><b>Sin movimientos</b><p>Cuando envíes o recibas criptomonedas, van a aparecer acá.</p><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-toast" data-message="El historial estará disponible próximamente.">Ver historial</button></div></section>' +
+        '<section class="pc-panel"><div class="pc-panel-head"><div><span class="pc-eyebrow">Actividad</span><h3>Movimientos</h3></div><button type="button" class="pc-link-soft" data-pc-action="crypto-action" data-crypto-action="history">Ver historial</button></div>' +
+          (state.cryptoTransactions.length ? '<div class="pc-crypto-tx-list">' + state.cryptoTransactions.slice(0, 5).map(cryptoTxRow).join('') + '</div>' : '<div class="pc-crypto-empty"><span>◈</span><b>Sin movimientos</b><p>Cuando compres, vendas o envíes criptomonedas, van a aparecer acá.</p><button class="pc-btn pc-btn-ghost" type="button" data-pc-action="crypto-action" data-crypto-action="buy">Hacer mi primera compra</button></div>') +
+        '</section>' +
       '</div>' +
-      '<p class="pc-crypto-note">RLA Wallet es una simulación de roleplay. No es una billetera real, no guarda fondos y no procesa transacciones.</p>' +
+      '<p class="pc-crypto-note">RLA Wallet es una simulación de roleplay. No es una billetera real, no guarda fondos y no procesa transacciones reales.</p>' +
     '</div>';
   }
 

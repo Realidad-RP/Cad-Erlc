@@ -87,6 +87,10 @@ const ROBLOX_RE = /^[A-Za-z0-9_]{3,20}$/;
 const LICENSE_EXPERIENCE = ['Ninguna', 'Poca', 'Intermedia', 'Mucha'];
 const LICENSE_VEHICLES = ['Auto', 'Moto', 'Camión', 'Todos'];
 const LICENSE_TTL = 4 * 365.25 * 24 * 60 * 60 * 1000;
+const WEAPON_EXPERIENCE = ['Ninguna', 'Poca', 'Intermedia', 'Mucha'];
+const WEAPON_TYPES = ['Arma corta', 'Arma larga', 'Ambas'];
+const WEAPON_PURPOSES = ['Defensa personal', 'Trabajo de seguridad', 'Deporte y tiro', 'Colección'];
+const WEAPON_LICENSE_TTL = 2 * 365.25 * 24 * 60 * 60 * 1000;
 
 function normalizeRoblox(value) {
   return String(value == null ? '' : value).trim().replace(/^@+/, '');
@@ -165,6 +169,51 @@ function licensePublic(account) {
   };
 }
 
+function generateWeaponLicenseNumber(taken) {
+  for (let i = 0; i < 80; i++) {
+    const number = 'W' + String(crypto.randomInt(1000000, 10000000));
+    if (!taken.has(number)) return number;
+  }
+  throw httpError(503, 'No pude generar un número de licencia de armas. Probá de nuevo.');
+}
+
+function weaponLicensePublic(account) {
+  const lic = account && account.weaponLicense;
+  if (!lic || !lic.status) {
+    return {
+      status: 'none',
+      label: 'Sin licencia de armas',
+      number: '',
+      submittedAt: 0,
+      reviewedAt: 0,
+      reviewedBy: '',
+      issuedAt: 0,
+      expiresAt: 0,
+      rejectionReason: '',
+      application: null,
+    };
+  }
+  const labels = { pending: 'En revisión', approved: 'Válida', rejected: 'Rechazada', suspended: 'Suspendida', revoked: 'Revocada' };
+  return {
+    status: lic.status,
+    label: labels[lic.status] || 'Sin licencia de armas',
+    number: String(lic.number || ''),
+    submittedAt: Number(lic.submittedAt) || 0,
+    reviewedAt: Number(lic.reviewedAt) || 0,
+    reviewedBy: String(lic.reviewedBy || ''),
+    issuedAt: Number(lic.issuedAt) || 0,
+    expiresAt: Number(lic.expiresAt) || 0,
+    rejectionReason: String(lic.rejectionReason || ''),
+    application: lic.application ? {
+      experience: String(lic.application.experience || ''),
+      weaponType: String(lic.application.weaponType || ''),
+      purpose: String(lic.application.purpose || ''),
+      reason: String(lic.application.reason || ''),
+      submittedAt: Number(lic.application.submittedAt) || 0,
+    } : null,
+  };
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -204,6 +253,7 @@ function sendJson(res, status, body) {
 
 function publicUser(account) {
   const license = licensePublic(account);
+  const weaponLicense = weaponLicensePublic(account);
   return {
     username: account.username,
     displayName: account.displayName || account.username,
@@ -217,6 +267,8 @@ function publicUser(account) {
     robloxDisplayName: account.robloxDisplayName || '',
     licenseStatus: license.label,
     licenseNumber: license.number,
+    weaponLicenseStatus: weaponLicense.label,
+    weaponLicenseNumber: weaponLicense.number,
   };
 }
 
@@ -236,6 +288,7 @@ function createWebAuth({
   resolveRobloxUser,
   sendDiscordDM,
   sendLicenseApplication,
+  sendWeaponLicenseApplication,
   isDiscordReady = () => true,
   getDiscordError = () => '',
   getCadSnapshot = () => null,
@@ -499,6 +552,10 @@ function createWebAuth({
     profile.license = lic.number;
     profile.licStatus = lic.label;
     profile.licenseInfo = lic;
+    const weapon = weaponLicensePublic(account);
+    profile.weaponLicense = weapon.number;
+    profile.weaponLicenseStatus = weapon.label;
+    profile.weaponLicenseInfo = weapon;
     return profile;
   }
 
@@ -1269,6 +1326,174 @@ function createWebAuth({
     };
   }
 
+  // ---------------- Licencia de armas ----------------
+  function buildWeaponLicenseApplication(account, body) {
+    const experience = cleanText(body.experience, 20);
+    const weaponType = cleanText(body.weaponType, 30);
+    const purpose = cleanText(body.purpose, 40);
+    const reason = cleanMultiline(body.reason, 800);
+
+    if (!WEAPON_EXPERIENCE.includes(experience)) {
+      throw httpError(400, 'Elegí tu experiencia con armas de fuego.');
+    }
+    if (!WEAPON_TYPES.includes(weaponType)) {
+      throw httpError(400, 'Elegí qué tipo de arma querés registrar.');
+    }
+    if (!WEAPON_PURPOSES.includes(purpose)) {
+      throw httpError(400, 'Elegí el uso previsto de la licencia.');
+    }
+    if (reason.length < 20) {
+      throw httpError(400, 'Contanos por qué querés la licencia de armas (mínimo 20 caracteres).');
+    }
+    if (body.confirm !== true && body.confirm !== 'true' && body.confirm !== 'on') {
+      throw httpError(400, 'Confirmá que los datos son correctos, que sos mayor de edad y que la licencia es de roleplay.');
+    }
+
+    return {
+      username: account.username,
+      displayName: account.displayName || account.username,
+      discordId: account.discordId || '',
+      name: account.citizenName || (account.webCitizen && account.webCitizen.name) || '',
+      dni: account.dni || '',
+      robloxUsername: account.robloxUsername || '',
+      experience,
+      weaponType,
+      purpose,
+      reason,
+      submittedAt: now(),
+    };
+  }
+
+  async function citizenWeaponLicenseApply(req, body) {
+    const { account } = requireSession(req);
+    if (!account.dni) {
+      throw httpError(400, 'Primero creá o vinculá tu DNI. La licencia de armas se solicita después.');
+    }
+
+    const current = account.weaponLicense;
+    if (current && current.status === 'pending') {
+      throw httpError(409, 'Tu solicitud de licencia de armas ya está en revisión.');
+    }
+    if (current && current.status === 'approved') {
+      throw httpError(409, 'Ya tenés una licencia de armas aprobada. Si necesitás renovarla, hablá con el staff.');
+    }
+    if (current && (current.status === 'suspended' || current.status === 'revoked')) {
+      throw httpError(409, 'Tu licencia de armas no está habilitada. Hablá con el staff para regularizar tu situación.');
+    }
+
+    const application = buildWeaponLicenseApplication(account, body);
+    if (typeof sendWeaponLicenseApplication !== 'function') {
+      throw httpError(503, 'El canal de licencias del staff todavía no está configurado. Avisá a un moderador.');
+    }
+
+    let sent = null;
+    try {
+      sent = await sendWeaponLicenseApplication(application);
+    } catch (err) {
+      log('[Web] No se pudo enviar la solicitud de licencia de armas:', err.message);
+      throw httpError(502, 'No pude enviar la solicitud al canal de mods. Probá de nuevo en unos minutos o avisá al staff.');
+    }
+
+    const previous = account.weaponLicense;
+    account.weaponLicense = {
+      status: 'pending',
+      application,
+      submittedAt: application.submittedAt,
+      messageId: sent && sent.id ? String(sent.id) : '',
+    };
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      account.weaponLicense = previous;
+      log('[Web] No se pudo guardar la solicitud de licencia de armas:', err.message);
+      throw httpError(503, 'No se pudo guardar la solicitud de licencia de armas. Probá de nuevo en unos segundos.');
+    }
+
+    log(`[Web] Solicitud de licencia de armas enviada por @${account.username} (DNI ${account.dni})`);
+    return {
+      ok: true,
+      weaponLicense: weaponLicensePublic(account),
+      message: 'Solicitud de licencia de armas enviada al canal de mods. Te avisamos cuando la revisen.',
+    };
+  }
+
+  async function reviewWeaponLicense(username, decision, reviewer, reason) {
+    const key = normalizeUsername(username);
+    const account = db.accounts[key];
+    if (!account) throw httpError(404, 'No encontré la cuenta del solicitante.');
+
+    const current = account.weaponLicense;
+    if (!current || current.status !== 'pending') {
+      throw httpError(409, 'Esa solicitud de licencia de armas ya no está pendiente.');
+    }
+
+    const approved = decision === 'approve' || decision === 'approved';
+    const rejected = decision === 'reject' || decision === 'rejected';
+    if (!approved && !rejected) throw httpError(400, 'Decisión de licencia de armas inválida.');
+
+    const reviewedAt = now();
+    const previous = current;
+    const reviewerName = cleanText(
+      reviewer && (reviewer.displayName || reviewer.username || (reviewer.id ? 'Moderador ' + reviewer.id : '')) || 'Staff',
+      60
+    ) || 'Staff';
+
+    if (approved) {
+      const taken = new Set();
+      for (const other of Object.values(db.accounts)) {
+        if (other && other.weaponLicense && other.weaponLicense.number) taken.add(String(other.weaponLicense.number));
+      }
+      const number = generateWeaponLicenseNumber(taken);
+      account.weaponLicense = {
+        status: 'approved',
+        application: current.application || {},
+        submittedAt: current.submittedAt || reviewedAt,
+        reviewedAt,
+        reviewedBy: reviewerName,
+        reviewedById: reviewer && reviewer.id ? String(reviewer.id) : '',
+        number,
+        issuedAt: reviewedAt,
+        expiresAt: reviewedAt + WEAPON_LICENSE_TTL,
+        rejectionReason: '',
+      };
+    } else {
+      account.weaponLicense = {
+        status: 'rejected',
+        application: current.application || {},
+        submittedAt: current.submittedAt || reviewedAt,
+        reviewedAt,
+        reviewedBy: reviewerName,
+        reviewedById: reviewer && reviewer.id ? String(reviewer.id) : '',
+        rejectionReason: cleanText(reason, 300) || 'Solicitud de licencia de armas rechazada por el staff.',
+        number: '',
+        expiresAt: 0,
+      };
+    }
+
+    try {
+      await dataStore.putAccount(account);
+    } catch (err) {
+      account.weaponLicense = previous;
+      log('[Web] No se pudo guardar la revisión de licencia de armas:', err.message);
+      throw httpError(503, 'No se pudo guardar la revisión de licencia de armas. Probá de nuevo.');
+    }
+
+    log(`[Web] Licencia de armas ${approved ? 'aprobada' : 'rechazada'} para @${account.username} por ${reviewerName}`);
+    return {
+      ok: true,
+      decision: approved ? 'approved' : 'rejected',
+      licenseType: 'weapon',
+      username: account.username,
+      name: account.citizenName || (account.webCitizen && account.webCitizen.name) || '',
+      dni: account.dni || '',
+      discordId: account.discordId || '',
+      robloxUsername: account.robloxUsername || '',
+      application: account.weaponLicense.application,
+      license: weaponLicensePublic(account),
+    };
+  }
+
   // ---------------- Reseñas ----------------
   function getReviews() {
     const list = db.reviews
@@ -1417,6 +1642,10 @@ function createWebAuth({
         sendJson(res, 200, await citizenLicenseApply(req, await readJsonBody(req)));
         return true;
       }
+      if (url === '/citizen/weapon-license/apply' && req.method === 'POST') {
+        sendJson(res, 200, await citizenWeaponLicenseApply(req, await readJsonBody(req)));
+        return true;
+      }
       if (url === '/citizen/unlink' && req.method === 'POST') {
         sendJson(res, 200, await citizenUnlink(req));
         return true;
@@ -1445,6 +1674,7 @@ function createWebAuth({
   return {
     handle,
     reviewLicense,
+    reviewWeaponLicense,
     get file() { return dataStore.describe ? dataStore.describe() : 'almacén'; },
     stats: () => ({
       accounts: Object.keys(db.accounts).length,
