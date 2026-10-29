@@ -289,6 +289,7 @@ function createWebAuth({
   sendDiscordDM,
   sendLicenseApplication,
   sendWeaponLicenseApplication,
+  sendEmbed,
   isDiscordReady = () => true,
   getDiscordError = () => '',
   getCadSnapshot = () => null,
@@ -1061,6 +1062,18 @@ function createWebAuth({
     }
 
     log(`[Web] DNI ${dni} creado desde el panel por @${account.username}`);
+    if (sendEmbed) {
+      await sendEmbed(cfg.channels.panel, {
+        color: 0x8052ff,
+        title: '📝 Nuevo Registro de Ciudadano',
+        lines: [
+          `**Nombre:** ${name}`,
+          `**DNI:** ${dni}`,
+          `**Discord:** @${account.username}`,
+          `**Estado:** Creado exitosamente desde el panel.`
+        ]
+      }, '[REGISTRO]');
+    }
     return {
       ...citizenBase(account),
       source: 'web',

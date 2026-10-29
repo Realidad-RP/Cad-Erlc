@@ -291,11 +291,10 @@
   APP_ORDER.forEach((id) => { APPS[id] = Object.assign({ id }, APP_META[id]); });
 
   const WALLPAPERS = {
-    lapd: { name: 'LAPD', css: "url('assets/foto-lapd.jpg')" },
-    chp: { name: 'CHP', css: "url('assets/foto-chp.jpg')" },
-    lafd: { name: 'LAFD', css: "url('assets/foto-lafd.jpg')" },
-    hero: { name: 'Los Angeles', css: "url('assets/erlc-hero-lapd.jpg')" },
     gradient: { name: 'Noche', css: 'linear-gradient(135deg,#05080f 0%,#0b1422 42%,#1a102c 100%)' },
+    aurora: { name: 'Aurora', css: 'linear-gradient(135deg,#04101c 0%,#0a2434 45%,#0c3a3a 100%)' },
+    sunset: { name: 'Atardecer', css: 'linear-gradient(135deg,#12060f 0%,#2a0f22 45%,#4a1a2b 100%)' },
+    deep: { name: 'Abismo', css: 'linear-gradient(135deg,#000000 0%,#0a0a12 55%,#141022 100%)' },
   };
 
   const ACCENTS = [
@@ -307,7 +306,7 @@
     { id: 'green', name: 'Verde', color: '#4ade80', color2: '#16a34a' },
   ];
 
-  const DEFAULT_PREFS = { wallpaper: 'lapd', accent: 'teal', compact: false, reduceMotion: false };
+  const DEFAULT_PREFS = { wallpaper: 'gradient', accent: 'teal', compact: false, reduceMotion: false };
   const PREF_KEY = 'rla_os_prefs_v1';
   const INSTALLED_KEY = 'rla_os_installed_v1';
   const SOCIAL_KEY = 'rla_social_posts_v1';
@@ -320,6 +319,7 @@
   const MERCADO_KEY = 'rla_mercado_v1';
   const CRYPTO_KEY = 'rla_crypto_v1';
   const WHATSAPP_KEY = 'rla_whatsapp_v1';
+  const WA_CODES_KEY = 'rla_whatsapp_codes_v1';
   const ONION_CONTACTS_KEY = 'rla_onion_contacts_v1';
 
   /* ============================================================
@@ -371,6 +371,8 @@
     waOptions: false,
     waCall: false,
     waDeleteConfirm: false,
+    waCodeDraft: '',
+    waCodeError: '',
     mlQuery: '',
     mlCategory: 'todas',
     mlCart: [],
@@ -430,7 +432,7 @@
   function loadPrefs() {
     const raw = readJSON(PREF_KEY, {});
     const prefs = Object.assign({}, DEFAULT_PREFS, raw && typeof raw === 'object' ? raw : {});
-    if (!WALLPAPERS[prefs.wallpaper]) prefs.wallpaper = 'lapd';
+    if (!WALLPAPERS[prefs.wallpaper]) prefs.wallpaper = DEFAULT_PREFS.wallpaper;
     if (!ACCENTS.some((a) => a.id === prefs.accent)) prefs.accent = 'teal';
     prefs.compact = !!prefs.compact;
     prefs.reduceMotion = !!prefs.reduceMotion;
@@ -451,7 +453,7 @@
     root.style.setProperty('--accent', accent.color);
     root.style.setProperty('--accent-2', accent.color2);
     root.style.setProperty('--pc-accent', accent.color);
-    const wall = WALLPAPERS[state.prefs.wallpaper] || WALLPAPERS.lapd;
+    const wall = WALLPAPERS[state.prefs.wallpaper] || WALLPAPERS[DEFAULT_PREFS.wallpaper];
     root.style.setProperty('--pc-wallpaper-image', wall.css);
     document.body.classList.toggle('pc-compact', !!state.prefs.compact);
     document.body.classList.toggle('pc-reduce-motion', !!state.prefs.reduceMotion);
@@ -570,6 +572,58 @@
     writeJSON(WHATSAPP_KEY, state.waChats);
   }
 
+  const WA_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const waCodesMemory = {};
+
+  function waCodeStore() {
+    const stored = readJSON(WA_CODES_KEY, null);
+    const map = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    return Object.assign({}, map, waCodesMemory);
+  }
+
+  function waCodeFor(username) {
+    const key = norm(username) || 'ciudadano';
+    const map = waCodeStore();
+    if (typeof map[key] === 'string' && /^RLA-[A-Z0-9]{6}$/.test(map[key])) {
+      waCodesMemory[key] = map[key];
+      return map[key];
+    }
+    const used = new Set(Object.values(map));
+    const hasCrypto = !!(window.crypto && typeof window.crypto.getRandomValues === 'function');
+    let code = '';
+    do {
+      const bytes = new Uint8Array(6);
+      if (hasCrypto) window.crypto.getRandomValues(bytes);
+      code = 'RLA-';
+      for (let i = 0; i < 6; i++) {
+        const byte = hasCrypto ? bytes[i] : Math.floor(Math.random() * 256);
+        code += WA_CODE_ALPHABET[byte % WA_CODE_ALPHABET.length];
+      }
+    } while (used.has(code));
+    map[key] = code;
+    waCodesMemory[key] = code;
+    writeJSON(WA_CODES_KEY, map);
+    return code;
+  }
+
+  function myWhatsappCode() {
+    const user = currentUser() || {};
+    return waCodeFor(user.username || 'ciudadano');
+  }
+
+  function normalizeWaCode(value) {
+    const compact = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const body = compact.length === 9 && compact.indexOf('RLA') === 0 ? compact.slice(3) : compact;
+    return /^[A-Z0-9]{6}$/.test(body) ? 'RLA-' + body : '';
+  }
+
+  function waCodeTone(code) {
+    const tones = ['teal', 'blue', 'gold', 'green', 'purple', 'rose'];
+    let sum = 0;
+    for (const ch of String(code || '')) sum += ch.charCodeAt(0);
+    return tones[sum % tones.length];
+  }
+
   function saveOnionContacts() {
     writeJSON(ONION_CONTACTS_KEY, state.onionContacts);
   }
@@ -579,60 +633,7 @@
      ============================================================ */
 
   function defaultPosts() {
-    return [
-      {
-        id: 'lapd-operativo',
-        name: 'LAPD Los Angeles',
-        handle: '@lapd',
-        initials: 'LA',
-        tone: 'blue',
-        badge: 'Oficial',
-        time: 'Hace 12 min',
-        text: 'Operativo de control vehicular en Vespucci Boulevard. Circular con documentación al día y respetar las indicaciones de las unidades.',
-        image: 'assets/foto-lapd.jpg',
-        likes: 248,
-        comments: 31,
-      },
-      {
-        id: 'central-911',
-        name: 'Central 911',
-        handle: '@central911',
-        initials: '911',
-        tone: 'red',
-        badge: 'Emergencias',
-        time: 'Hace 45 min',
-        text: 'Recordatorio: para emergencias en la ciudad llamá al 911 desde el panel. Indicá tu ubicación y esperá a la unidad asignada.',
-        image: '',
-        likes: 96,
-        comments: 12,
-      },
-      {
-        id: 'rla-store',
-        name: 'RLA Store',
-        handle: '@rlstore',
-        initials: 'RLA',
-        tone: 'orange',
-        badge: 'Tienda',
-        time: 'Hace 2 h',
-        text: 'Ya podés instalar Onion, VPS Manager y Crypto Wallet desde la sección Explorar de RLA Store. Personalizá tu escritorio y llevá tu PC al siguiente nivel.',
-        image: '',
-        likes: 174,
-        comments: 28,
-      },
-      {
-        id: 'rla-work',
-        name: 'RLA Work',
-        handle: '@rlawork',
-        initials: 'RW',
-        tone: 'teal',
-        badge: 'Empleos',
-        time: 'Hace 4 h',
-        text: 'El LAPD, CHP y LAFD abrieron nuevas vacantes. Entrá a RLA Work para ver requisitos, salarios y postularte desde la ciudad.',
-        image: 'assets/foto-chp.jpg',
-        likes: 132,
-        comments: 19,
-      },
-    ];
+    return [];
   }
 
   function defaultChats() {
@@ -695,16 +696,16 @@
 
   function defaultMlProducts() {
     return [
-      { id: 'cafe', title: 'Café de especialidad Los Angeles 1 kg', cat: 'Hogar', price: 1800, emoji: '☕', rating: 4.8, shipping: 'Envío gratis', tag: 'Oferta' },
-      { id: 'extintor', title: 'Extintor portátil para vehículo', cat: 'Hogar', price: 2200, emoji: '🧯', rating: 4.9, shipping: 'Envío gratis', tag: '' },
-      { id: 'chaleco', title: 'Chaleco táctico LAPD (roleplay)', cat: 'Vehículos', price: 4200, emoji: '🦺', rating: 4.7, shipping: 'Envío gratis', tag: '' },
-      { id: 'uniforme', title: 'Uniforme CHP completo (roleplay)', cat: 'Vehículos', price: 6800, emoji: '👮', rating: 4.5, shipping: 'Envío gratis', tag: '' },
-      { id: 'radio', title: 'Radio portátil Motorola de mano', cat: 'Tecnología', price: 8450, emoji: '📻', rating: 4.9, shipping: 'Envío gratis', tag: '' },
-      { id: 'camara', title: 'Cámara dash 4K para patrulla', cat: 'Tecnología', price: 9900, emoji: '📷', rating: 4.7, shipping: 'Envío gratis', tag: 'Nuevo' },
-      { id: 'gps', title: 'GPS SPOT Trace para vehículo', cat: 'Tecnología', price: 12999, emoji: '📡', rating: 4.8, shipping: 'Envío gratis', tag: 'Más vendido' },
-      { id: 'herramientas', title: 'Caja de herramientas profesional', cat: 'Vehículos', price: 15750, emoji: '🧰', rating: 4.8, shipping: 'Envío gratis', tag: '' },
-      { id: 'celular', title: 'Celular RLA Phone 5G 128 GB', cat: 'Tecnología', price: 28500, emoji: '📱', rating: 4.4, shipping: 'Envío gratis', tag: 'Oferta' },
-      { id: 'llantas', title: 'Kit de llantas deportivas 18"', cat: 'Vehículos', price: 32500, emoji: '🛞', rating: 4.6, shipping: 'Envío a cargo', tag: 'Oferta' },
+      { id: 'cafe', title: 'Café de especialidad Los Angeles 1 kg', cat: 'Hogar', price: 1800, emoji: '☕', rating: 4.8, shipping: 'Envío gratis', tag: 'Oferta', img: 'assets/ml-cafe.jpg' },
+      { id: 'extintor', title: 'Extintor portátil para vehículo', cat: 'Hogar', price: 2200, emoji: '🧯', rating: 4.9, shipping: 'Envío gratis', tag: '', img: 'assets/ml-extintor.jpg' },
+      { id: 'chaleco', title: 'Chaleco táctico LAPD (roleplay)', cat: 'Vehículos', price: 4200, emoji: '🦺', rating: 4.7, shipping: 'Envío gratis', tag: '', img: 'assets/ml-chaleco.jpg' },
+      { id: 'uniforme', title: 'Uniforme CHP completo (roleplay)', cat: 'Vehículos', price: 6800, emoji: '👮', rating: 4.5, shipping: 'Envío gratis', tag: '', img: 'assets/ml-uniforme.jpg' },
+      { id: 'radio', title: 'Radio portátil Motorola de mano', cat: 'Tecnología', price: 8450, emoji: '📻', rating: 4.9, shipping: 'Envío gratis', tag: '', img: 'assets/ml-radio.jpg' },
+      { id: 'camara', title: 'Cámara dash 4K para patrulla', cat: 'Tecnología', price: 9900, emoji: '📷', rating: 4.7, shipping: 'Envío gratis', tag: 'Nuevo', img: 'assets/ml-camara.jpg' },
+      { id: 'gps', title: 'GPS SPOT Trace para vehículo', cat: 'Tecnología', price: 12999, emoji: '📡', rating: 4.8, shipping: 'Envío gratis', tag: 'Más vendido', img: 'assets/ml-gps.jpg' },
+      { id: 'herramientas', title: 'Caja de herramientas profesional', cat: 'Vehículos', price: 15750, emoji: '🧰', rating: 4.8, shipping: 'Envío gratis', tag: '', img: 'assets/ml-herramientas.jpg' },
+      { id: 'celular', title: 'Celular RLA Phone 5G 128 GB', cat: 'Tecnología', price: 28500, emoji: '📱', rating: 4.4, shipping: 'Envío gratis', tag: 'Oferta', img: 'assets/ml-celular.jpg' },
+      { id: 'llantas', title: 'Kit de llantas deportivas 18"', cat: 'Vehículos', price: 32500, emoji: '🛞', rating: 4.6, shipping: 'Envío a cargo', tag: 'Oferta', img: 'assets/ml-llantas.jpg' },
     ];
   }
 
@@ -2348,20 +2349,26 @@
 
   function copyText(text, message) {
     const value = String(text || '');
+    const done = () => toast(message || 'Copiado.');
+    const fallback = () => {
+      const input = document.createElement('textarea');
+      input.value = value;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { copied = false; }
+      input.remove();
+      if (copied) done();
+      else toast('No se pudo copiar. Copiá el código manualmente.');
+    };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).then(() => toast(message || 'Copiado.')).catch(() => {
-        toast('No se pudo copiar automáticamente.');
-      });
+      navigator.clipboard.writeText(value).then(done, fallback);
       return;
     }
-    const input = document.createElement('textarea');
-    input.value = value;
-    input.style.position = 'fixed';
-    input.style.opacity = '0';
-    document.body.appendChild(input);
-    input.select();
-    try { document.execCommand('copy'); toast(message || 'Copiado.'); } catch { toast('No se pudo copiar.'); }
-    input.remove();
+    fallback();
   }
 
   function socialCommentsFor(postId) {
@@ -2457,6 +2464,57 @@
     toast('Postulación retirada.');
   }
 
+  function handleWaAddContact(form) {
+    const code = normalizeWaCode(form.elements.code.value);
+    const alias = String(form.elements.alias.value || '').trim().slice(0, 40);
+    state.waCodeDraft = String(form.elements.code.value || '').trim();
+    state.waCodeError = '';
+    if (!code) {
+      state.waCodeError = 'Código inválido. Tiene que ser RLA-XXXXXX.';
+      refreshApp('whatsapp', true);
+      return;
+    }
+    if (code === myWhatsappCode()) {
+      state.waCodeError = 'Ese es tu propio código. Pedile el suyo a la otra persona.';
+      refreshApp('whatsapp', true);
+      return;
+    }
+    const id = 'wa:' + code;
+    let chat = state.waChats.find((c) => c.id === id);
+    if (chat) {
+      if (alias) {
+        chat.name = alias;
+        chat.initials = initials(alias);
+        saveWhatsapp();
+      }
+      toast('Ese contacto ya estaba en tus chats.');
+    } else {
+      const name = alias || 'Contacto ' + code;
+      chat = {
+        id,
+        name,
+        initials: initials(name),
+        tone: waCodeTone(code),
+        status: 'Privado · ' + code,
+        code,
+        private: true,
+        addedAt: Date.now(),
+        messages: [],
+      };
+      state.waChats.unshift(chat);
+      saveWhatsapp();
+      toast('Contacto agregado: ' + name + '.');
+    }
+    state.waChat = id;
+    state.waNew = false;
+    state.waOptions = false;
+    state.waCall = false;
+    state.waDeleteConfirm = false;
+    state.waCodeDraft = '';
+    refreshApp('whatsapp', true);
+    mountWhatsappApp();
+  }
+
   function startWhatsappChat(contactId) {
     const contact = WA_CONTACTS.find((c) => c.id === contactId);
     if (!contact) return;
@@ -2530,7 +2588,7 @@
       banco: 'Bank of America: consultá tus cuentas y movimientos desde la app del escritorio.',
     };
     const chatId = chat.id;
-    const reply = chat.muted ? 'Mensaje recibido. El chat está silenciado.' : (replies[chatId] || 'Mensaje recibido.');
+    const reply = chat.muted ? 'Mensaje recibido. El chat está silenciado.' : (replies[chatId] || (chat.private ? 'Recibido. Te respondo en un rato.' : 'Mensaje recibido.'));
     setTimeout(() => {
       const target = state.waChats.find((c) => c.id === chatId);
       if (!target) return;
@@ -2913,8 +2971,9 @@
       refreshApp('whatsapp', true);
       return;
     }
-    if (action === 'wa-new') { state.waNew = !state.waNew; state.waOptions = false; refreshApp('whatsapp', true); return; }
-    if (action === 'wa-new-close') { state.waNew = false; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-new') { state.waNew = !state.waNew; state.waOptions = false; if (state.waNew) { state.waCodeError = ''; state.waCodeDraft = ''; } refreshApp('whatsapp', true); return; }
+    if (action === 'wa-new-close') { state.waNew = false; state.waCodeError = ''; state.waCodeDraft = ''; refreshApp('whatsapp', true); return; }
+    if (action === 'wa-copy-code') { copyText(myWhatsappCode(), 'Código copiado.'); return; }
     if (action === 'wa-start') { startWhatsappChat(btn.getAttribute('data-contact')); return; }
     if (action === 'wa-options') { state.waOptions = !state.waOptions; state.waCall = false; refreshApp('whatsapp', true); return; }
     if (action === 'wa-options-close') { state.waOptions = false; state.waDeleteConfirm = false; refreshApp('whatsapp', true); return; }
@@ -3210,6 +3269,11 @@
     if (form.id === 'socialComposeForm') {
       e.preventDefault();
       handleSocialPost(form);
+      return;
+    }
+    if (form.id === 'waAddForm') {
+      e.preventDefault();
+      handleWaAddContact(form);
       return;
     }
     if (form.id === 'waForm') {
@@ -4578,7 +4642,7 @@
     ];
 
     return '<div class="pc-profile pc-app-scroll">' +
-      '<div class="pc-profile-cover" style="background-image:url(\'assets/erlc-hero-lapd.jpg\')">' +
+      '<div class="pc-profile-cover">' +
         '<span class="pc-profile-cover-tag">RLA OS · Perfil de ciudadano</span>' +
         '<button class="pc-profile-cover-btn" type="button" data-pc-action="open-app" data-app="settings" title="Ajustes">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>' +
@@ -4704,13 +4768,13 @@
     return '<div class="pc-settings-page">' +
       '<div class="pc-panel-head"><div><span class="pc-eyebrow">Apariencia</span><h2>Personalizá RLA OS</h2><p>Fondo, color de acento y accesibilidad.</p></div></div>' +
       '<section class="pc-panel">' +
-        '<div class="pc-panel-head"><div><span class="pc-eyebrow">Escritorio</span><h3>Fondo de pantalla</h3></div><span class="pc-muted">' + esc((WALLPAPERS[state.prefs.wallpaper] || WALLPAPERS.lapd).name) + '</span></div>' +
+        '<div class="pc-panel-head"><div><span class="pc-eyebrow">Escritorio</span><h3>Fondo de pantalla</h3></div><span class="pc-muted">' + esc((WALLPAPERS[state.prefs.wallpaper] || WALLPAPERS[DEFAULT_PREFS.wallpaper]).name) + '</span></div>' +
         '<div class="pc-wallpaper-grid">' +
           wallKeys.map((key) => {
             const w = WALLPAPERS[key];
             const on = state.prefs.wallpaper === key;
             return '<button type="button" class="pc-wallpaper-thumb' + (on ? ' is-on' : '') + '" data-pc-action="set-wallpaper" data-wallpaper="' + key + '" title="' + esc(w.name) + '">' +
-              '<span class="pc-wallpaper-img" style="' + (key === 'gradient' ? 'background-image:' + w.css + ';' : 'background-image:url(\'' + w.css.replace(/^url\('|'\)$/g, '') + '\');') + '"></span>' +
+              '<span class="pc-wallpaper-img" style="background-image:' + w.css + '"></span>' +
               '<b>' + esc(w.name) + '</b>' +
               (on ? '<i>✓</i>' : '') +
             '</button>';
@@ -5327,7 +5391,7 @@
             '<textarea name="text" rows="2" maxlength="500" placeholder="¿Qué está pasando en la ciudad?" required></textarea>' +
             '<div class="pc-social-compose-actions"><span>Máx. 500 caracteres</span><button class="pc-btn pc-btn-primary pc-btn-sm" type="submit">Publicar</button></div>' +
           '</form>' +
-          (posts.length ? posts.map(renderSocialPost).join('') : pcEmpty('💬', 'No hay publicaciones en Siguiendo', 'Seguí cuentas oficiales para ver sus novedades acá.')) +
+          (posts.length ? posts.map(renderSocialPost).join('') : (state.socialTab === 'following' ? pcEmpty('💬', 'No hay publicaciones en Siguiendo', 'Seguí cuentas oficiales para ver sus novedades acá.') : pcEmpty('💬', 'Todavía no hay publicaciones', 'Sé el primero en publicar algo para la ciudad.'))) +
         '</main>' +
         '<aside class="pc-social-side">' +
           '<section class="pc-social-side-card"><span class="pc-eyebrow">Tendencias</span><h3>En Los Angeles</h3>' +
@@ -5580,23 +5644,36 @@
     const call = state.waCall && chat
       ? '<div class="pc-wa-call"><span class="pc-wa-avatar tone-' + esc(chat.tone || 'teal') + '">' + esc(chat.initials) + '</span><b>' + esc(chat.name) + '</b><span>Llamada de voz · roleplay</span><small>La llamada dura hasta que la finalices.</small><button class="pc-btn pc-btn-danger" type="button" data-pc-action="wa-call-end">Finalizar llamada</button></div>'
       : '';
+    const myCode = myWhatsappCode();
     const newPanel = state.waNew
-      ? '<div class="pc-wa-new"><div class="pc-wa-new-head"><div><span class="pc-eyebrow">Contactos</span><h2>Nuevo chat</h2></div><button type="button" data-pc-action="wa-new-close" aria-label="Cerrar">✕</button></div><p>Elegí un contacto de la ciudad para iniciar una conversación.</p><div class="pc-wa-new-list">' + newContacts.map((contact) => {
-          const existing = chats.some((c) => c.id === contact.id);
-          return '<button type="button" data-pc-action="wa-start" data-contact="' + esc(contact.id) + '"><span class="pc-wa-avatar tone-' + esc(contact.tone) + '">' + esc(contact.initials) + '</span><span><b>' + esc(contact.name) + '</b><small>' + esc(contact.status) + '</small></span><i>' + (existing ? 'Abrir' : '＋') + '</i></button>';
-        }).join('') + '</div></div>'
+      ? '<div class="pc-wa-new">' +
+          '<div class="pc-wa-new-head"><div><span class="pc-eyebrow">Chat privado</span><h2>Nuevo chat</h2></div><button type="button" data-pc-action="wa-new-close" aria-label="Cerrar">✕</button></div>' +
+          '<p>Para agregar a alguien necesitás el código único de esa persona.</p>' +
+          '<form class="pc-wa-add" id="waAddForm">' +
+            '<label>Código de la otra persona<input name="code" type="text" value="' + esc(state.waCodeDraft || '') + '" placeholder="RLA-XXXXXX" maxlength="14" autocomplete="off" spellcheck="false" required></label>' +
+            '<label>Nombre (opcional)<input name="alias" type="text" maxlength="40" placeholder="Ej. Valentina Cruz" autocomplete="off"></label>' +
+            (state.waCodeError ? '<p class="pc-wa-add-error">' + esc(state.waCodeError) + '</p>' : '') +
+            '<button class="pc-btn pc-btn-primary" type="submit">Agregar contacto</button>' +
+          '</form>' +
+          '<div class="pc-wa-divider"><span>Canales oficiales</span></div>' +
+          '<div class="pc-wa-new-list">' + newContacts.map((contact) => {
+            const existing = chats.some((c) => c.id === contact.id);
+            return '<button type="button" data-pc-action="wa-start" data-contact="' + esc(contact.id) + '"><span class="pc-wa-avatar tone-' + esc(contact.tone) + '">' + esc(contact.initials) + '</span><span><b>' + esc(contact.name) + '</b><small>' + esc(contact.status) + '</small></span><i>' + (existing ? 'Abrir' : '＋') + '</i></button>';
+          }).join('') + '</div>' +
+        '</div>'
       : '';
 
     return '<div class="pc-wa' + (chat ? ' has-chat' : '') + '">' +
       '<aside class="pc-wa-side">' +
         '<header class="pc-wa-side-head"><div class="pc-wa-me">' + pcAvatar('is-sm') + '<b>' + esc(user.displayName || user.username || 'Ciudadano') + '</b></div><button type="button" data-pc-action="wa-new" title="Nuevo chat" aria-label="Nuevo chat">＋</button></header>' +
         '<label class="pc-wa-search"><span>⌕</span><input id="waSearch" type="search" placeholder="Buscar chats" aria-label="Buscar chats" autocomplete="off"></label>' +
+        '<div class="pc-wa-code"><div><span>Tu código</span><b>' + esc(myCode) + '</b></div><button type="button" data-pc-action="wa-copy-code" title="Copiar código">Copiar</button><small>Compartilo para que puedan agregarte.</small></div>' +
         '<div class="pc-wa-chats">' +
           chats.map((c) => {
             const last = c.messages[c.messages.length - 1];
-            return '<button type="button" class="pc-wa-chat' + (chat && chat.id === c.id ? ' is-on' : '') + '" data-pc-action="wa-chat" data-chat="' + esc(c.id) + '" data-wa-search="' + esc(norm(c.name + ' ' + (last ? last.text : ''))) + '">' +
+            return '<button type="button" class="pc-wa-chat' + (chat && chat.id === c.id ? ' is-on' : '') + '" data-pc-action="wa-chat" data-chat="' + esc(c.id) + '" data-wa-search="' + esc(norm(c.name + ' ' + (c.code || '') + ' ' + (last ? last.text : ''))) + '">' +
               '<span class="pc-wa-avatar tone-' + esc(c.tone || 'teal') + '">' + esc(c.initials) + '</span>' +
-              '<span class="pc-wa-chat-main"><b>' + esc(c.name) + (c.muted ? ' <i class="pc-wa-muted" title="Silenciado">🔕</i>' : '') + '</b><small>' + esc(last ? last.text : 'Sin mensajes') + '</small></span>' +
+              '<span class="pc-wa-chat-main"><b>' + esc(c.name) + (c.private ? ' <i class="pc-wa-lock" title="Chat privado">🔒</i>' : '') + (c.muted ? ' <i class="pc-wa-muted" title="Silenciado">🔕</i>' : '') + '</b><small>' + esc(last ? last.text : (c.private ? 'Chat privado · ' + c.code : 'Sin mensajes')) + '</small></span>' +
               '<span class="pc-wa-chat-time">' + esc(last ? last.time : '') + '</span>' +
             '</button>';
           }).join('') +

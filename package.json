@@ -43,5 +43,18 @@
     "electron-winstaller@5.4.0": true,
     "electron@44.9.0": true,
     "electron-builder@26.15.3": true
-  }
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Realidad-RP/Cad-Erlc.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Realidad-RP/Cad-Erlc/issues"
+  },
+  "homepage": "https://github.com/Realidad-RP/Cad-Erlc#readme"
 }

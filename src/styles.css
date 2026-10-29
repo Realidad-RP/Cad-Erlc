@@ -595,21 +595,6 @@ textarea:focus { border-color: var(--accent); }
     inset 0 -120px 170px rgba(4, 8, 14, .86);
 }
 
-/* escudo LAPD transparente, detrás del panel */
-.login-watermark {
-  position: absolute;
-  left: 50%; top: 50%; z-index: 1;
-  width: min(68vh, 54vw); height: auto;
-  transform: translate(-50%, -50%);
-  opacity: .09;
-  filter: drop-shadow(0 0 38px rgba(255, 138, 42, .32));
-  mix-blend-mode: screen;
-  pointer-events: none;
-  user-select: none;
-  animation: loginWm 11s ease-in-out infinite alternate;
-}
-@keyframes loginWm { from { opacity: .06; } to { opacity: .12; } }
-
 .login-card {
   position: relative; z-index: 3;
   width: 392px; padding: 34px 30px; text-align: center;

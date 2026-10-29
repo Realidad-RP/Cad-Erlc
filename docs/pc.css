@@ -24,7 +24,7 @@
   --pc-radius: 16px;
   --pc-taskbar: 62px;
   --pc-topbar: 46px;
-  --pc-wallpaper-image: url('assets/foto-lapd.jpg');
+  --pc-wallpaper-image: linear-gradient(135deg,#05080f 0%,#0b1422 42%,#1a102c 100%);
   --pc-font: var(--font, 'Outfit', 'Segoe UI', system-ui, sans-serif);
 }
 
@@ -1315,9 +1315,9 @@ body.pc-reduce-motion *::after {
 .pc-profile-cover {
   position: relative;
   height: 190px;
-  background-image: linear-gradient(100deg, rgba(4, 10, 16, .18), rgba(4, 10, 16, .55)), url('assets/erlc-hero-lapd.jpg');
-  background-position: center;
+  background: var(--pc-wallpaper-image);
   background-size: cover;
+  background-position: center;
 }
 .pc-profile-cover::after {
   position: absolute;
@@ -2176,6 +2176,13 @@ body.pc-reduce-motion *::after {
 .pc-wa-side-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: none; padding: 8px 11px; border-top: 1px solid #222d34; color: #667781; font-size: 7.5px; }
 .pc-wa-side-foot button { border: 0; background: transparent; color: #53bdeb; font-size: 8px; }
 .pc-wa-side-foot button:hover { text-decoration: underline; }
+.pc-wa-code { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; flex: none; margin: 0 9px 7px; padding: 8px 10px; border: 1px solid rgba(0, 168, 132, .25); border-radius: 8px; background: rgba(0, 168, 132, .08); }
+.pc-wa-code > div { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.pc-wa-code span { color: #8696a0; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+.pc-wa-code b { color: #00d9a5; font-size: 10.5px; letter-spacing: .04em; white-space: nowrap; }
+.pc-wa-code button { padding: 4px 7px; border: 1px solid rgba(0, 217, 165, .4); border-radius: 5px; background: transparent; color: #00d9a5; font-size: 8px; font-weight: 700; }
+.pc-wa-code button:hover { background: rgba(0, 217, 165, .12); }
+.pc-wa-code small { grid-column: 1 / -1; color: #667781; font-size: 7.5px; }
 
 .pc-wa-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: #0b141a; }
 .pc-wa-head { display: flex; align-items: center; gap: 9px; height: 50px; flex: none; padding: 0 11px; background: #202c33; }
@@ -3226,6 +3233,7 @@ img.pc-about-logo { display: block; width: 56px; height: 56px; flex: none; margi
 
 .pc-wa-main { position: relative; }
 .pc-wa-muted { font-size: 8px; font-style: normal; opacity: .7; }
+.pc-wa-lock { font-size: 7.5px; font-style: normal; opacity: .8; }
 .pc-wa-chats-empty { display: grid; gap: 2px; padding: 25px 14px; color: #8696a0; text-align: center; }
 .pc-wa-chats-empty b { color: #d1d7db; font-size: 11px; }
 .pc-wa-chats-empty span { font-size: 9px; }
@@ -3241,6 +3249,15 @@ img.pc-about-logo { display: block; width: 56px; height: 56px; flex: none; margi
 .pc-wa-new-head h2 { margin: 2px 0 0; font-size: 21px; }
 .pc-wa-new-head button { width: 29px; height: 29px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .06); color: #e9edef; font-size: 12px; }
 .pc-wa-new > p { margin: 4px 0 13px; color: #8696a0; font-size: 9.5px; }
+.pc-wa-add { display: grid; gap: 8px; margin-bottom: 14px; }
+.pc-wa-add label { display: grid; gap: 4px; color: #8696a0; font-size: 8.5px; }
+.pc-wa-add input { height: 34px; padding: 0 10px; border: 1px solid #2a3942; border-radius: 7px; outline: none; background: #202c33; color: #e9edef; font-size: 11px; }
+.pc-wa-add input:focus { border-color: #00a884; }
+.pc-wa-add input::placeholder { color: #667781; }
+.pc-wa-add .pc-btn { justify-self: start; min-height: 32px; }
+.pc-wa-add-error { margin: 0; color: #ff9b9f; font-size: 8.5px; line-height: 1.4; }
+.pc-wa-divider { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: #8696a0; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.pc-wa-divider::before, .pc-wa-divider::after { content: ''; flex: 1; height: 1px; background: #2a3942; }
 .pc-wa-new-list { display: grid; gap: 2px; }
 .pc-wa-new-list > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 9px; border: 0; border-radius: 8px; background: transparent; color: #e9edef; text-align: left; }
 .pc-wa-new-list > button:hover { background: #202c33; }

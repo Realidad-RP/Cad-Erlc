@@ -68,22 +68,6 @@ body::before {
   background-size: auto, auto, auto, 46px 46px, 46px 46px;
 }
 
-/* ---------- Marca de agua: escudo LAPD (transparente, de fondo) ---------- */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  background-image: url('./assets/lapd-watermark.svg');
-  background-repeat: no-repeat;
-  background-position: center 43%;
-  background-size: min(58vh, 58vw) auto;
-  opacity: .032;
-  animation: wmIn 1.6s ease both;
-}
-@keyframes wmIn { from { opacity: 0; } to { opacity: .032; } }
-
 /* ---------- Utilidades ---------- */
 .container { width: min(1200px, 92%); margin-inline: auto; }
 
@@ -357,23 +341,6 @@ body::after {
     inset 0 -110px 160px rgba(5, 10, 16, .82),
     inset 0 70px 120px rgba(5, 10, 16, .55);
 }
-
-/* escudo LAPD transparente, detrás del texto */
-.hero-watermark {
-  position: absolute;
-  left: 50%;
-  top: 74%;
-  z-index: 5;
-  width: min(48vh, 36vw);
-  height: auto;
-  transform: translate(-50%, -47%);
-  opacity: .095;
-  filter: drop-shadow(0 0 32px rgba(255, 210, 120, .22));
-  mix-blend-mode: screen;
-  animation: wmBreathe 12s ease-in-out infinite alternate;
-  user-select: none;
-}
-@keyframes wmBreathe { from { opacity: .065; } to { opacity: .12; } }
 
 /* legibilidad y acabado glass sobre la escena */
 .hero-erlc .badge-pill {
@@ -1300,7 +1267,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-wid
    ============================================================ */
 @media (max-width: 980px) {
   .hero-erlc { min-height: auto; padding: 104px 0 72px; }
-  .hero-watermark { width: min(56vh, 70vw); opacity: .09; }
 }
 
 @media (max-width: 700px) {
@@ -1313,14 +1279,12 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-wid
     background:
       linear-gradient(180deg, rgba(5, 10, 16, .9) 0%, rgba(5, 10, 16, .56) 28%, rgba(5, 10, 16, .6) 58%, rgba(5, 10, 16, .9) 88%, var(--bg) 100%);
   }
-  .hero-watermark { width: 72vw; top: 50%; opacity: .055; }
   .hero-erlc .stats { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-scene-img,
-  .hero-bloom,
-  .hero-watermark { animation: none; }
+  .hero-bloom { animation: none; }
 }
 
 /* ============================================================
@@ -1484,6 +1448,7 @@ main { position: relative; z-index: 1; }
 .auth-visual-img {
   position: absolute;
   inset: -18px;
+  background: url('assets/erlc-hero.jpg') center / cover no-repeat;
   background-size: cover;
   background-position: center;
   filter: saturate(1.08) brightness(.72);
@@ -1854,6 +1819,18 @@ main { position: relative; z-index: 1; }
   filter: saturate(1.06) brightness(.82);
   transform: scale(1.02);
   transition: transform .7s cubic-bezier(.2, .8, .2, 1), filter .5s ease;
+}
+.photo-card-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
+  background-size: 46px 46px, 46px 46px;
+  -webkit-mask-image: radial-gradient(circle at 50% 38%, #000 0%, rgba(0, 0, 0, .35) 62%, transparent 82%);
+  mask-image: radial-gradient(circle at 50% 38%, #000 0%, rgba(0, 0, 0, .35) 62%, transparent 82%);
+  pointer-events: none;
 }
 .photo-card:hover .photo-card-img {
   transform: scale(1.09);

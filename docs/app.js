@@ -33,15 +33,11 @@
   const TOKEN_KEY = 'lr_auth_token_v1';
   const USER_KEY = 'lr_auth_user_v1';
   const LAST_USER_KEY = 'lr_auth_last_username';
-  const PHOTOS = ['assets/foto-lapd.jpg', 'assets/foto-chp.jpg', 'assets/foto-lafd.jpg'];
-
   let pendingAuth = null;   // { username, password }
   let pendingReset = null;  // username
   let resendTimer = null;
   let resendLeft = 0;
   let panelIntent = false;  // el usuario entró desde "Panel de Ciudadano"
-
-  function randomPhoto() { return PHOTOS[Math.floor(Math.random() * PHOTOS.length)]; }
 
   function shuffle(list) {
     const out = list.slice();
@@ -951,9 +947,6 @@
       </div>`;
     document.body.appendChild(modal);
 
-    const visual = $('.auth-visual-img', modal);
-    if (visual) visual.style.backgroundImage = "url('" + randomPhoto() + "')";
-
     $$('[data-auth-close]', modal).forEach((x) => x.addEventListener('click', closeAuth));
     $$('[data-auth-tab]', modal).forEach((tab) => {
       tab.addEventListener('click', () => setAuthStep(tab.getAttribute('data-auth-tab')));
@@ -1284,12 +1277,6 @@
      9) FOTOS, PARTÍCULAS Y EFECTOS
      ============================================================ */
 
-  function applyRandomPhotos() {
-    // La foto principal cambia en cada visita.
-    const hero = $('.hero-scene-img');
-    if (hero) hero.style.backgroundImage = "url('" + randomPhoto() + "')";
-  }
-
   function setupPhotoBand() {
     if (!$('#como-jugar') || $('#galeria')) return;
 
@@ -1308,15 +1295,24 @@
     $('#como-jugar').insertAdjacentElement('afterend', section);
 
     const photos = shuffle([
-      { src: 'assets/foto-lapd.jpg', tag: 'LCPD', title: 'Patrulla en la ciudad', text: 'Unidades policiales respondiendo en Los Angeles.' },
-      { src: 'assets/foto-chp.jpg', tag: 'CHP', title: 'Highway Patrol', text: 'Control de rutas, persecuciones y operativos.' },
-      { src: 'assets/foto-lafd.jpg', tag: 'LCFD', title: 'Bomberos y EMS', text: 'Emergencias médicas y rescates en toda la ciudad.' }
+      {
+        photo: 'radial-gradient(circle at 26% 18%, rgba(46,230,205,.34) 0%, transparent 58%), linear-gradient(155deg, #04121c 0%, #0a2a33 48%, #050d14 100%)',
+        tag: 'LCPD', title: 'Patrulla en la ciudad', text: 'Unidades policiales respondiendo en Los Angeles.'
+      },
+      {
+        photo: 'radial-gradient(circle at 72% 24%, rgba(255,200,74,.32) 0%, transparent 58%), linear-gradient(200deg, #150f04 0%, #2b2109 48%, #0b0803 100%)',
+        tag: 'CHP', title: 'Highway Patrol', text: 'Control de rutas, persecuciones y operativos.'
+      },
+      {
+        photo: 'radial-gradient(circle at 50% 20%, rgba(255,110,80,.30) 0%, transparent 60%), linear-gradient(165deg, #180806 0%, #33130d 46%, #0d0403 100%)',
+        tag: 'LCFD', title: 'Bomberos y EMS', text: 'Emergencias médicas y rescates en toda la ciudad.'
+      }
     ]);
 
     const grid = $('#photoGrid');
     if (!grid) return;
     grid.innerHTML = photos.map((p, i) => (
-      '<figure class="photo-card photo-' + i + '" style="--photo:url(\'' + p.src + '\')">' +
+      '<figure class="photo-card photo-' + i + '" style="--photo:' + p.photo + '">' +
         '<div class="photo-card-img"></div>' +
         '<div class="photo-card-shine"></div>' +
         '<figcaption>' +
@@ -1429,7 +1425,6 @@
     buildAuthModal();
     setupAccountEntryPoints();
     setupReviewForm();
-    applyRandomPhotos();
     setupPhotoBand();
     setupParticles();
     renderTeam();

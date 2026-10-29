@@ -149,6 +149,27 @@ function diff(prev, next) {
     }
   }
 
+  // Multas (fines) — nueva multa emitida al ciudadano
+  const prevFines = new Map((prev.fines || []).map((f) => [f.id, f]));
+  for (const f of next.fines || []) {
+    const old = prevFines.get(f.id);
+    if (!old) {
+      const lines = [
+        `👤 Ciudadano: ${f.person || '—'}`,
+        `💰 Monto: $${Number(f.amount || 0).toLocaleString('es-AR')}`,
+        `📄 Motivo: ${f.reason || 'Sin motivo'}`,
+      ];
+      if (f.plate) lines.push(`🔢 Placa: ${f.plate}`);
+      if (f.officer) lines.push(`👮 Oficial: ${f.officer}`);
+      out.push({
+        channel: 'despacho',
+        color: 0x8052ff,
+        title: `🧾 Nueva multa ${f.id}`,
+        lines,
+      });
+    }
+  }
+
   return out;
 }
 

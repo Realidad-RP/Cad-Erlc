@@ -149,6 +149,6 @@ Así los datos sobreviven a los reinicios de Render. La guía de configuración 
 - Poné el número real de miembros del Discord.
 - Para las cuentas: activá **SERVER MEMBERS INTENT** en el bot y dejá que cree **#panel-ciudadano**
   (o creá el canal privado y configurá `CH_PANEL`). El detalle está en [`../bot/README.md`](../bot/README.md).
-- Las fotos de la portada se eligen al azar entre `foto-lapd.jpg`, `foto-chp.jpg` y `foto-lafd.jpg`.
-  Si querés otras, reemplazalas manteniendo los nombres.
+- La portada usa `erlc-hero.jpg`. Las fotos con escudos policiales ya no se usan en la web
+  ni en el panel; si querés volver a mostrar fotos en la galería, subilas sin marcas de agua.
 - Las animaciones y partículas respetan la preferencia **reducir movimiento** del sistema.

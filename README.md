@@ -2,6 +2,8 @@
 
 CAD de escritorio (Windows) con **radio de voz real** para comunidades de **Emergency Response: Liberty County** (Roblox).
 
+> 🎮 **Proyecto del juego en Roblox:** la base jugable (selección de equipo, interfaz y spawns) está en [`roblox/`](roblox/README.md). Es independiente de este CAD y se instala copiando tres scripts en Roblox Studio.
+
 ## ✨ Qué incluye
 
 - 🚨 **Despacho**: llamadas con tipo, prioridad y ubicación; despachar unidades, marcar en escena y cerrar.
