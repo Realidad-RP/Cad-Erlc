@@ -1,7 +1,7 @@
 {
   "name": "cad-erlc",
   "productName": "CAD AYUNTAMIENTO Los Angeles",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CAD (Computer Aided Dispatch) con radio de voz para comunidades de ER:LC",
   "main": "main.js",
   "author": "Comunidad CAD ER:LC",
@@ -43,9 +43,6 @@
     "electron-winstaller@5.4.0": true,
     "electron@44.9.0": true,
     "electron-builder@26.15.3": true
-  },
-  "directories": {
-    "doc": "docs"
   },
   "repository": {
     "type": "git",
