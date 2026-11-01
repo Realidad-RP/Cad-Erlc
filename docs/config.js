@@ -27,7 +27,7 @@ window.LR_CONFIG = {
 
   // Enlace de descarga del CAD (si lo publicás en OneDrive/GitHub/MediaFire).
   // Dejá "" para ocultar el botón.
-  cadDescarga: "https://github.com/Realidad-RP/Cad-Erlc/releases/download/v0.1.0/CAD-RLD-0.1.0.exe",
+  cadDescarga: "https://github.com/Realidad-RP/Cad-Erlc/releases/download/v0.1.2/CAD-RLD-0.1.2.exe",
 
   // Página para llamar al 911 (civiles) — la sirve el servidor de radio
   central911: "https://cad-erlc-radio.onrender.com/911",

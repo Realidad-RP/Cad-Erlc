@@ -59,8 +59,8 @@ body { animation: uiFade .6s ease both; }
   box-shadow: 0 0 10px rgba(255, 122, 26, .32);
   pointer-events: none;
 }
-.brand { font-weight: 700; font-size: 15.5px; letter-spacing: .4px; }
-.brand-logo { margin-right: 6px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 15.5px; letter-spacing: .4px; }
+.brand-logo { width: 28px; height: 28px; margin-right: 8px; object-fit: contain; border-radius: 50%; }
 .brand-sub { color: var(--accent); }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 
