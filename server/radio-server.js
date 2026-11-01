@@ -143,6 +143,9 @@ function buildServer(wss, httpServer, port, iceServers) {
   let nextId = 1;
   const clients = new Map(); // id -> { id, ws, name, department, role, channel, talking }
   let activePanic = null; // última alerta 🆘 sin "todo controlado" (para quien se conecte después)
+  // Canales en "modo compatibilidad": el audio viaja por este WebSocket en vez
+  // de WebRTC. Se activa solo si la conexión directa entre dos PCs falla.
+  const relayChannels = new Set();
 
   // ---- HTTP: salud, página del 911 para civiles y recepción de llamadas ----
   const civilLastByIp = new Map(); // anti-spam por IP
@@ -336,6 +339,12 @@ function buildServer(wss, httpServer, port, iceServers) {
       .filter((c) => c.channel === channel)
       .map((c) => ({ id: c.id, name: c.name, department: c.department, role: c.role, talking: !!c.talking }));
 
+  // Si un canal se queda sin gente, olvidamos su modo compatibilidad.
+  const cleanupRelay = (channel) => {
+    if (!channel) return;
+    if (![...clients.values()].some((c) => c.channel === channel)) relayChannels.delete(channel);
+  };
+
   const broadcastRoster = (channel) => {
     const members = membersOf(channel);
     for (const c of clients.values()) {
@@ -360,12 +369,28 @@ function buildServer(wss, httpServer, port, iceServers) {
   wss.on('connection', (ws) => {
     const client = {
       id: nextId++, ws, name: 'Anónimo', department: 'DISPATCH',
-      role: 'Miembro', channel: null, talking: false,
+      role: 'Miembro', channel: null, talking: false, lastAudioAt: 0,
     };
     clients.set(client.id, client);
     console.log(`[Radio] Conexión #${client.id} · ${clients.size} en línea`);
 
-    ws.on('message', (raw) => {
+    ws.on('message', (raw, isBinary) => {
+      // ---- Audio en modo compatibilidad (PCM 16 kHz mono, 16 bits) ----
+      // Solo se retransmite si el canal lo activó y el emisor tiene el PTT abajo.
+      if (isBinary) {
+        if (!client.channel || !relayChannels.has(client.channel) || !client.talking) return;
+        if (!raw || raw.length < 2 || raw.length > 8192 || raw.length % 2 !== 0) return;
+        const now = Date.now();
+        if (now - client.lastAudioAt < 8) return; // límite: ~125 paquetes por segundo
+        client.lastAudioAt = now;
+        for (const c of clients.values()) {
+          if (c.channel === client.channel && c.id !== client.id && c.ws.readyState === 1) {
+            c.ws.send(raw, { binary: true });
+          }
+        }
+        return;
+      }
+
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
@@ -557,6 +582,7 @@ function buildServer(wss, httpServer, port, iceServers) {
           }
           channelDefs = channelDefs.filter((d) => d !== def);
           channelsCustomized = true;
+          relayChannels.delete(def.name);
           saveChannelsToDisk();
           // Sacar del canal a quienes estaban dentro
           for (const c of clients.values()) {
@@ -609,13 +635,20 @@ function buildServer(wss, httpServer, port, iceServers) {
             send(ws, { type: 'error', message: 'Canal privado: necesitas una invitación.' });
             break;
           }
-          if (client.channel) {
+          const prevChannel = client.channel;
+          if (prevChannel) {
             // Si ya estaba en otro canal, avisar a ese canal
-            broadcastToChannel(client.channel, { type: 'peer-left', id: client.id });
+            broadcastToChannel(prevChannel, { type: 'peer-left', id: client.id });
           }
           client.channel = def.name;
+          cleanupRelay(prevChannel);
           client.talking = false;
-          send(ws, { type: 'joined', channel: def.name, members: membersOf(def.name) });
+          send(ws, {
+            type: 'joined',
+            channel: def.name,
+            members: membersOf(def.name),
+            relay: relayChannels.has(def.name),
+          });
           broadcastToChannel(def.name, {
             type: 'peer-joined',
             member: { id: client.id, name: client.name, department: client.department, role: client.role, talking: false },
@@ -623,6 +656,22 @@ function buildServer(wss, httpServer, port, iceServers) {
           broadcastRoster(def.name);
           broadcastUserlist();
           console.log(`[Radio] #${client.id} ${client.name} entró a "${def.name}"`);
+          break;
+        }
+
+        // Un cliente no logró conectar el audio directo (WebRTC) con sus
+        // compañeros. Todo el canal pasa a "modo compatibilidad" y el audio
+        // se retransmite por este mismo WebSocket, que ya funciona.
+        case 'relay-needed': {
+          if (!client.channel) break;
+          if (relayChannels.has(client.channel)) break;
+          relayChannels.add(client.channel);
+          broadcastToChannel(client.channel, {
+            type: 'relay-mode',
+            enabled: true,
+            reason: 'No se pudo conectar el audio directo entre las PCs.',
+          });
+          console.log(`[Radio] Canal "${client.channel}" en modo compatibilidad (relay) por ${client.name}`);
           break;
         }
 
@@ -634,6 +683,7 @@ function buildServer(wss, httpServer, port, iceServers) {
             broadcastToChannel(old, { type: 'peer-left', id: client.id });
             broadcastRoster(old);
             broadcastUserlist();
+            cleanupRelay(old);
           }
           break;
         }
@@ -704,6 +754,7 @@ function buildServer(wss, httpServer, port, iceServers) {
       if (client.channel) {
         broadcastToChannel(client.channel, { type: 'peer-left', id: client.id });
         broadcastRoster(client.channel);
+        cleanupRelay(client.channel);
       }
       broadcastUserlist();
       console.log(`[Radio] #${client.id} ${client.name} salió · ${clients.size} en línea`);

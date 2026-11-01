@@ -18,7 +18,7 @@
       overflow: hidden;
     }
 
-    /* Anillo giratorio alrededor del escudo */
+    /* Anillo giratorio alrededor del emblema */
     .ring {
       position: relative;
       width: 152px;
@@ -44,10 +44,22 @@
       border-radius: 50%;
       box-shadow: 0 0 60px rgba(59, 130, 246, .25);
     }
-    .ring img {
+    .ring .mono {
       width: 108px;
       height: 108px;
-      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .6));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(59, 130, 246, .38), transparent 62%),
+        linear-gradient(180deg, #10203a, #070e1b);
+      border: 2px solid rgba(245, 196, 81, .8);
+      color: #f5c451;
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      box-shadow: 0 0 34px rgba(59, 130, 246, .3), inset 0 0 20px rgba(245, 196, 81, .12);
       animation: breathe 2.4s ease-in-out infinite;
       pointer-events: none;
     }
@@ -110,7 +122,7 @@
 </head>
 <body>
   <div class="ring">
-    <img src="./assets/logo.png" alt="Escudo" draggable="false" />
+    <div class="mono">CAD</div>
   </div>
   <h1>CAD <span class="hl">| AYUNTAMIENTO |</span> Los Angeles</h1>
   <p>Sistema de despacho y radio</p>

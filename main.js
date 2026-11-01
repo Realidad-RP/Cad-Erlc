@@ -12,7 +12,7 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
-let splashWindow = null; // pantalla de bienvenida con el escudo
+let splashWindow = null; // pantalla de bienvenida con el emblema
 let radioServer = null; // el servidor de radio, cuando esta PC lo aloja
 
 // Tiempo mínimo que se muestra la pantalla de bienvenida (ms)
@@ -53,13 +53,16 @@ function createWindow() {
     minWidth: 1120,
     minHeight: 680,
     title: 'CAD | AYUNTAMIENTO | Los Angeles',
-    icon: path.join(__dirname, 'src', 'assets', 'logo.png'),
+    icon: path.join(__dirname, 'src', 'assets', 'app-icon.png'),
     backgroundColor: '#0b1015',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // El audio de la radio debe seguir funcionando con la app minimizada
+      // (por ejemplo, mientras se juega ER:LC a pantalla completa).
+      backgroundThrottling: false,
     },
   });
 

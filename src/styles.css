@@ -37,24 +37,7 @@ html, body {
 ::-webkit-scrollbar-thumb:hover { background: #31497a; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---------- Marca de agua: escudo del ayuntamiento ---------- */
-/* El escudo aparece grande y muy sutil sobre la interfaz (transparencia) */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url('./assets/logo.png');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: min(62vh, 62vw) auto;
-  opacity: 0.06;
-  pointer-events: none;
-  z-index: 2147483000;
-  animation: wmIn 1.4s ease both;
-}
-@keyframes wmIn { from { opacity: 0; } to { opacity: 0.06; } }
-
-/* Suave aparición de la interfaz al abrir (con la pantalla de bienvenida) */
+/* ---------- Fondo general ---------- */
 body { animation: uiFade .6s ease both; }
 @keyframes uiFade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -269,6 +252,10 @@ input[type="range"] { padding: 0; border: none; background: transparent; }
   border-bottom: 1px solid #16223d;
 }
 .member-list li:last-child { border-bottom: none; }
+.radio-audio-mode { margin-top: 6px; padding-top: 6px; border-top: 1px solid #16223d; }
+.radio-audio-mode.ok { color: var(--ok); }
+.radio-audio-mode.warn { color: var(--warn); }
+.radio-audio-mode.bad { color: var(--danger); }
 .talk-dot { width: 8px; height: 8px; border-radius: 50%; background: #3a4b63; flex: none; }
 .talk-dot.talking { background: var(--ok); box-shadow: 0 0 6px var(--ok); animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
@@ -540,34 +527,6 @@ textarea:focus { border-color: var(--accent); }
 }
 .login-overlay.hidden { display: none !important; }
 
-/* Fotos de la entrada: rotan con zoom lento (LAPD, CHP y Bomberos) */
-.login-slides { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #050a12; }
-.login-slide {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center 45%; background-repeat: no-repeat;
-  opacity: 0; transform: scale(1.03);
-  animation: loginSlide 24s ease-in-out infinite;
-  will-change: opacity, transform;
-}
-.login-slide.s1 { background-image: url('assets/entrada-lapd.jpg'); animation-delay: 0s; }
-.login-slide.s2 { background-image: url('assets/entrada-chp.jpg'); animation-delay: 8s; }
-.login-slide.s3 { background-image: url('assets/entrada-lafd.jpg'); animation-delay: 16s; }
-@keyframes loginSlide {
-  0% { opacity: 0; transform: scale(1.03); }
-  3% { opacity: 1; }
-  30% { opacity: 1; transform: scale(1.1); }
-  35% { opacity: 0; transform: scale(1.12); }
-  100% { opacity: 0; transform: scale(1.12); }
-}
-.login-slides::after {
-  content: '';
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(900px 460px at 50% 112%, rgba(255, 116, 20, .36), transparent 68%),
-    linear-gradient(90deg, transparent 4%, rgba(255, 146, 46, .55) 50%, transparent 96%) center 76% / 100% 2px no-repeat,
-    linear-gradient(180deg, rgba(3, 7, 13, .82) 0%, rgba(3, 7, 13, .34) 44%, rgba(3, 7, 13, .9) 100%);
-}
-
 /* bloom cálido + línea de neón anaranjada estilo ER:LC */
 .login-overlay::before {
   content: '';
@@ -617,7 +576,18 @@ textarea:focus { border-color: var(--accent); }
   box-shadow: 0 0 14px rgba(255, 138, 42, .6);
   opacity: .9;
 }
-.login-logo { width: 88px; height: 88px; object-fit: contain; margin-bottom: 6px; filter: drop-shadow(0 0 16px rgba(255, 128, 30, .35)) drop-shadow(0 8px 18px #00000099); }
+.login-emblem {
+  width: 88px; height: 88px; margin: 0 auto 10px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 2px solid rgba(245, 196, 81, .75);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(59, 130, 246, .35), transparent 62%),
+    linear-gradient(180deg, #10203a, #070e1b);
+  color: var(--gold);
+  font-size: 22px; font-weight: 800; letter-spacing: 1.5px;
+  box-shadow: 0 0 26px rgba(245, 196, 81, .18), inset 0 0 18px rgba(59, 130, 246, .18);
+}
 .login-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
 .login-title span { color: var(--accent); }
 .login-sub { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
@@ -731,15 +701,6 @@ textarea:focus { border-color: var(--accent); }
 }
 .map-viewport.dragging { cursor: grabbing; }
 
-/* Marca de agua del escudo en los costados del mapa */
-.map-viewport::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("assets/logo.png") center / 36% no-repeat;
-  opacity: .055;
-  pointer-events: none;
-}
 .map-plane { z-index: 1; }
 
 .map-plane {

@@ -1661,6 +1661,58 @@ function renderMembers(list) {
     </li>`).join('');
 }
 
+// Estado del audio: directo (WebRTC) o modo compatibilidad (por el servidor).
+function renderAudioMode() {
+  const box = $('#radio-audio-mode');
+  if (!box) return;
+  const st = Radio.state;
+  const btn = $('#audio-relay-btn');
+  const note = $('#audio-relay-note');
+  box.className = 'radio-audio-mode muted small';
+
+  if (!st.connected) {
+    box.textContent = 'Radio desconectado.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Activar modo compatibilidad'; }
+    if (note) note.textContent = '';
+    return;
+  }
+  if (!st.channel) {
+    box.classList.add('warn');
+    box.textContent = '⚠️ Entrá a un canal para hablar.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Activar modo compatibilidad'; }
+    if (note) note.textContent = '';
+    return;
+  }
+  if (st.relay) {
+    box.classList.add('ok');
+    box.textContent = '🔁 Modo compatibilidad: el audio viaja por el servidor.';
+    if (btn) { btn.disabled = true; btn.textContent = 'Modo compatibilidad activo'; }
+    if (note) note.textContent = st.relayReason || 'El audio se está retransmitiendo por el servidor.';
+    return;
+  }
+
+  const peers = [...st.peers.values()];
+  const failed = peers.some((p) => p.pc.connectionState === 'failed');
+  const connected = peers.filter((p) => p.pc.connectionState === 'connected').length;
+  if (failed) {
+    box.classList.add('bad');
+    box.textContent = '⚠️ No se pudo conectar el audio directo. Activá el modo compatibilidad.';
+  } else if (peers.length && connected === peers.length) {
+    box.classList.add('ok');
+    box.textContent = '🎧 Audio directo conectado.';
+  } else if (peers.length) {
+    box.classList.add('warn');
+    box.textContent = '⏳ Conectando audio directo…';
+  } else {
+    box.textContent = 'Esperando compañeros en el canal.';
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Activar modo compatibilidad';
+  }
+  if (note) note.textContent = '';
+}
+
 // ---- Caja del propietario (crear contraseña / iniciar sesión) ----
 function renderOwnerBox() {
   const st = Radio.state;
@@ -1876,7 +1928,13 @@ function onRadioEvent(event, payload) {
       break;
 
     case 'ptt-blocked':
-      // PTT pulsado sin estar en un canal: no hacemos ruido visual
+      // PTT pulsado sin estar en un canal: avisamos para que no parezca roto.
+      showRadioError('Entrá a un canal para hablar.');
+      break;
+
+    case 'relay':
+      if (payload && payload.enabled) flash('🔁 Modo compatibilidad activado');
+      renderAudioMode();
       break;
 
     case 'error':
@@ -1886,6 +1944,7 @@ function onRadioEvent(event, payload) {
 
   // La radio flotante (overlay) se mantiene al día con cada evento
   overlaySync();
+  renderAudioMode();
 }
 
 // ============================================================
@@ -2154,6 +2213,17 @@ function wireRadio() {
     });
   }
 
+  // ---- Modo compatibilidad (audio por el servidor) ----
+  const relayBtn = $('#audio-relay-btn');
+  if (relayBtn) {
+    relayBtn.addEventListener('click', () => {
+      if (!Radio.state.connected) { showRadioError('Primero conéctate al servidor de radio.'); return; }
+      if (!Radio.state.channel) { showRadioError('Entrá a un canal primero.'); return; }
+      Radio.requestRelay('Activado manualmente.');
+      flash('🔁 Activando modo compatibilidad…');
+    });
+  }
+
   // ---- Botón de PTT en pantalla (ratón/táctil) ----
   const pttBtn = $('#ptt-button');
   pttBtn.addEventListener('mousedown', (e) => { e.preventDefault(); Radio.pttDown(); });
@@ -2180,6 +2250,8 @@ function wireRadio() {
 
   // Seguridad: si la ventana pierde el foco mientras hablas, cerramos el micro
   window.addEventListener('blur', () => { if (Radio.state.pttActive) Radio.pttUp(); });
+
+  renderAudioMode();
 }
 
 // ============================================================

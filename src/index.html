@@ -117,6 +117,7 @@
     <section class="panel">
       <h2>En el canal</h2>
       <ul id="member-list" class="member-list"><li class="muted">Sin conexión</li></ul>
+      <div id="radio-audio-mode" class="radio-audio-mode muted small"></div>
     </section>
 
     <section class="panel">
@@ -504,6 +505,13 @@
       </div>
 
       <div class="panel">
+        <h2>🔁 Audio compatible</h2>
+        <div class="muted small">Si vos y tu compañero no se escuchan, activá este modo. El audio viaja por el servidor y funciona aunque la red bloquee la conexión directa entre las PCs.</div>
+        <button id="audio-relay-btn" class="btn full" type="button">Activar modo compatibilidad</button>
+        <div class="muted small" id="audio-relay-note"></div>
+      </div>
+
+      <div class="panel">
         <h2>🔊 Sonidos de la app</h2>
         <div class="field-row">
           <div class="field"><label>Volumen del clic de radio (hablar) — <span id="sound-radio-val">100%</span></label>
@@ -541,13 +549,8 @@
 
 <!-- Pantalla de acceso (contraseña para el MDT) -->
 <div id="login-overlay" class="login-overlay">
-  <div class="login-slides" aria-hidden="true">
-    <div class="login-slide s1"></div>
-    <div class="login-slide s2"></div>
-    <div class="login-slide s3"></div>
-  </div>
   <div class="login-card">
-    <img src="assets/logo.png" alt="Escudo" class="login-logo" />
+    <div class="login-emblem" aria-hidden="true">CAD</div>
     <div class="login-title">CAD <span>| AYUNTAMIENTO |</span> Los Angeles</div>
     <div class="login-sub">Contraseña del MDT</div>
     <div class="login-row login-name-row">
@@ -558,7 +561,7 @@
       <button id="login-enter" class="btn btn-primary" type="button">Entrar</button>
     </div>
     <div id="login-error" class="login-error hidden">❌ Contraseña incorrecta. Probá de nuevo.</div>
-    <div class="login-hint muted small">🚓 MDT general · La Realidad RP · tu nombre y rango quedan guardados</div>
+    <div class="login-hint muted small">🏛️ MDT general · La Realidad RP · tu nombre y rango quedan guardados</div>
   </div>
 </div>
 

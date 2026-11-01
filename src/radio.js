@@ -52,6 +52,17 @@
     iceServers: [...DEFAULT_ICE_SERVERS],
     localStream: null,
     pttActive: false,
+    // Modo compatibilidad: el audio viaja por el WebSocket del servidor.
+    // Se activa solo cuando WebRTC no logra conectar entre dos PCs.
+    relay: false,
+    relayReason: '',
+    relayRequested: false,
+    relayCtx: null,
+    relaySource: null,
+    relayProcessor: null,
+    relaySilentGain: null,
+    relayOutGain: null,
+    relayNextTime: 0,
     settings: { pttKey: 'V', pttMode: 'hold', volume: 1, micDeviceId: '', outputDeviceId: '' },
     onEvent: null,
   };
@@ -116,6 +127,7 @@
         return;
       }
       state.ws = ws;
+      ws.binaryType = 'arraybuffer';
 
       const timeout = setTimeout(() => {
         if (!state.connected) {
@@ -134,6 +146,10 @@
       };
 
       ws.onmessage = (ev) => {
+        if (typeof ev.data !== 'string') {
+          handleRelayAudio(ev.data);
+          return;
+        }
         let msg;
         try { msg = JSON.parse(ev.data); } catch { return; }
         handleMessage(msg);
@@ -152,6 +168,7 @@
         state.members.clear();
         state.userlist = [];
         state.isOwner = false;
+        resetRelay();
         closeAllPeers();
         emit('disconnected');
         if (!wasConnected) resolve(false);
@@ -175,6 +192,7 @@
     state.members.clear();
     state.userlist = [];
     state.isOwner = false;
+    resetRelay();
     closeAllPeers();
     if (!silent) emit('disconnected');
   }
@@ -213,14 +231,23 @@
         state.channel = msg.channel;
         state.members.clear();
         for (const m of msg.members || []) state.members.set(m.id, m);
+        state.relayRequested = false;
         emit('joined', msg.channel);
         emitRoster();
         // Al ser los recién llegados, NOSOTROS iniciamos la conexión con cada uno
         ensureMic().then((okMic) => {
           if (!okMic) return;
+          if (msg.relay) {
+            state.relayRequested = true;
+            enableRelay('El canal está en modo compatibilidad.').catch((err) =>
+              emit('error', 'No se pudo iniciar el modo compatibilidad: ' + err.message)
+            );
+            return;
+          }
           for (const m of msg.members || []) {
             if (m.id !== state.myId) initiatePeer(m.id);
           }
+          scheduleFallbackCheck(msg.members);
         });
         break;
       }
@@ -229,6 +256,9 @@
         // Alguien nuevo entró: esperamos SU oferta (él inicia la conexión)
         if (msg.member) state.members.set(msg.member.id, msg.member);
         emitRoster();
+        // Si la versión del recién llegado es vieja, quizá nunca pida el modo
+        // compatibilidad. Vigilamos igual desde este lado.
+        if (state.channel && !state.relay) scheduleFallbackCheck([...state.members.values()]);
         break;
       }
 
@@ -257,9 +287,21 @@
         emit('channels', state.channels);
         break;
 
+      // El servidor avisa que este canal pasó a modo compatibilidad (el audio
+      // viaja por el WebSocket). Todos los miembros cambian al mismo tiempo.
+      case 'relay-mode':
+        if (msg.enabled) {
+          state.relayRequested = true;
+          enableRelay(msg.reason || 'No se pudo conectar el audio directo.').catch((err) =>
+            emit('error', 'No se pudo iniciar el modo compatibilidad: ' + err.message)
+          );
+        }
+        break;
+
       case 'kicked':
         // Nos sacaron del canal (por ejemplo, lo eliminó un supervisor)
         state.channel = null;
+        resetRelay();
         closeAllPeers();
         state.members.clear();
         emitRoster();
@@ -354,6 +396,165 @@
     }
   }
 
+  // ---------------- Modo compatibilidad (audio por WebSocket) ----------------
+  // WebRTC conecta las PCs directamente, pero algunas redes (CGNAT, firewalls
+  // escolares/corporativos) bloquean el audio. En ese caso el canal cambia a
+  // este modo: el micrófono se convierte a PCM 16 kHz y el servidor lo
+  // retransmite a los demás por el mismo WebSocket que ya está conectado.
+
+  function downsampleToPcm16(input, inputRate) {
+    const target = 16000;
+    const ratio = inputRate / target;
+    const length = Math.max(1, Math.floor(input.length / ratio));
+    const out = new Int16Array(length);
+    for (let i = 0; i < length; i++) {
+      const start = Math.floor(i * ratio);
+      const end = Math.min(input.length, Math.max(start + 1, Math.floor((i + 1) * ratio)));
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += input[j];
+      const value = sum / (end - start);
+      out[i] = Math.max(-1, Math.min(1, value)) * 32767;
+    }
+    return out;
+  }
+
+  async function startRelayAudio() {
+    if (state.relayCtx) return true;
+    if (!state.localStream) {
+      const okMic = await ensureMic();
+      if (!okMic) return false;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return false;
+    const ctx = new Ctx();
+    const source = ctx.createMediaStreamSource(state.localStream);
+    const processor = ctx.createScriptProcessor(2048, 1, 1);
+    const silent = ctx.createGain();
+    silent.gain.value = 0;
+    const output = ctx.createGain();
+    output.gain.value = state.settings.volume;
+    source.connect(processor);
+    processor.connect(silent);
+    silent.connect(ctx.destination);
+    output.connect(ctx.destination);
+    processor.onaudioprocess = (event) => {
+      if (!state.relay || !state.pttActive || !state.connected || !state.channel) return;
+      const pcm = downsampleToPcm16(event.inputBuffer.getChannelData(0), ctx.sampleRate);
+      if (state.ws && state.ws.readyState === 1) state.ws.send(pcm.buffer);
+    };
+    state.relayCtx = ctx;
+    state.relaySource = source;
+    state.relayProcessor = processor;
+    state.relaySilentGain = silent;
+    state.relayOutGain = output;
+    state.relayNextTime = 0;
+    if (ctx.setSinkId) {
+      ctx.setSinkId(state.settings.outputDeviceId || 'default').catch(() => {});
+    }
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch {}
+    }
+    return true;
+  }
+
+  function stopRelayAudio() {
+    try { if (state.relayProcessor) state.relayProcessor.disconnect(); } catch {}
+    try { if (state.relaySource) state.relaySource.disconnect(); } catch {}
+    try { if (state.relaySilentGain) state.relaySilentGain.disconnect(); } catch {}
+    try { if (state.relayOutGain) state.relayOutGain.disconnect(); } catch {}
+    try { if (state.relayCtx) state.relayCtx.close(); } catch {}
+    state.relayCtx = null;
+    state.relaySource = null;
+    state.relayProcessor = null;
+    state.relaySilentGain = null;
+    state.relayOutGain = null;
+    state.relayNextTime = 0;
+  }
+
+  let fallbackTimer = null;
+
+  function clearFallbackTimer() {
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+  }
+
+  function resetRelay() {
+    state.relay = false;
+    state.relayReason = '';
+    state.relayRequested = false;
+    stopRelayAudio();
+    clearFallbackTimer();
+    for (const entry of state.peers.values()) {
+      if (entry.audio) entry.audio.muted = false;
+    }
+  }
+
+  async function enableRelay(reason) {
+    if (state.relay) return true;
+    if (!state.channel) return false;
+    state.relay = true;
+    state.relayReason = reason || '';
+    state.relayRequested = true;
+    clearFallbackTimer();
+    // No cerramos las conexiones WebRTC: si funcionan, las silenciamos para
+    // no escuchar dos veces. Así las versiones viejas de la app siguen oyendo.
+    for (const entry of state.peers.values()) {
+      if (entry.audio) entry.audio.muted = true;
+    }
+    emit('relay', { enabled: true, reason: state.relayReason });
+    const ok = await startRelayAudio();
+    if (!ok) {
+      state.relay = false;
+      stopRelayAudio();
+      emit('relay', { enabled: false, reason: 'No se pudo abrir el micrófono.' });
+    }
+    return ok;
+  }
+
+  function requestRelay(reason) {
+    if (state.relay || state.relayRequested || !state.channel || !state.connected) return;
+    state.relayRequested = true;
+    send({ type: 'relay-needed', reason: reason || '' });
+    emit('relay-request', { reason: reason || '' });
+  }
+
+  function scheduleFallbackCheck(members) {
+    clearFallbackTimer();
+    const others = (members || []).filter((m) => m.id !== state.myId);
+    if (!others.length) return;
+    fallbackTimer = setTimeout(() => {
+      fallbackTimer = null;
+      if (state.relay || !state.channel) return;
+      const notConnected = others.some((m) => {
+        const entry = state.peers.get(m.id);
+        return !entry || entry.pc.connectionState !== 'connected';
+      });
+      if (notConnected) requestRelay('La conexión directa no se completó.');
+    }, 8000);
+  }
+
+  function handleRelayAudio(data) {
+    if (!state.relay || !state.relayCtx || !state.relayOutGain) return;
+    const buffer = data instanceof ArrayBuffer ? data : (data && data.buffer ? data.buffer : null);
+    if (!buffer || buffer.byteLength < 2) return;
+    const samples = Math.floor(buffer.byteLength / 2);
+    const view = new DataView(buffer);
+    const audioBuffer = state.relayCtx.createBuffer(1, samples, 16000);
+    const channel = audioBuffer.getChannelData(0);
+    for (let i = 0; i < samples; i++) channel[i] = view.getInt16(i * 2, true) / 32768;
+    const src = state.relayCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(state.relayOutGain);
+    const now = state.relayCtx.currentTime;
+    let when = state.relayNextTime;
+    if (!when || when < now - 0.2 || when > now + 1.5) when = now + 0.06;
+    if (when < now + 0.02) when = now + 0.02;
+    src.start(when);
+    state.relayNextTime = when + audioBuffer.duration;
+  }
+
   // ---------------- Conexiones de audio (WebRTC) ----------------
   function initiatePeer(id) {
     const entry = getOrCreatePeer(id);
@@ -387,6 +588,7 @@
       const audio = document.createElement('audio');
       audio.autoplay = true;
       audio.volume = state.settings.volume;
+      audio.muted = state.relay; // en modo compatibilidad escuchamos por el WebSocket
       audio.srcObject = e.streams[0];
       audio.play().catch(() => {});
       // Enviar la voz al dispositivo de salida elegido (parlantes/auriculares)
@@ -399,9 +601,18 @@
     };
 
     pc.onconnectionstatechange = () => {
-      emit('peer-state', { id, connectionState: pc.connectionState });
-      if (pc.connectionState === 'failed') {
+      const connectionState = pc.connectionState;
+      emit('peer-state', { id, connectionState });
+      if (state.relay) return;
+      if (connectionState === 'failed') {
+        requestRelay('Falló la conexión directa.');
         try { pc.restartIce(); } catch {}
+      } else if (connectionState === 'disconnected') {
+        setTimeout(() => {
+          if (!state.relay && pc.connectionState === 'disconnected') {
+            requestRelay('La conexión directa se cortó.');
+          }
+        }, 5000);
       }
     };
 
@@ -464,6 +675,7 @@
       state.members.clear();
       emitRoster();
     }
+    resetRelay();
     send({ type: 'join', channel });
     return true;
   }
@@ -474,6 +686,7 @@
     closeAllPeers();
     state.channel = null;
     state.members.clear();
+    resetRelay();
     emitRoster();
     emit('left');
   }
@@ -484,6 +697,9 @@
     if (!state.channel || !state.localStream) {
       emit('ptt-blocked');
       return;
+    }
+    if (state.relay && state.relayCtx && state.relayCtx.state === 'suspended') {
+      state.relayCtx.resume().catch(() => {});
     }
     state.pttActive = true;
     for (const t of state.localStream.getAudioTracks()) t.enabled = true;
@@ -511,6 +727,7 @@
 
   function setVolume(v) {
     state.settings.volume = v;
+    if (state.relayOutGain) state.relayOutGain.gain.value = v;
     for (const entry of state.peers.values()) {
       if (entry.audio) entry.audio.volume = v;
     }
@@ -531,6 +748,12 @@
       }
       for (const t of state.localStream.getAudioTracks()) t.stop();
       state.localStream = stream;
+      if (state.relay) {
+        stopRelayAudio();
+        startRelayAudio().catch((err) =>
+          emit('error', 'No se pudo reiniciar el modo compatibilidad: ' + err.message)
+        );
+      }
       emit('mic', true);
       return true;
     } catch (err) {
@@ -543,6 +766,9 @@
   async function setOutputDevice(deviceId) {
     state.settings.outputDeviceId = deviceId || '';
     const id = state.settings.outputDeviceId || 'default';
+    if (state.relayCtx && state.relayCtx.setSinkId) {
+      state.relayCtx.setSinkId(id).catch(() => {});
+    }
     for (const entry of state.peers.values()) {
       if (entry.audio && entry.audio.setSinkId) {
         entry.audio.setSinkId(id).catch(() => {});
@@ -639,6 +865,8 @@
     restoreRoles,
     pttDown,
     pttUp,
+    requestRelay: (reason) => requestRelay(reason || 'Activado manualmente.'),
+    enableRelay: (reason) => enableRelay(reason || 'Activado manualmente.'),
     setSettings,
     setVolume,
     setMicDevice,
